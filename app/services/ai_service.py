@@ -1,21 +1,39 @@
 import os
 import re
+import time
 from datetime import datetime, timedelta
 import anthropic
 from flask import current_app
 from app.schemas import AIReserveringExtractieSchema
+
+MAX_POGINGEN = 3
+BASIS_WACHTTIJD_SECONDEN = 1
 
 def sanitize_user_input(text: str) -> str:
     clean_text = re.sub(r'[\r\n\t]+', ' ', text)
     clean_text = re.sub(r'```|\[system\]|<system>', '', clean_text, flags=re.IGNORECASE)
     return clean_text.strip()
 
+def _anthropic_aanroep_met_retry(client, **kwargs):
+    """
+    Retryt op tijdelijke 429 (RateLimitError) en 5xx (InternalServerError, o.a. 503) fouten
+    en op verbindingsproblemen, met exponentiële backoff (1s, 2s). client.max_retries staat
+    op 0 zodat deze lus de enige retry-laag is, anders vermenigvuldigen wachttijden zich.
+    """
+    for poging in range(1, MAX_POGINGEN + 1):
+        try:
+            return client.messages.create(**kwargs)
+        except (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError):
+            if poging == MAX_POGINGEN:
+                raise
+            time.sleep(BASIS_WACHTTIJD_SECONDEN * (2 ** (poging - 1)))
+
 def verwerk_tekst_met_anthropic(klant_tekst: str) -> AIReserveringExtractieSchema:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY ontbreekt in .env configuratie!")
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, max_retries=0)
     vandaag = datetime.now()
     vandaag_str = vandaag.strftime("%Y-%m-%d (%A)")
     morgen_str = (vandaag + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -40,7 +58,8 @@ def verwerk_tekst_met_anthropic(klant_tekst: str) -> AIReserveringExtractieSchem
 
     model_naam = current_app.config.get('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')
 
-    response = client.messages.create(
+    response = _anthropic_aanroep_met_retry(
+        client,
         model=model_naam,
         max_tokens=1000,
         system=system_prompt,

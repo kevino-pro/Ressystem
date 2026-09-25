@@ -1,15 +1,16 @@
 # Environment / secrets
 .env
 
-# Database (contains customer PII)
-restaurant.db
-restaurant.db-wal
-restaurant.db-shm
+# Database (bevat klant-PII)
+*.db
+*.db-wal
+*.db-shm
 
 # Python
 __pycache__/
 *.pyc
 venv/
+.venv/
 
 # Editor
 .vscode/

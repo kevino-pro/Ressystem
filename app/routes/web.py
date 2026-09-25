@@ -1,9 +1,13 @@
-import sqlite3
+from sqlalchemy.exc import OperationalError
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, current_app
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
-from app.database import get_db_connection, verwerk_reservering, CapaciteitVolFout
+from app.database import (
+    get_db, verwerk_reservering, CapaciteitVolFout,
+    haal_personeel_op, haal_reserveringen_op, haal_reservering_op,
+    verwijder_reservering as db_verwijder_reservering,
+)
 from app.schemas import ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
 
@@ -28,9 +32,8 @@ def login():
         gebruikersnaam = request.form.get('gebruikersnaam', '').strip()
         wachtwoord = request.form.get('wachtwoord', '')
 
-        conn = get_db_connection()
-        user = conn.execute('SELECT * FROM personeel WHERE gebruikersnaam = ?', (gebruikersnaam,)).fetchone()
-        conn.close()
+        conn = get_db()
+        user = haal_personeel_op(conn, gebruikersnaam)
 
         if user and check_password_hash(user['wachtwoord_hash'], wachtwoord):
             session['ingelogd'] = True
@@ -51,17 +54,9 @@ def overzicht():
     if not session.get('ingelogd'):
         return redirect(url_for('web.login'))
 
-    conn = get_db_connection()
+    conn = get_db()
     gekozen_datum = request.args.get('datum')
-
-    if gekozen_datum:
-        reserveringen = conn.execute(
-            'SELECT * FROM reserveringen WHERE datum = ? ORDER BY tijd ASC', (gekozen_datum,)
-        ).fetchall()
-    else:
-        reserveringen = conn.execute('SELECT * FROM reserveringen ORDER BY datum DESC, tijd ASC').fetchall()
-
-    conn.close()
+    reserveringen = haal_reserveringen_op(conn, gekozen_datum)
     return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum)
 
 @web_bp.route('/reservering', methods=['POST'])
@@ -79,7 +74,7 @@ def nieuwe_reservering():
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
 
     max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
-    conn = get_db_connection()
+    conn = get_db()
     try:
         unieke_id = verwerk_reservering(
             conn, max_capaciteit,
@@ -91,10 +86,8 @@ def nieuwe_reservering():
             "status": "fout",
             "bericht": f"Geen plek meer op dit tijdstip. Nog {e.vrij} plek(ken) beschikbaar."
         }), 400
-    except sqlite3.OperationalError:
+    except OperationalError:
         return jsonify({"status": "fout", "bericht": "Database is momenteel druk, probeer het opnieuw."}), 503
-    finally:
-        conn.close()
 
     stuur_bevestigingsmail_async(
         ontvanger_email=valid_data.email,
@@ -112,27 +105,21 @@ def verwijder_reservering(reservering_id):
     if not session.get('ingelogd'):
         return redirect(url_for('web.login'))
 
-    conn = get_db_connection()
-    conn.execute('DELETE FROM reserveringen WHERE id = ?', (reservering_id,))
-    conn.commit()
-    conn.close()
+    conn = get_db()
+    db_verwijder_reservering(conn, reservering_id)
 
     return redirect(url_for('web.overzicht'))
 
 @web_bp.route('/annuleren/<reservering_id>', methods=['GET', 'POST'])
 def annuleren_klant(reservering_id):
-    conn = get_db_connection()
-    reservering = conn.execute('SELECT * FROM reserveringen WHERE id = ?', (reservering_id,)).fetchone()
+    conn = get_db()
+    reservering = haal_reservering_op(conn, reservering_id)
 
     if not reservering:
-        conn.close()
         return "Reservering niet gevonden of reeds geannuleerd.", 404
 
     if request.method == 'POST':
-        conn.execute('DELETE FROM reserveringen WHERE id = ?', (reservering_id,))
-        conn.commit()
-        conn.close()
+        db_verwijder_reservering(conn, reservering_id)
         return render_template('annuleren_bevestigd.html')
 
-    conn.close()
     return render_template('annuleren_bevestigen.html', reservering=reservering)
