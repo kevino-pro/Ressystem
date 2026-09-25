@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
 <!-- NAVBAR -->
 <header class="bg-white shadow-sm border-b border-slate-200">
     <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -39,3 +41,4 @@
             }}</a> of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}" class="underline">{{ config.RESTAURANT_TELEFOON
             }}</a></p>
 </footer>
+{% endblock %}

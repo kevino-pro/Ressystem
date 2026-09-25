@@ -25,6 +25,7 @@ class Config:
     RESTAURANT_EMAIL = os.getenv('RESTAURANT_EMAIL', 'info@restaurant.nl')
     RESTAURANT_TELEFOON = os.getenv('RESTAURANT_TELEFOON', '0612345678')
     PRIMARY_COLOR = os.getenv('PRIMARY_COLOR', '#d97706') # Tailwind Amber-600 default
+    APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://127.0.0.1:5000') # Voor links in e-mails (annuleren)
 
     # ==========================================
     # 2. CAPACITEIT & BUSINESS LOGIC

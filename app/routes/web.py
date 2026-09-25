@@ -1,10 +1,9 @@
-import uuid
 import sqlite3
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, current_app
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
-from app.database import get_db_connection
+from app.database import get_db_connection, verwerk_reservering, CapaciteitVolFout
 from app.schemas import ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
 
@@ -82,46 +81,31 @@ def nieuwe_reservering():
     max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
     conn = get_db_connection()
     try:
-        with conn:
-            conn.execute('BEGIN EXCLUSIVE')
-            resultaat = conn.execute(
-                'SELECT SUM(aantal) as totaal FROM reserveringen WHERE datum = ? AND tijd = ?',
-                (valid_data.datum, valid_data.tijd)
-            ).fetchone()
-
-            huidige_gasten = resultaat['totaal'] if resultaat['totaal'] else 0
-
-            if huidige_gasten + valid_data.aantal > max_capaciteit:
-                vrij = max_capaciteit - huidige_gasten
-                return jsonify({
-                    "status": "fout",
-                    "bericht": f"Geen plek meer op dit tijdstip. Nog {vrij} plek(ken) beschikbaar."
-                }), 400
-
-            unieke_id = str(uuid.uuid4())[:8]
-
-            conn.execute(
-                '''INSERT INTO reserveringen (id, naam, email, telefoon, datum, tijd, aantal)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (unieke_id, valid_data.naam, valid_data.email, valid_data.telefoon, 
-                 valid_data.datum, valid_data.tijd, valid_data.aantal)
-            )
-
-        stuur_bevestigingsmail_async(
-            ontvanger_email=valid_data.email,
-            naam=valid_data.naam,
-            datum=valid_data.datum,
-            tijd=valid_data.tijd,
-            aantal=valid_data.aantal,
-            reservering_id=unieke_id
+        unieke_id = verwerk_reservering(
+            conn, max_capaciteit,
+            naam=valid_data.naam, email=valid_data.email, telefoon=valid_data.telefoon,
+            datum=valid_data.datum, tijd=valid_data.tijd, aantal=valid_data.aantal
         )
-
-        return jsonify({"status": "succes", "bericht": "Reservering opgeslagen!", "id": unieke_id}), 200
-
+    except CapaciteitVolFout as e:
+        return jsonify({
+            "status": "fout",
+            "bericht": f"Geen plek meer op dit tijdstip. Nog {e.vrij} plek(ken) beschikbaar."
+        }), 400
     except sqlite3.OperationalError:
         return jsonify({"status": "fout", "bericht": "Database is momenteel druk, probeer het opnieuw."}), 503
     finally:
         conn.close()
+
+    stuur_bevestigingsmail_async(
+        ontvanger_email=valid_data.email,
+        naam=valid_data.naam,
+        datum=valid_data.datum,
+        tijd=valid_data.tijd,
+        aantal=valid_data.aantal,
+        reservering_id=unieke_id
+    )
+
+    return jsonify({"status": "succes", "bericht": "Reservering opgeslagen!", "id": unieke_id}), 200
 
 @web_bp.route('/verwijder/<reservering_id>', methods=['POST'])
 def verwijder_reservering(reservering_id):

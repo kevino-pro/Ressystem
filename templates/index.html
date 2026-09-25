@@ -1,9 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
 <!-- NAVBAR -->
 <header class="bg-white shadow-sm border-b border-slate-200">
     <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">{{ config.RESTAURANT_NAAM }}</h1>
-            <p class="text-xs text-slate-500 font-medium">{{ config.RESTAURANT_TAGLINE }}</p>
         </div>
         <a href="/login" class="text-xs text-slate-400 hover:text-slate-600 transition">Personeel Inlog</a>
     </div>
@@ -170,3 +171,4 @@
         }
     });
 </script>
+{% endblock %}
