@@ -1,0 +1,172 @@
+<!-- NAVBAR -->
+<header class="bg-white shadow-sm border-b border-slate-200">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">{{ config.RESTAURANT_NAAM }}</h1>
+            <p class="text-xs text-slate-500 font-medium">{{ config.RESTAURANT_TAGLINE }}</p>
+        </div>
+        <a href="/login" class="text-xs text-slate-400 hover:text-slate-600 transition">Personeel Inlog</a>
+    </div>
+</header>
+
+<!-- MAIN CONTENT / FORMULIER -->
+<main class="max-w-xl mx-auto px-4 py-8 w-full">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md border border-slate-100">
+        <h2 class="text-xl font-semibold text-slate-800 mb-1">Tafel Reserveren</h2>
+        <p class="text-sm text-slate-500 mb-6">Vul je gegevens in om direct een plek te bemachtigen.</p>
+
+        <!-- FOUT- / SUCCESMELDING BOX -->
+        <div id="alertBox" class="hidden p-4 mb-6 rounded-lg text-sm font-medium"></div>
+
+        <form id="reserveringsForm" class="space-y-4">
+
+            <!-- HONEYPOT FIELD (Anti-Spam, onzichtbaar voor mensen) -->
+            <div class="hidden" aria-hidden="true">
+                <label for="website">Laat dit veld leeg:</label>
+                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <!-- NAAM -->
+            <div>
+                <label for="naam" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Volledige Naam
+                    *</label>
+                <input type="text" id="naam" required minlength="2" maxlength="100" placeholder="bijv. Jan Jansen"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+            </div>
+
+            <!-- EMAIL & TELEFOON -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="email" class="block text-xs font-semibold text-slate-600 uppercase mb-1">E-mailadres
+                        *</label>
+                    <input type="email" id="email" required placeholder="naam@voorbeeld.nl"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                </div>
+                <div>
+                    <label for="telefoon"
+                        class="block text-xs font-semibold text-slate-600 uppercase mb-1">Telefoonnummer *</label>
+                    <input type="tel" id="telefoon" required minlength="8" maxlength="20" placeholder="0612345678"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                </div>
+            </div>
+
+            <!-- DATUM, TIJD & AANTAL -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label for="datum" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Datum *</label>
+                    <input type="date" id="datum" required
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                </div>
+                <div>
+                    <label for="tijd" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tijdstip
+                        *</label>
+                    <input type="time" id="tijd" required
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                </div>
+                <div>
+                    <label for="aantal" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Aantal
+                        personen *</label>
+                    <input type="number" id="aantal" min="1" max="{{ config.MAX_PERSONEN_PER_BOEKING }}" value="2"
+                        required
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                </div>
+            </div>
+
+            <!-- PRIVACY AKKOORD -->
+            <div class="pt-2">
+                <label class="flex items-start space-x-3 cursor-pointer">
+                    <input type="checkbox" id="privacy_akkoord" required
+                        class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand">
+                    <span class="text-xs text-slate-600">
+                        Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering. Lees onze
+                        <a href="/privacy" class="text-brand underline hover:opacity-80"
+                            target="_blank">privacyverklaring</a>.
+                    </span>
+                </label>
+            </div>
+
+            <!-- SUBMIT BUTTON -->
+            <button type="submit" id="submitBtn"
+                class="w-full py-3 px-4 bg-brand text-white font-medium text-sm rounded-lg shadow hover:opacity-90 transition duration-150 ease-in-out disabled:opacity-50 mt-4">
+                Reservering Bevestigen
+            </button>
+        </form>
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-slate-100 border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+    <p class="mb-1">&copy; {{ config.RESTAURANT_NAAM }} — Alle rechten voorbehouden.</p>
+    <p>Vragen? Mail naar <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="underline">{{ config.RESTAURANT_EMAIL
+            }}</a> of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}" class="underline">{{ config.RESTAURANT_TELEFOON
+            }}</a></p>
+</footer>
+
+<!-- SCRIPT FOR STRICT TYPE PYDANTIC COMPLIANT AJAX -->
+<script>
+    // Stel minimale datum in op vandaag
+    document.getElementById('datum').min = new Date().toISOString().split('T')[0];
+
+    const form = document.getElementById('reserveringsForm');
+    const alertBox = document.getElementById('alertBox');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Verberg eerdere meldingen
+        alertBox.classList.add('hidden');
+        alertBox.className = "hidden p-4 mb-6 rounded-lg text-sm font-medium";
+
+        // Knop uitschakelen tijdens verwerking
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Verwerken...";
+
+        // CRUCIAAL: Expliciete type conversie voor Pydantic
+        const payload = {
+            naam: document.getElementById('naam').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            telefoon: document.getElementById('telefoon').value.trim(),
+            datum: document.getElementById('datum').value,
+            tijd: document.getElementById('tijd').value,
+            aantal: parseInt(document.getElementById('aantal').value, 10), // Must be Integer
+            website: document.getElementById('website').value, // Honeypot
+            privacy_akkoord: document.getElementById('privacy_akkoord').checked // Must be Boolean (true)
+        };
+
+        try {
+            const response = await fetch('/reservering', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === 'succes') {
+                // Stuur door naar bevestigingspagina
+                window.location.href = '/bevestiging';
+            } else {
+                // Toon foutmelding van de backend (Pydantic / Capaciteit / Database)
+                let errorMsg = result.bericht || "Er is een fout opgetreden bij het verzenden.";
+                if (result.details && Array.isArray(result.details)) {
+                    // Als Pydantic specifieke veldfouten teruggeeft
+                    errorMsg = result.details.map(err => `${err.loc.join('.')}: ${err.msg}`).join('<br>');
+                }
+
+                alertBox.innerHTML = errorMsg;
+                alertBox.classList.remove('hidden');
+                alertBox.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+            }
+        } catch (err) {
+            alertBox.innerHTML = "Netwerkfout: Kan geen verbinding maken met de server.";
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Reservering Bevestigen";
+        }
+    });
+</script>

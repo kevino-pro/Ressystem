@@ -1,0 +1,49 @@
+<div class="border-b border-slate-100 pb-4">
+    <h2 class="text-2xl font-bold text-slate-900">Privacyverklaring</h2>
+    <p class="text-xs text-slate-500 mt-1">Conform de Algemene Verordening Gegevensbescherming (AVG)</p>
+</div>
+
+<p class="text-sm text-slate-600 leading-relaxed">
+    <strong class="text-slate-900">{{ config.RESTAURANT_NAAM }}</strong> verwerkt persoonsgegevens uitsluitend voor het
+    correct afhandelen van tafelreserveringen en het informeren van gasten over hun boeking.
+</p>
+
+<div class="space-y-3">
+    <h3 class="text-base font-semibold text-slate-900">1. Welke gegevens verzamelen wij?</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Wanneer je een reservering maakt via ons formulier of via onze geautomatiseerde kanalen, verwerken wij de
+        volgende gegevens:
+    </p>
+    <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 pl-2">
+        <li>Volledige naam</li>
+        <li>E-mailadres</li>
+        <li>Telefoonnummer</li>
+        <li>Datum, tijdstip en aantal personen voor de reservering</li>
+    </ul>
+</div>
+
+<div class="space-y-3">
+    <h3 class="text-base font-semibold text-slate-900">2. Bewaartermijn (Dataminimalisatie)</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Wij bewaren persoonsgegevens niet langer dan strikt noodzakelijk. Reserveringsgegevens worden automatisch na
+        <strong class="text-slate-900">{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> definitief uit onze database
+        gewist.
+    </p>
+</div>
+
+<div class="space-y-3">
+    <h3 class="text-base font-semibold text-slate-900">3. Jouw rechten</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Je hebt te allen tijde het recht om te verzoeken om inzage, correctie of volledige verwijdering van je
+        persoonsgegevens. Neem voor verzoeken contact op via
+        <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline hover:opacity-80">{{
+            config.RESTAURANT_EMAIL }}</a>.
+    </p>
+</div>
+
+<div class="pt-6 border-t border-slate-100 flex justify-between items-center">
+    <a href="/" class="inline-flex items-center text-xs font-semibold text-slate-700 hover:text-slate-900 transition">
+        ← Terug naar het reserveringsformulier
+    </a>
+</div>
+</div>
