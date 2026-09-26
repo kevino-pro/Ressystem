@@ -1,0 +1,13 @@
+name: Keep Neon Alive
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Elke 30 minuten
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API
+        run: |
+          curl -X GET https://<your-render-service>.onrender.com/api/v1/health
