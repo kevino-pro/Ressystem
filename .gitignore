@@ -1,16 +1,40 @@
 # Environment / secrets
 .env
+.env.*
+!.env.example
 
 # Database (bevat klant-PII)
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
 venv/
 .venv/
 
+# Embedded Python-interpreter (lokale devtool-installatie, hoort nooit in git)
+Python/
+
+# Node.js — alleen herbouwbare/geheime dingen negeren; package.json, package-lock.json,
+# skills-lock.json en neon.ts WEL committen (nodig voor `neon config apply` op andere machines/CI)
+node_modules/
+.npmrc
+
 # Editor
 .vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log

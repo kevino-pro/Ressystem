@@ -1,5 +1,8 @@
 import os
 import importlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Optionele dotenv lader voor lokale ontwikkeling
 try:
@@ -40,12 +43,12 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY')
     if not SECRET_KEY:
         SECRET_KEY = "DEV_ONLY_CHANGE_IN_PRODUCTION_SECRET_KEY"
-        print("[SECURITY WARNING] Geen SECRET_KEY ingesteld in .env!")
+        logger.warning("Geen SECRET_KEY ingesteld in .env!")
 
     DATABASE_URL = os.getenv('DATABASE_URL')
     if not DATABASE_URL:
         DATABASE_URL = 'sqlite:///reserveringen.db'
-        print("[SECURITY WARNING] Geen DATABASE_URL ingesteld in .env, val terug op lokale default!")
+        logger.warning("Geen DATABASE_URL ingesteld in .env, val terug op lokale default!")
     WEBHOOK_API_KEY = os.getenv('WEBHOOK_API_KEY', 'default_agency_secret_key')
     ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD', 'VeiligWachtwoord123!')
 

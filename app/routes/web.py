@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, current_app
 from werkzeug.security import check_password_hash
@@ -16,6 +17,15 @@ web_bp = Blueprint('web', __name__)
 @web_bp.route('/')
 def home():
     return render_template('index.html')
+
+@web_bp.route('/health')
+def health():
+    """Publiek, geen API-key vereist: doet een echte DB-round-trip zodat Neon wakker blijft."""
+    try:
+        get_db().execute(text('SELECT 1'))
+    except OperationalError:
+        return jsonify({"status": "fout", "bericht": "Database niet bereikbaar"}), 503
+    return jsonify({"status": "ok"}), 200
 
 @web_bp.route('/privacy')
 def privacy():

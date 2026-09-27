@@ -13,10 +13,11 @@ def async_send_email(app_config, msg, recipient_email, reservering_id):
     # De reservering is dan al in de database gezet en de klant heeft al een antwoord
     # gekregen -- we kunnen de klant hier niets meer laten weten. Het enige wat we nog
     # kunnen doen is duidelijk loggen (met reservering_id) zodat personeel een gemiste
-    # bevestigingsmail kan terugvinden en de klant zelf kan benaderen.
+    # bevestigingsmail kan terugvinden (grep op MAIL_FAILED) en de klant zelf kan benaderen,
+    # of `flask resend-mail <reservering_id>` kan draaien.
     try:
         if not app_config['VERZENDER_WACHTWOORD'] or app_config['VERZENDER_EMAIL'] == "jouw-restaurant@gmail.com":
-            logger.info(f"[E-MAIL SIMULATIE] Bevestigingsmail virtueel verzonden naar: {recipient_email} (reservering {reservering_id})")
+            logger.info(f"[MAIL_SIMULATIE] naar={recipient_email} reservering_id={reservering_id}")
             return
 
         with smtplib.SMTP(app_config['SMTP_SERVER'], app_config['SMTP_PORT'], timeout=10) as server:
@@ -24,18 +25,17 @@ def async_send_email(app_config, msg, recipient_email, reservering_id):
             server.login(app_config['VERZENDER_EMAIL'], app_config['VERZENDER_WACHTWOORD'])
             server.send_message(msg)
 
-        logger.info(f"E-mail succesvol verzonden naar {recipient_email} (reservering {reservering_id})")
+        logger.info(f"[MAIL_SENT] naar={recipient_email} reservering_id={reservering_id}")
     except (smtplib.SMTPException, socket.error, OSError) as e:
         logger.error(
-            f"Bevestigingsmail mislukt naar {recipient_email} voor reservering {reservering_id}: {e}",
+            f"[MAIL_FAILED] naar={recipient_email} reservering_id={reservering_id} fout={e}",
             exc_info=True
         )
 
-def stuur_bevestigingsmail_async(ontvanger_email, naam, datum, tijd, aantal, reservering_id):
-    app_config = current_app.config.copy()
+def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id):
     annuleer_url = f"{app_config['APP_BASE_URL']}/annuleren/{reservering_id}"
     onderwerp = f"Bevestiging van je reservering - {app_config['RESTAURANT_NAAM']}"
-    
+
     bericht_inhoud = f"""Beste {naam},
 
 Bedankt voor je reservering bij {app_config['RESTAURANT_NAAM']}!
@@ -56,5 +56,15 @@ Het team van {app_config['RESTAURANT_NAAM']}
     msg['To'] = ontvanger_email
     msg['Subject'] = onderwerp
     msg.attach(MIMEText(bericht_inhoud, 'plain'))
+    return msg
 
+def stuur_bevestigingsmail_async(ontvanger_email, naam, datum, tijd, aantal, reservering_id):
+    app_config = current_app.config.copy()
+    msg = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id)
     threading.Thread(target=async_send_email, args=(app_config, msg, ontvanger_email, reservering_id), daemon=True).start()
+
+def stuur_bevestigingsmail_sync(ontvanger_email, naam, datum, tijd, aantal, reservering_id):
+    """Blokkerende variant van stuur_bevestigingsmail_async, voor de `flask resend-mail` CLI."""
+    app_config = current_app.config.copy()
+    msg = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id)
+    async_send_email(app_config, msg, ontvanger_email, reservering_id)
