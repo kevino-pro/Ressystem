@@ -25,3 +25,15 @@ Stel deze Render Environment Variables in:
 Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Build Command beperkt de opt-in tot het Alembic-commando. Gebruik op Render voor `MIGRATION_DATABASE_URL` altijd de directe URL. De `.env.example` bevat lokale SQLite-defaults; vervang de twee databasewaarden in Render door de passende Neon-URLs.
 
 `flask init-db` is alleen een handmatig lokaal hulpprogramma. Productieschemawijzigingen verlopen uitsluitend via Alembic.
+
+## CI, Render health en branch protection
+
+De `CI`-workflow draait `unittest` bij pull requests naar `main`. De `Render deployment health`-workflow draait na pushes naar `main`, wacht op de Render-deploy voor exact die commit, faalt bij een mislukte deploy en vraagt daarna de health endpoint op.
+
+Configureer in GitHub repository settings:
+
+- Repository **Variables**: `RENDER_SERVICE_ID` en `RENDER_HEALTH_URL` (bijvoorbeeld `https://ressystem.onrender.com/health`).
+- Repository **Secrets**: `RENDER_API_KEY` (Render API key met alleen de benodigde service-read toegang).
+- Ga naar **Settings > Rules > Rulesets** en maak een actieve branch ruleset die alleen op `main` target. Vereis een pull request om te mergen, voeg `CI / unit-tests` toe als required status check, blokkeer force pushes en laat de bypass-lijst leeg. Dit is de server-side instelling die directe pushes blokkeert; een workflow alleen kan dat niet afdwingen.
+
+De keep-alive workflow gebruikt dezelfde `RENDER_HEALTH_URL` repository variable. De deploy-check vereist de Render API key en service ID; zonder die configuratie faalt hij expliciet in plaats van een deployment stilzwijgend over te slaan.

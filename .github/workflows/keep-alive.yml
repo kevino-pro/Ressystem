@@ -8,8 +8,11 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    env:
+      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
     steps:
       - name: Ping health endpoint (met DB-round-trip)
         run: |
+          test -n "$RENDER_HEALTH_URL" || { echo "RENDER_HEALTH_URL repository variable ontbreekt"; exit 1; }
           curl -sf --max-time 10 --retry 2 --retry-delay 3 \
-            https://restaurant-reservation-ai.onrender.com/health
+            "$RENDER_HEALTH_URL"

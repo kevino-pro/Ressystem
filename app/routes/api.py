@@ -61,6 +61,9 @@ def ai_webhook_reservering():
     except anthropic.RateLimitError:
         logger.exception("Anthropic rate limit bereikt.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk overbelast."}), 503
+    except anthropic.APITimeoutError:
+        logger.exception("Timeout bij Anthropic.")
+        return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503
     except (anthropic.APIConnectionError, anthropic.InternalServerError):
         logger.exception("Anthropic upstream service is tijdelijk onbereikbaar.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503

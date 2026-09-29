@@ -23,7 +23,12 @@ def _anthropic_aanroep_met_retry(client, **kwargs):
     for poging in range(1, MAX_POGINGEN + 1):
         try:
             return client.messages.create(**kwargs)
-        except (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError):
+        except (
+            anthropic.RateLimitError,
+            anthropic.APITimeoutError,
+            anthropic.InternalServerError,
+            anthropic.APIConnectionError,
+        ):
             if poging == MAX_POGINGEN:
                 raise
             time.sleep(BASIS_WACHTTIJD_SECONDEN * (2 ** (poging - 1)))

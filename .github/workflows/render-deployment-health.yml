@@ -1,0 +1,74 @@
+name: Render deployment health
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-deployment-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
+    steps:
+      - name: Validate required deployment settings
+        run: |
+          test -n "$RENDER_API_KEY" || { echo "RENDER_API_KEY secret ontbreekt"; exit 1; }
+          test -n "$RENDER_SERVICE_ID" || { echo "RENDER_SERVICE_ID repository variable ontbreekt"; exit 1; }
+          test -n "$RENDER_HEALTH_URL" || { echo "RENDER_HEALTH_URL repository variable ontbreekt"; exit 1; }
+
+      - name: Wait for matching Render deployment
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 1200))
+          deployment_live=false
+
+          while (( SECONDS < deadline )); do
+            deploys=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys?limit=20")
+            deploy=$(jq -c --arg commit "$EXPECTED_COMMIT" \
+              '[.[] | .deploy | select(.commit.id == $commit)] | first // empty' <<< "$deploys")
+
+            if [[ -z "$deploy" ]]; then
+              echo "Nog geen Render-deploy gevonden voor commit $EXPECTED_COMMIT."
+              sleep 15
+              continue
+            fi
+
+            status=$(jq -r '.status' <<< "$deploy")
+            echo "Render deployment status: $status"
+
+            case "$status" in
+              live)
+                deployment_live=true
+                break
+                ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "::error::Render deployment eindigde met status $status"
+                exit 1
+                ;;
+              *)
+                sleep 15
+                ;;
+            esac
+          done
+
+          if [[ "$deployment_live" != true ]]; then
+            echo "::error::Timeout bij wachten op de Render-deploy voor $EXPECTED_COMMIT"
+            exit 1
+          fi
+
+      - name: Verify deployed health endpoint
+        run: curl --fail --silent --show-error --max-time 10 --retry 10 --retry-delay 5 --retry-all-errors "$RENDER_HEALTH_URL"
