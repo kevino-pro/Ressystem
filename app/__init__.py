@@ -14,6 +14,10 @@ def create_app(config_class=Config):
 
     app = Flask(__name__, template_folder='../templates')
     app.config.from_object(config_class)
+    if not app.config.get('SECRET_KEY'):
+        raise RuntimeError("Configureer SECRET_KEY via de omgeving voordat de app start.")
+    if not (app.config.get('API_KEY') or app.config.get('WEBHOOK_API_KEY')):
+        raise RuntimeError("Configureer API_KEY of WEBHOOK_API_KEY via de omgeving voordat de app start.")
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)

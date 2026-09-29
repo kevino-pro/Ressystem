@@ -6,9 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = "http://127.0.0.1:5000/api/v1/ai-reservering"
-VALID_API_KEY = os.getenv("API_KEY") or os.getenv("WEBHOOK_API_KEY", "default_agency_secret_key")
+VALID_API_KEY = os.getenv("API_KEY") or os.getenv("WEBHOOK_API_KEY")
 
 def run_tests():
+    if not VALID_API_KEY:
+        raise RuntimeError("Configureer API_KEY of WEBHOOK_API_KEY in de omgeving voor deze tests.")
+
     print("=== START END-TO-END WEBHOOK TESTS ===\n")
 
     # TEST 1: Geen API-sleutel (Verwacht 401 Unauthorized)

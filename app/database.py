@@ -163,6 +163,8 @@ def init_db():
         ).first()
         if not admin_bestaat:
             initial_pw = current_app.config['ADMIN_INITIAL_PASSWORD']
+            if not initial_pw:
+                raise RuntimeError("Configureer ADMIN_INITIAL_PASSWORD voordat de admin-gebruiker wordt aangemaakt.")
             conn.execute(
                 insert(personeel).values(
                     gebruikersnaam='admin', wachtwoord_hash=generate_password_hash(initial_pw)

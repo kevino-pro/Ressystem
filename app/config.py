@@ -41,17 +41,14 @@ class Config:
     # 3. BEVEILIGING & DATABASE
     # ==========================================
     SECRET_KEY = os.getenv('SECRET_KEY')
-    if not SECRET_KEY:
-        SECRET_KEY = "DEV_ONLY_CHANGE_IN_PRODUCTION_SECRET_KEY"
-        logger.warning("Geen SECRET_KEY ingesteld in .env!")
 
     DATABASE_URL = os.getenv('DATABASE_URL')
     if not DATABASE_URL:
         DATABASE_URL = 'sqlite:///reserveringen.db'
         logger.warning("Geen DATABASE_URL ingesteld in .env, val terug op lokale default!")
-    API_KEY = os.getenv('API_KEY') or os.getenv('WEBHOOK_API_KEY', 'default_agency_secret_key')
+    API_KEY = os.getenv('API_KEY') or os.getenv('WEBHOOK_API_KEY')
     WEBHOOK_API_KEY = API_KEY
-    ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD', 'VeiligWachtwoord123!')
+    ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD')
 
     # ==========================================
     # 4. SMTP / E-MAIL SERVERS

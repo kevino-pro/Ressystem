@@ -16,9 +16,9 @@ class AIWebhookSchema(BaseModel):
     bron: str = Field(default="whatsapp")
 
 class AIReserveringExtractieSchema(BaseModel):
-    naam: str = Field(..., description="Volledige naam van de gast. Als onbekend, gebruik 'Gast via WhatsApp'")
-    email: EmailStr = Field(..., description="E-mailadres van de gast. Als onbekend, gebruik 'geen-email@restaurant.nl'")
-    telefoon: str = Field(..., description="Telefoonnummer van de gast. Als onbekend, gebruik '0600000000'")
-    datum: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="Reserveringsdatum verplicht in YYYY-MM-DD formaat")
-    tijd: str = Field(..., pattern=r'^\d{2}:\d{2}$', description="Tijdstip van reservering verplicht in HH:MM formaat (24-uurs)")
-    aantal: int = Field(..., ge=1, le=50, description="Aantal personen als geheel getal")
+    naam: Optional[str] = Field(default=None, min_length=2, max_length=100, description="Volledige naam van de gast")
+    email: Optional[EmailStr] = Field(default=None, description="E-mailadres van de gast")
+    telefoon: Optional[str] = Field(default=None, min_length=8, max_length=20, description="Telefoonnummer van de gast")
+    datum: Optional[str] = Field(default=None, pattern=r'^\d{4}-\d{2}-\d{2}$', description="Reserveringsdatum in YYYY-MM-DD formaat")
+    tijd: Optional[str] = Field(default=None, pattern=r'^\d{2}:\d{2}$', description="Tijdstip in HH:MM-formaat (24-uurs)")
+    aantal: Optional[int] = Field(default=None, ge=1, le=50, description="Aantal personen als geheel getal")
