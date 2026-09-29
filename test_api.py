@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = "http://127.0.0.1:5000/api/v1/ai-reservering"
-VALID_API_KEY = os.getenv("WEBHOOK_API_KEY", "jouw_geheime_key_hier")
+VALID_API_KEY = os.getenv("API_KEY") or os.getenv("WEBHOOK_API_KEY", "default_agency_secret_key")
 
 def run_tests():
     print("=== START END-TO-END WEBHOOK TESTS ===\n")

@@ -49,7 +49,8 @@ class Config:
     if not DATABASE_URL:
         DATABASE_URL = 'sqlite:///reserveringen.db'
         logger.warning("Geen DATABASE_URL ingesteld in .env, val terug op lokale default!")
-    WEBHOOK_API_KEY = os.getenv('WEBHOOK_API_KEY', 'default_agency_secret_key')
+    API_KEY = os.getenv('API_KEY') or os.getenv('WEBHOOK_API_KEY', 'default_agency_secret_key')
+    WEBHOOK_API_KEY = API_KEY
     ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD', 'VeiligWachtwoord123!')
 
     # ==========================================
