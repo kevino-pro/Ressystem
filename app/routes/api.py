@@ -56,40 +56,40 @@ def ai_webhook_reservering():
     try:
         geparsed_reservering = verwerk_tekst_met_anthropic(clean_text)
     except anthropic.AuthenticationError:
-        logger.critical("Anthropic-authenticatie mislukt.", exc_info=True)
+        logger.critical("Anthropic-authenticatie mislukt; status=500.")
         return jsonify({"status": "fout", "bericht": "AI-service authenticatiefout."}), 500
     except anthropic.RateLimitError:
-        logger.exception("Anthropic rate limit bereikt.")
+        logger.warning("Anthropic rate limit bereikt; status=503.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk overbelast."}), 503
     except anthropic.APITimeoutError:
-        logger.exception("Timeout bij Anthropic.")
+        logger.warning("Timeout bij Anthropic; status=503.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503
     except (anthropic.APIConnectionError, anthropic.InternalServerError):
-        logger.exception("Anthropic upstream service is tijdelijk onbereikbaar.")
+        logger.warning("Anthropic upstream service is tijdelijk onbereikbaar; status=503.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503
     except anthropic.BadRequestError:
-        logger.exception("Anthropic heeft het extractieverzoek afgewezen.")
+        logger.error("Anthropic heeft het extractieverzoek afgewezen; status=400.")
         return jsonify({"status": "fout", "bericht": "AI-service kon de invoer niet verwerken."}), 400
     except anthropic.APIStatusError as error:
-        logger.exception("Anthropic API-statusfout (%s).", error.status_code)
+        logger.error("Anthropic API-statusfout; upstream_status=%s.", error.status_code)
         if error.status_code >= 500:
             return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503
         return jsonify({"status": "fout", "bericht": "AI-service kon het verzoek niet verwerken."}), 400
     except anthropic.APIError:
-        logger.exception("Onverwachte Anthropic API-fout.")
+        logger.error("Onverwachte Anthropic API-fout; status=503.")
         return jsonify({"status": "fout", "bericht": "AI-service tijdelijk onbereikbaar."}), 503
     except ValidationError as error:
-        logger.exception("Anthropic retourneerde ongeldige reserveringsgegevens.")
+        logger.warning("Anthropic retourneerde ongeldige reserveringsgegevens; status=400.")
         return jsonify({
             "status": "fout",
             "bericht": "AI retourneerde ongeldige reserveringsgegevens.",
             "ontbrekende_velden": _validation_fields(error),
         }), 400
     except ValueError:
-        logger.exception("AI-verwerking kon geen geldige reservering opleveren.")
+        logger.error("AI-verwerking kon geen geldige reservering opleveren; status=500.")
         return jsonify({"status": "fout", "bericht": "AI-verwerking is mislukt."}), 500
     except Exception:
-        logger.exception("Uncaught exception tijdens AI-verwerking")
+        logger.error("Onverwachte AI-verwerkingsfout; status=500.")
         return jsonify({"status": "fout", "bericht": "AI-verwerking is mislukt."}), 500
 
     ontbrekende_velden = _missing_reservation_fields(geparsed_reservering)
@@ -102,43 +102,44 @@ def ai_webhook_reservering():
         }), 400
 
     max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
+    reservation_data = geparsed_reservering.model_dump(mode="json")
     try:
         conn = get_db()
         unieke_id = verwerk_reservering(
             conn,
             max_capaciteit,
-            naam=geparsed_reservering.naam,
-            email=geparsed_reservering.email,
-            telefoon=geparsed_reservering.telefoon,
-            datum=geparsed_reservering.datum,
-            tijd=geparsed_reservering.tijd,
-            aantal=geparsed_reservering.aantal
+            naam=reservation_data["naam"],
+            email=reservation_data["email"],
+            telefoon=reservation_data["telefoon"],
+            datum=reservation_data["datum"],
+            tijd=reservation_data["tijd"],
+            aantal=reservation_data["aantal"]
         )
     except CapaciteitVolFout as error:
         return jsonify({
             "status": "fout",
             "bericht": f"Geen capaciteit op {geparsed_reservering.datum} om {geparsed_reservering.tijd}. Nog {error.vrij} plek(ken) vrij.",
-            "geparsed_data": geparsed_reservering.model_dump()
+            "geparsed_data": reservation_data
         }), 400
     except OperationalError:
-        logger.exception("Databaseverbinding of reserveringsquery is mislukt.")
+        logger.error("Databasebewerking mislukt; status=503.")
         return jsonify({"status": "fout", "bericht": "Database tijdelijk onbereikbaar."}), 503
 
     try:
         stuur_bevestigingsmail_async(
-            ontvanger_email=geparsed_reservering.email,
-            naam=geparsed_reservering.naam,
-            datum=geparsed_reservering.datum,
-            tijd=geparsed_reservering.tijd,
-            aantal=geparsed_reservering.aantal,
+            ontvanger_email=reservation_data["email"],
+            naam=reservation_data["naam"],
+            datum=reservation_data["datum"],
+            tijd=reservation_data["tijd"],
+            aantal=reservation_data["aantal"],
             reservering_id=unieke_id
         )
     except Exception:
-        logger.exception("Reservering %s opgeslagen, maar e-mail kon niet worden gestart.", unieke_id)
+        logger.error("Reservering opgeslagen; e-mailstart mislukt; reservering_id=%s.", unieke_id)
 
     return jsonify({
         "status": "succes",
         "bericht": "AI-reservering succesvol verwerkt en opgeslagen",
         "reservering_id": unieke_id,
-        "geextracted_data": geparsed_reservering.model_dump()
+        "geextracted_data": reservation_data
     }), 201

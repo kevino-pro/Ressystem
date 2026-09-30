@@ -77,8 +77,9 @@ def nieuwe_reservering():
 
     try:
         valid_data = ReserveringSchema(**json_data)
-    except ValidationError as e:
-        return jsonify({"status": "fout", "bericht": "Datavalidatie mislukt", "details": e.errors()}), 422
+    except ValidationError as error:
+        fields = sorted({str(issue["loc"][0]) for issue in error.errors() if issue.get("loc")})
+        return jsonify({"status": "fout", "bericht": "Datavalidatie mislukt", "velden": fields}), 422
 
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
@@ -89,7 +90,7 @@ def nieuwe_reservering():
         unieke_id = verwerk_reservering(
             conn, max_capaciteit,
             naam=valid_data.naam, email=valid_data.email, telefoon=valid_data.telefoon,
-            datum=valid_data.datum, tijd=valid_data.tijd, aantal=valid_data.aantal
+            datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal
         )
     except CapaciteitVolFout as e:
         return jsonify({
@@ -102,8 +103,8 @@ def nieuwe_reservering():
     stuur_bevestigingsmail_async(
         ontvanger_email=valid_data.email,
         naam=valid_data.naam,
-        datum=valid_data.datum,
-        tijd=valid_data.tijd,
+            datum=valid_data.datum.isoformat(),
+            tijd=valid_data.tijd.strftime("%H:%M"),
         aantal=valid_data.aantal,
         reservering_id=unieke_id
     )

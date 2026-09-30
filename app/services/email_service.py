@@ -17,7 +17,7 @@ def async_send_email(app_config, msg, recipient_email, reservering_id):
     # of `flask resend-mail <reservering_id>` kan draaien.
     try:
         if not app_config['VERZENDER_WACHTWOORD'] or app_config['VERZENDER_EMAIL'] == "jouw-restaurant@gmail.com":
-            logger.info(f"[MAIL_SIMULATIE] naar={recipient_email} reservering_id={reservering_id}")
+            logger.info("[MAIL_SIMULATIE] reservering_id=%s", reservering_id)
             return
 
         with smtplib.SMTP(app_config['SMTP_SERVER'], app_config['SMTP_PORT'], timeout=10) as server:
@@ -25,12 +25,9 @@ def async_send_email(app_config, msg, recipient_email, reservering_id):
             server.login(app_config['VERZENDER_EMAIL'], app_config['VERZENDER_WACHTWOORD'])
             server.send_message(msg)
 
-        logger.info(f"[MAIL_SENT] naar={recipient_email} reservering_id={reservering_id}")
-    except (smtplib.SMTPException, socket.error, OSError) as e:
-        logger.error(
-            f"[MAIL_FAILED] naar={recipient_email} reservering_id={reservering_id} fout={e}",
-            exc_info=True
-        )
+        logger.info("[MAIL_SENT] reservering_id=%s", reservering_id)
+    except (smtplib.SMTPException, socket.error, OSError) as error:
+        logger.error("[MAIL_FAILED] reservering_id=%s error_type=%s", reservering_id, type(error).__name__)
 
 def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id):
     annuleer_url = f"{app_config['APP_BASE_URL']}/annuleren/{reservering_id}"
