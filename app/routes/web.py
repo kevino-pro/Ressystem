@@ -20,12 +20,30 @@ web_bp.before_request(valideer_csrf)
 def home():
     return render_template('index.html')
 
+def _db_foutdetails(fout):
+    """
+    Vat een databasefout samen voor het logboek: drivername, SQLSTATE en melding.
+    Bewust zonder connectiestring, host of inloggegevens; het antwoord aan de client blijft generiek.
+    """
+    origineel = getattr(fout, 'orig', None)
+    sqlstate = getattr(origineel, 'pgcode', None) or getattr(origineel, 'sqlstate', None)
+    melding = " ".join(str(fout).split())[:300]
+    return type(origineel).__name__, sqlstate, melding
+
+
 @web_bp.route('/health')
 def health():
     """Publiek, geen API-key vereist: doet een echte DB-round-trip zodat Neon wakker blijft."""
     try:
         get_db().execute(text('SELECT 1'))
-    except OperationalError:
+    except OperationalError as fout:
+        # Zonder deze logregel is een storing niet te diagnosticeren; de oorzaak mag dus in het
+        # logboek staan, maar nooit de connectiestring zelf.
+        driver, sqlstate, melding = _db_foutdetails(fout)
+        current_app.logger.error(
+            "Healthcheck: database niet bereikbaar (driver=%s, sqlstate=%s): %s",
+            driver, sqlstate, melding,
+        )
         return jsonify({"status": "fout", "bericht": "Database niet bereikbaar"}), 503
     return jsonify({"status": "ok"}), 200
 
