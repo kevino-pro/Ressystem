@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="max-w-lg mx-auto px-4 py-12 w-full flex-grow flex items-center justify-center">
+    <div class="bg-white p-8 rounded-xl shadow-md border border-slate-100 text-center w-full">
+        <h2 class="text-2xl font-bold text-slate-900 mb-2">Reservering annuleren?</h2>
+        <p class="text-sm text-slate-600 mb-6">
+            {{ reservering.datum }} om {{ reservering.tijd }} &middot; {{ reservering.aantal }} personen
+        </p>
+        <form method="POST" class="space-y-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                class="w-full py-3 px-4 bg-red-600 text-white font-medium text-sm rounded-lg shadow hover:opacity-90">
+                Ja, annuleer mijn reservering
+            </button>
+            <a href="/" class="block text-xs text-slate-500 underline">Nee, terug</a>
+        </form>
+    </div>
+</main>
+{% endblock %}

@@ -3,6 +3,8 @@ import logging
 import click
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
+from werkzeug.middleware.proxy_fix import ProxyFix
+from app.security import csrf_token
 from app.config import Config
 from app.database import init_db_pool, close_db, init_db, get_db, haal_reservering_op
 from app.services.email_service import stuur_bevestigingsmail_sync
@@ -21,6 +23,10 @@ def create_app(config_class=Config):
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)
+
+    if app.config.get('TRUSTED_PROXY_COUNT'):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=app.config['TRUSTED_PROXY_COUNT'])
+    app.jinja_env.globals['csrf_token'] = csrf_token
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp
@@ -54,8 +60,5 @@ def create_app(config_class=Config):
             aantal=reservering['aantal'], reservering_id=reservering['id'],
         )
         click.echo(f"Mail opnieuw geprobeerd voor reservering {reservering_id} — zie logs voor [MAIL_SENT]/[MAIL_FAILED].")
-
-    return app
-
 
     return app

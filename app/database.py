@@ -1,4 +1,4 @@
-import uuid
+import secrets
 from flask import current_app, g
 from werkzeug.security import generate_password_hash
 from sqlalchemy import (
@@ -107,7 +107,7 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
         if huidige_gasten + aantal > max_capaciteit:
             raise CapaciteitVolFout(max_capaciteit - huidige_gasten)
 
-        unieke_id = str(uuid.uuid4())[:8]
+        unieke_id = secrets.token_urlsafe(16)
         conn.execute(
             insert(reserveringen).values(
                 id=unieke_id, naam=naam, email=email, telefoon=telefoon,

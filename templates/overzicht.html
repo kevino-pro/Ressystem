@@ -67,6 +67,7 @@
                         <form action="/verwijder/{{ r.id }}" method="POST"
                             onsubmit="return confirm('Weet je zeker dat je deze reservering van {{ r.naam }} wilt verwijderen?');"
                             class="inline">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit"
                                 class="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition duration-150">
                                 Verwijderen

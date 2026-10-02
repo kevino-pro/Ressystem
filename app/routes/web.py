@@ -11,8 +11,10 @@ from app.database import (
 )
 from app.schemas import ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
+from app.security import rate_limit, valideer_csrf
 
 web_bp = Blueprint('web', __name__)
+web_bp.before_request(valideer_csrf)
 
 @web_bp.route('/')
 def home():
@@ -36,6 +38,7 @@ def bevestiging():
     return render_template('bevestiging.html')
 
 @web_bp.route('/login', methods=['GET', 'POST'])
+@rate_limit('login', 10, 300)
 def login():
     foutmelding = None
     if request.method == 'POST':
@@ -46,6 +49,7 @@ def login():
         user = haal_personeel_op(conn, gebruikersnaam)
 
         if user and check_password_hash(user['wachtwoord_hash'], wachtwoord):
+            session.clear()
             session['ingelogd'] = True
             session['gebruiker'] = user['gebruikersnaam']
             return redirect(url_for('web.overzicht'))
@@ -70,6 +74,7 @@ def overzicht():
     return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum)
 
 @web_bp.route('/reservering', methods=['POST'])
+@rate_limit('reservering', 10, 600, json_response=True)
 def nieuwe_reservering():
     json_data = request.get_json(silent=True)
     if not json_data:
@@ -122,6 +127,7 @@ def verwijder_reservering(reservering_id):
     return redirect(url_for('web.overzicht'))
 
 @web_bp.route('/annuleren/<reservering_id>', methods=['GET', 'POST'])
+@rate_limit('annuleren', 20, 600)
 def annuleren_klant(reservering_id):
     conn = get_db()
     reservering = haal_reservering_op(conn, reservering_id)

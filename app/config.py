@@ -50,6 +50,15 @@ class Config:
     WEBHOOK_API_KEY = API_KEY
     ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD')
 
+    # Sessiecookies en aanvalsbescherming
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() == 'true'
+    CSRF_ENABLED = True
+    RATELIMIT_ENABLED = True
+    # Aantal reverse proxies (Render = 1) waarvan X-Forwarded-For wordt vertrouwd voor het client-IP
+    TRUSTED_PROXY_COUNT = int(os.getenv('TRUSTED_PROXY_COUNT', 1))
+
     # ==========================================
     # 4. SMTP / E-MAIL SERVERS
     # ==========================================

@@ -8,6 +8,7 @@ from app.database import get_db, verwerk_reservering, CapaciteitVolFout
 from app.schemas import AIWebhookSchema, AIReserveringExtractieSchema
 from app.services.ai_service import sanitize_user_input, verwerk_tekst_met_anthropic
 from app.services.email_service import stuur_bevestigingsmail_async
+from app.security import constant_time_equals, rate_limit_check
 
 logger = logging.getLogger(__name__)
 _REQUIRED_RESERVATION_FIELDS = ("naam", "email", "telefoon", "datum", "tijd", "aantal")
@@ -32,7 +33,11 @@ def _missing_reservation_fields(reservation: AIReserveringExtractieSchema) -> li
 def valideer_api_key():
     """Beveiligings-guard voor alle API-routes."""
     api_key = request.headers.get("X-API-Key")
-    if not api_key or api_key != current_app.config['WEBHOOK_API_KEY']:
+    if not rate_limit_check('api', 120, 60):
+        return jsonify({"status": "fout", "bericht": "Te veel verzoeken."}), 429
+    if not constant_time_equals(api_key, current_app.config.get('WEBHOOK_API_KEY')):
+        if not rate_limit_check('api-fout', 10, 300):
+            return jsonify({"status": "fout", "bericht": "Te veel verzoeken."}), 429
         return jsonify({"status": "fout", "bericht": "Unauthorized"}), 401
 
 
