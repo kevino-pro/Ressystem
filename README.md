@@ -45,7 +45,7 @@ Let op: GitHub voert `schedule`-crons best-effort uit en kan runs uren uitstelle
 `GET /health` doet een echte `SELECT 1` en antwoordt met **503** (`{"status":"fout","bericht":"Database niet bereikbaar"}`) zodra die query een `OperationalError` geeft.
 
 - **503 betekent niet dat `DATABASE_URL` ontbreekt.** Zonder `DATABASE_URL` valt `app/config.py` terug op `sqlite:///reserveringen.db`, maakt SQLite dat bestand zelf aan en antwoordt `/health` met **200**. Een 503 betekent dus dat `DATABASE_URL` wél is ingesteld, maar dat de verbinding wordt geweigerd: verkeerd of gereset wachtwoord, verkeerde host, of een verwijderde of gesuspendeerde Neon-branch.
-- **De oorzaak staat in het Render-logboek.** De healthcheck logt bij een 503 de drivername, de SQLSTATE en de melding van de driver, zonder connectiestring, host of inloggegevens. Zoek op `Healthcheck: database niet bereikbaar`.
+- **De oorzaak staat in het Render-logboek.** De healthcheck logt bij een 503 de driverklasse en de SQLSTATE, en bewust **niet** de melding van de driver: die kan host, gebruikersnaam en een connectiestring bevatten. Zoek op `Healthcheck: database niet bereikbaar`. `28P01` betekent een onjuist wachtwoord, `3D000` een database die niet bestaat en `08006` een verbindingsfout.
 - **Test een connectiestring nooit door de variabele te echoën.** Gebruik de Render Shell, waar `DATABASE_URL` al in de omgeving staat.
 
 | Symptoom | Waarschijnlijke oorzaak |

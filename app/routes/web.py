@@ -22,13 +22,15 @@ def home():
 
 def _db_foutdetails(fout):
     """
-    Vat een databasefout samen voor het logboek: drivername, SQLSTATE en melding.
-    Bewust zonder connectiestring, host of inloggegevens; het antwoord aan de client blijft generiek.
+    Vat een databasefout samen voor het logboek: driverklasse en SQLSTATE.
+    De melding van de driver kan host, gebruikersnaam en een connectiestring bevatten en blijft
+    daarom buiten de log. De SQLSTATE is voor de diagnose toereikend: 28P01 is een onjuist
+    wachtwoord, 3D000 een database die niet bestaat en 08006 een verbindingsfout.
     """
     origineel = getattr(fout, 'orig', None)
-    sqlstate = getattr(origineel, 'pgcode', None) or getattr(origineel, 'sqlstate', None)
-    melding = " ".join(str(fout).split())[:300]
-    return type(origineel).__name__, sqlstate, melding
+    bron = fout if origineel is None else origineel
+    sqlstate = getattr(bron, 'pgcode', None) or getattr(bron, 'sqlstate', None)
+    return type(bron).__name__, sqlstate
 
 
 @web_bp.route('/health')
@@ -37,12 +39,13 @@ def health():
     try:
         get_db().execute(text('SELECT 1'))
     except OperationalError as fout:
-        # Zonder deze logregel is een storing niet te diagnosticeren; de oorzaak mag dus in het
-        # logboek staan, maar nooit de connectiestring zelf.
-        driver, sqlstate, melding = _db_foutdetails(fout)
+        # Zonder deze logregel is een storing niet te diagnosticeren. Alleen de driverklasse en de
+        # SQLSTATE komen in het logboek; de melding van de driver kan host en gebruikersnaam
+        # bevatten en blijft er dus buiten. Het antwoord aan de client blijft generiek.
+        driver, sqlstate = _db_foutdetails(fout)
         current_app.logger.error(
-            "Healthcheck: database niet bereikbaar (driver=%s, sqlstate=%s): %s",
-            driver, sqlstate, melding,
+            "Healthcheck: database niet bereikbaar (driver=%s, sqlstate=%s)",
+            driver, sqlstate,
         )
         return jsonify({"status": "fout", "bericht": "Database niet bereikbaar"}), 503
     return jsonify({"status": "ok"}), 200
