@@ -36,4 +36,21 @@ Configureer in GitHub repository settings:
 - Repository **Secrets**: `RENDER_API_KEY` (Render API key met alleen de benodigde service-read toegang).
 - Ga naar **Settings > Rules > Rulesets** en maak een actieve branch ruleset die alleen op `main` target. Vereis een pull request om te mergen, voeg `CI / unit-tests` toe als required status check, blokkeer force pushes en laat de bypass-lijst leeg. Dit is de server-side instelling die directe pushes blokkeert; een workflow alleen kan dat niet afdwingen.
 
-De keep-alive workflow gebruikt dezelfde `RENDER_HEALTH_URL` repository variable. De deploy-check vereist de Render API key en service ID; zonder die configuratie faalt hij expliciet in plaats van een deployment stilzwijgend over te slaan.
+De keep-alive workflow gebruikt dezelfde `RENDER_HEALTH_URL` repository variable. De deploy-check vereist de Render API key en service ID; zonder die configuratie faalt hij expliciet in plaats van een deployment stilzwijgend over te slaan. De deploy-check toont bij een afwijkende Render-API-respons de HTTP-status en de respons zelf: `401`/`403` betekent een ongeldige `RENDER_API_KEY`, `404` een ongeldige `RENDER_SERVICE_ID`.
+
+Let op: GitHub voert `schedule`-crons best-effort uit en kan runs uren uitstellen. Reken er dus niet op dat de keep-alive workflow Neon permanent wakker houdt; Neon suspendt al na circa vijf minuten inactiviteit, dus een interval van tien minuten kan dat per definitie niet verhullen.
+
+## Diagnose bij een storing
+
+`GET /health` doet een echte `SELECT 1` en antwoordt met **503** (`{"status":"fout","bericht":"Database niet bereikbaar"}`) zodra die query een `OperationalError` geeft.
+
+- **503 betekent niet dat `DATABASE_URL` ontbreekt.** Zonder `DATABASE_URL` valt `app/config.py` terug op `sqlite:///reserveringen.db`, maakt SQLite dat bestand zelf aan en antwoordt `/health` met **200**. Een 503 betekent dus dat `DATABASE_URL` wél is ingesteld, maar dat de verbinding wordt geweigerd: verkeerd of gereset wachtwoord, verkeerde host, of een verwijderde of gesuspendeerde Neon-branch.
+- **De oorzaak staat in het Render-logboek.** De healthcheck logt bij een 503 de drivername, de SQLSTATE en de melding van de driver, zonder connectiestring, host of inloggegevens. Zoek op `Healthcheck: database niet bereikbaar`.
+- **Test een connectiestring nooit door de variabele te echoën.** Gebruik de Render Shell, waar `DATABASE_URL` al in de omgeving staat.
+
+| Symptoom | Waarschijnlijke oorzaak |
+| --- | --- |
+| `/health` geeft 503, `/` geeft 200 | `DATABASE_URL` is ingesteld maar onbereikbaar (wachtwoord, host of branch) |
+| Build faalt met `Migraties weigeren een pooler-host` | `MIGRATION_DATABASE_URL` ontbreekt, waardoor Alembic terugvalt op de gepoolde `DATABASE_URL` |
+| Build faalt met `Database-URL ontbreekt` | Noch `MIGRATION_DATABASE_URL` noch `DATABASE_URL` is tijdens de build beschikbaar |
+| `Render deployment health` faalt binnen enkele seconden | De Render API gaf een non-2xx; zie de gelogde HTTP-status en respons in de workflowstap |
