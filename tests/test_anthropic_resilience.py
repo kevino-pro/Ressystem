@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import anthropic
-import httpx
+import httpx2
 from flask import Flask
 
 from app.routes import api as api_module
@@ -12,10 +12,10 @@ from app.services.ai_service import _anthropic_aanroep_met_retry
 
 class AnthropicRetryTests(unittest.TestCase):
     def setUp(self):
-        self.request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        self.request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
 
     def _status_error(self, exception_type, status_code):
-        response = httpx.Response(status_code, request=self.request)
+        response = httpx2.Response(status_code, request=self.request)
         return exception_type(
             "test upstream failure",
             response=response,
@@ -63,14 +63,14 @@ class AnthropicRouteErrorTests(unittest.TestCase):
         logging.disable(cls.previous_logging_disable)
 
     def setUp(self):
-        self.request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        self.request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
         self.app = Flask(__name__)
         self.app.config.update(TESTING=True, WEBHOOK_API_KEY="test-key")
         self.app.register_blueprint(api_module.api_bp)
         self.client = self.app.test_client()
 
     def _status_error(self, exception_type, status_code):
-        response = httpx.Response(status_code, request=self.request)
+        response = httpx2.Response(status_code, request=self.request)
         return exception_type(
             "test upstream failure",
             response=response,
