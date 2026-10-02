@@ -40,9 +40,17 @@ def create_app(config_class=Config):
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp)
 
+    def _guard(productie):
+        try:
+            controleer_dialect(dialect_uit_config(app), productie)
+        except ProductieVlagVereist as e:
+            raise click.ClickException(str(e))
+
     @app.cli.command('init-db')
-    def init_db_command():
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def init_db_command(productie):
         """Initialiseer het databaseschema en de admin-gebruiker."""
+        _guard(productie)
         try:
             init_db()
         except SQLAlchemyError:
@@ -51,12 +59,6 @@ def create_app(config_class=Config):
         else:
             app.logger.info("Database succesvol geïnitialiseerd.")
             click.echo("Database succesvol geïnitialiseerd.")
-
-    def _guard(productie):
-        try:
-            controleer_dialect(dialect_uit_config(app), productie)
-        except ProductieVlagVereist as e:
-            raise click.ClickException(str(e))
 
     @app.cli.command('create-admin')
     @click.option('--gebruikersnaam', default='admin', show_default=True)
