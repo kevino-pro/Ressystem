@@ -6,8 +6,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.security import csrf_token
 from app.config import Config
-from app.database import init_db_pool, close_db, init_db, get_db, haal_reservering_op
+from app.database import (
+    init_db_pool, close_db, init_db, get_db, haal_reservering_op,
+    controleer_dialect, dialect_uit_config, maak_gebruiker, tel_of_schoon_oude_reserveringen,
+    ProductieVlagVereist,
+)
 from app.services.email_service import stuur_bevestigingsmail_sync
+
+MIN_WACHTWOORD_LENGTE = 12
 
 def create_app(config_class=Config):
     # Enige plek die dit configureert: geldt zo voor run.py, wsgi.py (gunicorn) en `flask` CLI-commands.
@@ -45,6 +51,46 @@ def create_app(config_class=Config):
         else:
             app.logger.info("Database succesvol geïnitialiseerd.")
             click.echo("Database succesvol geïnitialiseerd.")
+
+    def _guard(productie):
+        try:
+            controleer_dialect(dialect_uit_config(app), productie)
+        except ProductieVlagVereist as e:
+            raise click.ClickException(str(e))
+
+    @app.cli.command('create-admin')
+    @click.option('--gebruikersnaam', default='admin', show_default=True)
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def create_admin_command(gebruikersnaam, productie):
+        """Maak een personeelsaccount aan (wachtwoord via verborgen prompt)."""
+        _guard(productie)
+        wachtwoord = click.prompt('Wachtwoord', hide_input=True, confirmation_prompt=True)
+        if len(wachtwoord) < MIN_WACHTWOORD_LENGTE:
+            raise click.ClickException(f"Wachtwoord moet minstens {MIN_WACHTWOORD_LENGTE} tekens hebben.")
+        try:
+            aangemaakt = maak_gebruiker(get_db(), gebruikersnaam, wachtwoord)
+        except SQLAlchemyError:
+            app.logger.error("create-admin mislukt door een databasefout.")
+            raise click.ClickException("Aanmaken mislukt door een databasefout.")
+        click.echo("aangemaakt" if aangemaakt else "bestaat al")
+        if not aangemaakt:
+            raise SystemExit(1)
+
+    @app.cli.command('purge-retention')
+    @click.option('--uitvoeren', is_flag=True, help='Verwijder daadwerkelijk; zonder deze vlag alleen tellen.')
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def purge_retention_command(uitvoeren, productie):
+        """Toon of verwijder reserveringen buiten de bewaartermijn (RETENTIE_DAGEN_AVG)."""
+        _guard(productie)
+        try:
+            aantal = tel_of_schoon_oude_reserveringen(get_db(), uitvoeren)
+        except SQLAlchemyError:
+            app.logger.error("purge-retention mislukt door een databasefout.")
+            raise click.ClickException("Opschonen mislukt door een databasefout.")
+        if uitvoeren:
+            click.echo(f"{aantal} reservering(en) verwijderd.")
+        else:
+            click.echo(f"{aantal} reservering(en) zouden worden verwijderd (gebruik --uitvoeren).")
 
     @app.cli.command('resend-mail')
     @click.argument('reservering_id')

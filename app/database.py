@@ -1,6 +1,7 @@
 import secrets
 from flask import current_app, g
 from werkzeug.security import generate_password_hash
+from sqlalchemy.engine import make_url
 from sqlalchemy import (
     MetaData, Table, Column, Text, Integer, DateTime,
     create_engine, event, select, insert, delete, func, text,
@@ -142,16 +143,59 @@ def verwijder_reservering(conn, reservering_id):
     with conn.begin():
         conn.execute(delete(reserveringen).where(reserveringen.c.id == reservering_id))
 
+def _retentiegrens(conn):
+    """Dialect-specifieke datum-rekenkunde voor de bewaartermijn (RETENTIE_DAGEN_AVG)."""
+    retentie_dagen = int(current_app.config['RETENTIE_DAGEN_AVG'])
+    if conn.engine.dialect.name == 'sqlite':
+        return text("date('now', :offset)").bindparams(offset=f'-{retentie_dagen} days')
+    return text("CURRENT_DATE - (:dagen * INTERVAL '1 day')").bindparams(dagen=retentie_dagen)
+
 def schonen_oude_reserveringen():
     """Enige plek met dialect-specifieke SQL buiten de lock: datum-rekenkunde verschilt per database."""
     conn = get_db()
-    retentie_dagen = int(current_app.config['RETENTIE_DAGEN_AVG'])
-    if conn.engine.dialect.name == 'sqlite':
-        grens = text("date('now', :offset)").bindparams(offset=f'-{retentie_dagen} days')
-    else:
-        grens = text("CURRENT_DATE - (:dagen * INTERVAL '1 day')").bindparams(dagen=retentie_dagen)
+    grens = _retentiegrens(conn)
     with conn.begin():
         conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+
+def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
+    """Telt reserveringen buiten de bewaartermijn en verwijdert ze alleen als `uitvoeren` True is."""
+    grens = _retentiegrens(conn)
+    with conn.begin():
+        aantal = conn.execute(
+            select(func.count()).select_from(reserveringen).where(reserveringen.c.datum < grens)
+        ).scalar()
+        if uitvoeren and aantal:
+            conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+    return aantal
+
+def maak_gebruiker(conn, gebruikersnaam, wachtwoord):
+    """Maakt een personeelsaccount aan. Geeft False terug (zonder iets te wijzigen) als de naam al bestaat."""
+    with conn.begin():
+        bestaat = conn.execute(
+            select(personeel.c.id).where(personeel.c.gebruikersnaam == gebruikersnaam)
+        ).first()
+        if bestaat:
+            return False
+        conn.execute(
+            insert(personeel).values(
+                gebruikersnaam=gebruikersnaam, wachtwoord_hash=generate_password_hash(wachtwoord)
+            )
+        )
+    return True
+
+class ProductieVlagVereist(Exception):
+    """Het commando richt zich op een niet-SQLite database en `--productie` ontbreekt."""
+
+def controleer_dialect(dialect_naam, productie):
+    """Guard op databasetype (niet op hostnaam): alleen SQLite mag zonder expliciete --productie."""
+    if dialect_naam != 'sqlite' and not productie:
+        raise ProductieVlagVereist(
+            "Dit commando richt zich op een niet-SQLite database. Voeg --productie toe als dat bewust is."
+        )
+
+def dialect_uit_config(app):
+    """Leest alleen de backend-naam uit DATABASE_URL; maakt geen verbinding en laadt geen driver."""
+    return make_url(app.config['DATABASE_URL']).get_backend_name()
 
 def init_db():
     conn = get_db()
