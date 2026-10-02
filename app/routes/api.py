@@ -1,4 +1,5 @@
 import logging
+import hmac
 import anthropic
 from flask import Blueprint, request, jsonify, current_app
 from pydantic import ValidationError
@@ -8,7 +9,7 @@ from app.database import get_db, verwerk_reservering, CapaciteitVolFout
 from app.schemas import AIWebhookSchema, AIReserveringExtractieSchema
 from app.services.ai_service import sanitize_user_input, verwerk_tekst_met_anthropic
 from app.services.email_service import stuur_bevestigingsmail_async
-from app.security import constant_time_equals, rate_limit_check
+from app.security import rate_limit_check
 
 logger = logging.getLogger(__name__)
 _REQUIRED_RESERVATION_FIELDS = ("naam", "email", "telefoon", "datum", "tijd", "aantal")
@@ -35,7 +36,13 @@ def valideer_api_key():
     api_key = request.headers.get("X-API-Key")
     if not rate_limit_check('api', 120, 60):
         return jsonify({"status": "fout", "bericht": "Te veel verzoeken."}), 429
-    if not constant_time_equals(api_key, current_app.config.get('WEBHOOK_API_KEY')):
+
+    verwachte_key = current_app.config.get('WEBHOOK_API_KEY')
+    if not isinstance(verwachte_key, str) or not verwachte_key.strip():
+        logger.error("[API_AUTH] WEBHOOK_API_KEY is niet of ongeldig geconfigureerd; verzoek geweigerd.")
+        return jsonify({"status": "fout", "bericht": "Unauthorized"}), 401
+
+    if not api_key or not hmac.compare_digest(api_key.encode("utf-8"), verwachte_key.encode("utf-8")):
         if not rate_limit_check('api-fout', 10, 300):
             return jsonify({"status": "fout", "bericht": "Te veel verzoeken."}), 429
         return jsonify({"status": "fout", "bericht": "Unauthorized"}), 401
