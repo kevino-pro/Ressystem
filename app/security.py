@@ -1,3 +1,4 @@
+import hashlib
 import hmac
 import secrets
 import threading
@@ -8,6 +9,8 @@ from functools import wraps
 from flask import current_app, jsonify, request, session
 
 CSRF_SESSION_KEY = '_csrf_token'
+ADRES_LIMIET = 3
+ADRES_VENSTER_SECONDEN = 86400
 
 
 def constant_time_equals(kandidaat, verwacht):
@@ -51,6 +54,14 @@ def rate_limit_check(naam, limiet, venster_seconden):
     if not current_app.config.get('RATELIMIT_ENABLED', True):
         return True
     return _limiter.hit(f'{naam}:{request.remote_addr}', limiet, venster_seconden)
+
+
+def rate_limit_check_adres(email):
+    """Limiet per e-mailadres; alleen de sha256-hash wordt als sleutel bewaard."""
+    if not current_app.config.get('RATELIMIT_ENABLED', True):
+        return True
+    digest = hashlib.sha256(str(email).strip().lower().encode('utf-8')).hexdigest()
+    return _limiter.hit(f'email:{digest}', ADRES_LIMIET, ADRES_VENSTER_SECONDEN)
 
 
 def reset_rate_limits():

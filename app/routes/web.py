@@ -11,7 +11,7 @@ from app.database import (
 )
 from app.schemas import ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
-from app.security import rate_limit, valideer_csrf
+from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
 
 web_bp = Blueprint('web', __name__)
 web_bp.before_request(valideer_csrf)
@@ -88,6 +88,9 @@ def nieuwe_reservering():
 
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
+
+    if not rate_limit_check_adres(valid_data.email):
+        return jsonify({"status": "fout", "bericht": "Te veel verzoeken, probeer het later opnieuw."}), 429
 
     max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
     conn = get_db()
