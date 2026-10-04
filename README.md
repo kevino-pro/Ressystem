@@ -26,6 +26,29 @@ Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Bui
 
 `flask init-db` is alleen een handmatig lokaal hulpprogramma. Productieschemawijzigingen verlopen uitsluitend via Alembic.
 
+## Beheercommando's
+
+De app kent twee handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
+
+### `flask create-admin`
+
+Maakt een personeelsaccount aan.
+
+- **Aanroep:** `flask create-admin [--gebruikersnaam <naam>] [--productie]`
+- **`--gebruikersnaam`:** naam van het aan te maken account (standaard `admin`).
+- **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend.
+- **Wachtwoord:** het accountwachtwoord wordt alleen interactief opgevraagd, met verborgen invoer en bevestiging (minimaal 12 tekens). Geef het nooit mee als argument of via een omgevingsvariabele.
+- **Gedrag:** bestaat de gebruikersnaam al, dan verandert er niets en stopt het commando met "bestaat al" (exitcode 1); een bestaand account wordt nooit overschreven.
+
+### `flask purge-retention`
+
+Telt of verwijdert reserveringen die buiten de bewaartermijn (`RETENTIE_DAGEN_AVG`) vallen.
+
+- **Aanroep:** `flask purge-retention [--uitvoeren] [--productie]`
+- **`--uitvoeren`:** verwijdert de gevonden reserveringen. Zonder deze vlag wordt er alleen geteld en verandert er niets.
+- **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend. Let op: `--productie` maakt ook bij het alleen tellen een echte databaseverbinding.
+- **Waarschuwing:** met `--uitvoeren` worden gegevens **definitief** verwijderd; deze actie is niet terug te draaien.
+
 ## CI, Render health en branch protection
 
 De `CI`-workflow draait `unittest` bij pull requests naar `main`. De `Render deployment health`-workflow draait na pushes naar `main`, wacht op de Render-deploy voor exact die commit, faalt bij een mislukte deploy en vraagt daarna de health endpoint op.
