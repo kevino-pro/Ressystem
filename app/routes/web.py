@@ -20,12 +20,33 @@ web_bp.before_request(valideer_csrf)
 def home():
     return render_template('index.html')
 
+def _db_foutdetails(fout):
+    """
+    Vat een databasefout samen voor het logboek: driverklasse en SQLSTATE.
+    De melding van de driver kan host, gebruikersnaam en een connectiestring bevatten en blijft
+    daarom buiten de log. De SQLSTATE is voor de diagnose toereikend: 28P01 is een onjuist
+    wachtwoord, 3D000 een database die niet bestaat en 08006 een verbindingsfout.
+    """
+    origineel = getattr(fout, 'orig', None)
+    bron = fout if origineel is None else origineel
+    sqlstate = getattr(bron, 'pgcode', None) or getattr(bron, 'sqlstate', None)
+    return type(bron).__name__, sqlstate
+
+
 @web_bp.route('/health')
 def health():
     """Publiek, geen API-key vereist: doet een echte DB-round-trip zodat Neon wakker blijft."""
     try:
         get_db().execute(text('SELECT 1'))
-    except OperationalError:
+    except OperationalError as fout:
+        # Zonder deze logregel is een storing niet te diagnosticeren. Alleen de driverklasse en de
+        # SQLSTATE komen in het logboek; de melding van de driver kan host en gebruikersnaam
+        # bevatten en blijft er dus buiten. Het antwoord aan de client blijft generiek.
+        driver, sqlstate = _db_foutdetails(fout)
+        current_app.logger.error(
+            "Healthcheck: database niet bereikbaar (driver=%s, sqlstate=%s)",
+            driver, sqlstate,
+        )
         return jsonify({"status": "fout", "bericht": "Database niet bereikbaar"}), 503
     return jsonify({"status": "ok"}), 200
 

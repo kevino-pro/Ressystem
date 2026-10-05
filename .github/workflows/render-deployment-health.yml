@@ -33,11 +33,24 @@ jobs:
           set -euo pipefail
           deadline=$((SECONDS + 1200))
           deployment_live=false
+          deploys_bestand=$(mktemp)
 
           while (( SECONDS < deadline )); do
-            deploys=$(curl --fail --silent --show-error \
+            if ! http_status=$(curl --silent --show-error --output "$deploys_bestand" --write-out '%{http_code}' \
               -H "Authorization: Bearer $RENDER_API_KEY" \
-              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys?limit=20")
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys?limit=20"); then
+              echo "::error::Render API niet bereikbaar (curl-fout, geen HTTP-antwoord)."
+              exit 1
+            fi
+
+            if [[ "$http_status" != "200" ]]; then
+              echo "::error::Render API antwoordde met HTTP $http_status voor RENDER_SERVICE_ID."
+              echo "Respons: $(head -c 500 "$deploys_bestand")"
+              echo "Diagnose: 401 of 403 betekent RENDER_API_KEY ongeldig of zonder rechten; 404 betekent RENDER_SERVICE_ID ongeldig."
+              exit 1
+            fi
+
+            deploys=$(cat "$deploys_bestand")
             deploy=$(jq -c --arg commit "$EXPECTED_COMMIT" \
               '[.[] | .deploy | select(.commit.id == $commit)] | first // empty' <<< "$deploys")
 

@@ -26,6 +26,29 @@ Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Bui
 
 `flask init-db` is alleen een handmatig lokaal hulpprogramma. Productieschemawijzigingen verlopen uitsluitend via Alembic.
 
+## Beheercommando's
+
+De app kent twee handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
+
+### `flask create-admin`
+
+Maakt een personeelsaccount aan.
+
+- **Aanroep:** `flask create-admin [--gebruikersnaam <naam>] [--productie]`
+- **`--gebruikersnaam`:** naam van het aan te maken account (standaard `admin`).
+- **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend.
+- **Wachtwoord:** het accountwachtwoord wordt alleen interactief opgevraagd, met verborgen invoer en bevestiging (minimaal 12 tekens). Geef het nooit mee als argument of via een omgevingsvariabele.
+- **Gedrag:** bestaat de gebruikersnaam al, dan verandert er niets en stopt het commando met "bestaat al" (exitcode 1); een bestaand account wordt nooit overschreven.
+
+### `flask purge-retention`
+
+Telt of verwijdert reserveringen die buiten de bewaartermijn (`RETENTIE_DAGEN_AVG`) vallen.
+
+- **Aanroep:** `flask purge-retention [--uitvoeren] [--productie]`
+- **`--uitvoeren`:** verwijdert de gevonden reserveringen. Zonder deze vlag wordt er alleen geteld en verandert er niets.
+- **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend. Let op: `--productie` maakt ook bij het alleen tellen een echte databaseverbinding.
+- **Waarschuwing:** met `--uitvoeren` worden gegevens **definitief** verwijderd; deze actie is niet terug te draaien.
+
 ## CI, Render health en branch protection
 
 De `CI`-workflow draait `unittest` bij pull requests naar `main`. De `Render deployment health`-workflow draait na pushes naar `main`, wacht op de Render-deploy voor exact die commit, faalt bij een mislukte deploy en vraagt daarna de health endpoint op.
@@ -36,4 +59,21 @@ Configureer in GitHub repository settings:
 - Repository **Secrets**: `RENDER_API_KEY` (Render API key met alleen de benodigde service-read toegang).
 - Ga naar **Settings > Rules > Rulesets** en maak een actieve branch ruleset die alleen op `main` target. Vereis een pull request om te mergen, voeg `CI / unit-tests` toe als required status check, blokkeer force pushes en laat de bypass-lijst leeg. Dit is de server-side instelling die directe pushes blokkeert; een workflow alleen kan dat niet afdwingen.
 
-De keep-alive workflow gebruikt dezelfde `RENDER_HEALTH_URL` repository variable. De deploy-check vereist de Render API key en service ID; zonder die configuratie faalt hij expliciet in plaats van een deployment stilzwijgend over te slaan.
+De keep-alive workflow gebruikt dezelfde `RENDER_HEALTH_URL` repository variable. De deploy-check vereist de Render API key en service ID; zonder die configuratie faalt hij expliciet in plaats van een deployment stilzwijgend over te slaan. De deploy-check toont bij een afwijkende Render-API-respons de HTTP-status en de respons zelf: `401`/`403` betekent een ongeldige `RENDER_API_KEY`, `404` een ongeldige `RENDER_SERVICE_ID`.
+
+Let op: GitHub voert `schedule`-crons best-effort uit en kan runs uren uitstellen. Reken er dus niet op dat de keep-alive workflow Neon permanent wakker houdt; Neon suspendt al na circa vijf minuten inactiviteit, dus een interval van tien minuten kan dat per definitie niet verhullen.
+
+## Diagnose bij een storing
+
+`GET /health` doet een echte `SELECT 1` en antwoordt met **503** (`{"status":"fout","bericht":"Database niet bereikbaar"}`) zodra die query een `OperationalError` geeft.
+
+- **503 betekent niet dat `DATABASE_URL` ontbreekt.** Zonder `DATABASE_URL` valt `app/config.py` terug op `sqlite:///reserveringen.db`, maakt SQLite dat bestand zelf aan en antwoordt `/health` met **200**. Een 503 betekent dus dat `DATABASE_URL` wél is ingesteld, maar dat de verbinding wordt geweigerd: verkeerd of gereset wachtwoord, verkeerde host, of een verwijderde of gesuspendeerde Neon-branch.
+- **De oorzaak staat in het Render-logboek.** De healthcheck logt bij een 503 de driverklasse en de SQLSTATE, en bewust **niet** de melding van de driver: die kan host, gebruikersnaam en een connectiestring bevatten. Zoek op `Healthcheck: database niet bereikbaar`. `28P01` betekent een onjuist wachtwoord, `3D000` een database die niet bestaat en `08006` een verbindingsfout.
+- **Test een connectiestring nooit door de variabele te echoën.** Gebruik de Render Shell, waar `DATABASE_URL` al in de omgeving staat.
+
+| Symptoom | Waarschijnlijke oorzaak |
+| --- | --- |
+| `/health` geeft 503, `/` geeft 200 | `DATABASE_URL` is ingesteld maar onbereikbaar (wachtwoord, host of branch) |
+| Build faalt met `Migraties weigeren een pooler-host` | `MIGRATION_DATABASE_URL` ontbreekt, waardoor Alembic terugvalt op de gepoolde `DATABASE_URL` |
+| Build faalt met `Database-URL ontbreekt` | Noch `MIGRATION_DATABASE_URL` noch `DATABASE_URL` is tijdens de build beschikbaar |
+| `Render deployment health` faalt binnen enkele seconden | De Render API gaf een non-2xx; zie de gelogde HTTP-status en respons in de workflowstap |
