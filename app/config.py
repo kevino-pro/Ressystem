@@ -68,3 +68,5 @@ class Config:
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
     VERZENDER_EMAIL = os.getenv('VERZENDER_EMAIL', 'jouw-restaurant@gmail.com')
     VERZENDER_WACHTWOORD = os.getenv('VERZENDER_WACHTWOORD', '')
+    # Als deze gezet is, verstuurt de app via de Resend-API in plaats van SMTP.
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
