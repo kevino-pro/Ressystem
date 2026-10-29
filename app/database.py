@@ -1,4 +1,5 @@
 import secrets
+from datetime import date, timedelta
 from flask import current_app, g
 from werkzeug.security import generate_password_hash
 from sqlalchemy.engine import make_url
@@ -143,23 +144,24 @@ def verwijder_reservering(conn, reservering_id):
     with conn.begin():
         conn.execute(delete(reserveringen).where(reserveringen.c.id == reservering_id))
 
-def _retentiegrens(conn):
-    """Dialect-specifieke datum-rekenkunde voor de bewaartermijn (RETENTIE_DAGEN_AVG)."""
+def _retentiegrens():
+    """
+    Grensdatum voor de bewaartermijn (RETENTIE_DAGEN_AVG) als 'YYYY-MM-DD'-tekst.
+    `datum` is een Text-kolom; tekst-met-tekst vergelijken werkt op SQLite en Postgres gelijk,
+    en ISO-datums sorteren als tekst in de juiste volgorde.
+    """
     retentie_dagen = int(current_app.config['RETENTIE_DAGEN_AVG'])
-    if conn.engine.dialect.name == 'sqlite':
-        return text("date('now', :offset)").bindparams(offset=f'-{retentie_dagen} days')
-    return text("CURRENT_DATE - (:dagen * INTERVAL '1 day')").bindparams(dagen=retentie_dagen)
+    return (date.today() - timedelta(days=retentie_dagen)).isoformat()
 
 def schonen_oude_reserveringen():
-    """Enige plek met dialect-specifieke SQL buiten de lock: datum-rekenkunde verschilt per database."""
     conn = get_db()
-    grens = _retentiegrens(conn)
+    grens = _retentiegrens()
     with conn.begin():
         conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
 
 def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
     """Telt reserveringen buiten de bewaartermijn en verwijdert ze alleen als `uitvoeren` True is."""
-    grens = _retentiegrens(conn)
+    grens = _retentiegrens()
     with conn.begin():
         aantal = conn.execute(
             select(func.count()).select_from(reserveringen).where(reserveringen.c.datum < grens)
