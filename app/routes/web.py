@@ -79,7 +79,7 @@ def login():
 
     return render_template('login.html', foutmelding=foutmelding)
 
-@web_bp.route('/logout')
+@web_bp.route('/logout', methods=['POST'])
 def logout():
     session.clear()
     return redirect(url_for('web.login'))
