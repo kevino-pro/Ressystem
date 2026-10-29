@@ -61,7 +61,7 @@ def verwerk_tekst_met_anthropic(klant_tekst: str) -> AIReserveringExtractieSchem
         "input_schema": AIReserveringExtractieSchema.model_json_schema()
     }
 
-    model_naam = current_app.config.get('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')
+    model_naam = current_app.config['ANTHROPIC_MODEL']
 
     response = _anthropic_aanroep_met_retry(
         client,
