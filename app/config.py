@@ -11,9 +11,6 @@ try:
 except (ImportError, AttributeError):
     pass
 
-# --- AI SERVICEMODELS ---
-ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')
-
 class Config:
     """
     Centrale configuratieklasse voor Whitelabel Agency Templates.
@@ -36,6 +33,11 @@ class Config:
     MAX_CAPACITEIT_PER_SLOT = int(os.getenv('MAX_CAPACITEIT_PER_SLOT', 10))
     MAX_PERSONEN_PER_BOEKING = int(os.getenv('MAX_PERSONEN_PER_BOEKING', 20))
     RETENTIE_DAGEN_AVG = int(os.getenv('RETENTIE_DAGEN_AVG', 60))
+
+    # ==========================================
+    # 2b. AI
+    # ==========================================
+    ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001')
 
     # ==========================================
     # 3. BEVEILIGING & DATABASE
