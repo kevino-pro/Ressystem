@@ -44,7 +44,10 @@ class Config:
     # ==========================================
     SECRET_KEY = os.getenv('SECRET_KEY')
 
+    # 'production' op Render: dan weigert de app te starten zonder echte DATABASE_URL.
+    APP_ENV = os.getenv('APP_ENV', 'development').strip().lower()
     DATABASE_URL = os.getenv('DATABASE_URL')
+    DATABASE_URL_IS_DEFAULT = not DATABASE_URL
     if not DATABASE_URL:
         DATABASE_URL = 'sqlite:///reserveringen.db'
         logger.warning("Geen DATABASE_URL ingesteld in .env, val terug op lokale default!")

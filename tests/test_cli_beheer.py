@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 from datetime import date, timedelta
 
 from sqlalchemy import insert, select, func
@@ -110,12 +111,20 @@ class BeheerCliTests(unittest.TestCase):
 
     def test_guard_blokkeert_niet_sqlite_voor_verbinding(self):
         self.app.config["DATABASE_URL"] = "postgresql://gebruiker:geheim@host.example/db"
-        for args in (["create-admin"], ["purge-retention"]):
+        for args in (["create-admin"], ["purge-retention"], ["resend-mail", "abc123"]):
             result = self.runner.invoke(args=args, input=_prompt(DUMMY_WACHTWOORD))
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("--productie", result.output)
             self.assertNotIn("host.example", result.output)
             self.assertNotIn("geheim", result.output)
+
+    def test_resend_mail_zonder_productie_verstuurt_niets(self):
+        self.app.config["DATABASE_URL"] = "postgresql://gebruiker:geheim@host.example/db"
+        with mock.patch("app.stuur_bevestigingsmail_sync") as verstuur:
+            result = self.runner.invoke(args=["resend-mail", "abc123"])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--productie", result.output)
+        verstuur.assert_not_called()
 
     def test_purge_zonder_uitvoeren_wijzigt_niets(self):
         self._voeg_reservering_toe("oud", 100)
@@ -136,6 +145,21 @@ class BeheerCliTests(unittest.TestCase):
             with conn.begin():
                 ids = [r[0] for r in conn.execute(select(reserveringen.c.id))]
         self.assertEqual(ids, ["nieuw"])
+
+
+class AppEnvTests(unittest.TestCase):
+    def test_productie_zonder_database_url_start_niet(self):
+        class ProductieZonderDb(TestConfig):
+            APP_ENV = "production"
+            DATABASE_URL_IS_DEFAULT = True
+        with self.assertRaises(RuntimeError):
+            create_app(ProductieZonderDb)
+
+    def test_productie_met_database_url_start_wel(self):
+        class ProductieMetDb(TestConfig):
+            APP_ENV = "production"
+            DATABASE_URL_IS_DEFAULT = False
+        create_app(ProductieMetDb)
 
 
 if __name__ == "__main__":

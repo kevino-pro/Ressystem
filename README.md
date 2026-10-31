@@ -15,6 +15,7 @@ Stel deze Render Environment Variables in:
 
 - `DATABASE_URL`: Neon pooled connection string; de host bevat `-pooler`. Alleen voor de runtime-app.
 - `MIGRATION_DATABASE_URL`: Neon direct connection string; de host bevat geen `-pooler`. Alembic gebruikt deze tijdens de build.
+- `APP_ENV`: `production`. De app weigert dan te starten als `DATABASE_URL` ontbreekt.
 - `API_KEY`: geheim voor de webhook-header `X-API-Key`; stel dezelfde waarde in n8n in. `WEBHOOK_API_KEY` blijft tijdelijk ondersteund als legacy alias.
 - `ANTHROPIC_API_KEY`: Anthropic API key.
 - `SECRET_KEY`: willekeurige, sterke Flask secret.
@@ -28,7 +29,7 @@ Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Bui
 
 ## Beheercommando's
 
-De app kent twee handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
+De app kent vier handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
 
 ### `flask create-admin`
 
@@ -48,6 +49,19 @@ Telt of verwijdert reserveringen die buiten de bewaartermijn (`RETENTIE_DAGEN_AV
 - **`--uitvoeren`:** verwijdert de gevonden reserveringen. Zonder deze vlag wordt er alleen geteld en verandert er niets.
 - **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend. Let op: `--productie` maakt ook bij het alleen tellen een echte databaseverbinding.
 - **Waarschuwing:** met `--uitvoeren` worden gegevens **definitief** verwijderd; deze actie is niet terug te draaien.
+
+### `flask resend-mail`
+
+Verstuurt de bevestigingsmail opnieuw voor een bestaande reservering.
+
+- **Aanroep:** `flask resend-mail <reservering_id> [--productie]`
+- **Gebruik:** na een `[MAIL_FAILED]`-logregel, om dezelfde mail nog eens te proberen.
+- **`--productie`:** verplicht op elke niet-SQLite database; zonder deze vlag weigert het commando voordat er verbinding wordt gemaakt of gemaild.
+
+### `flask init-db`
+
+- **Aanroep:** `flask init-db [--productie]`
+- **Gebruik:** alleen een lokaal hulpmiddel; maakt het schema en de admin met `ADMIN_INITIAL_PASSWORD`. Productie gebruikt Alembic.
 
 ## CI, Render health en branch protection
 
