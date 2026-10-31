@@ -26,10 +26,13 @@
   - E: keten werkt: webhook (header-check) → n8n → `POST /api/v1/ai-reservering` → 201. Testreserveringen zijn verwijderd.
 - **Mailverzending:** via de Resend-API (PR #6, gemerged). Render blokkeert uitgaande SMTP-poorten op gratis web services; SMTP blijft als fallback zonder `RESEND_API_KEY`.
 - **Neon-wachtwoord:** tweemaal vervangen (tweede keer voor de zekerheid, na een wachtwoord in de chat). `DATABASE_URL` en `MIGRATION_DATABASE_URL` in Render bijgewerkt; `/health` 200.
+- **PR #8 gemerged** (`5013c4e`): `resend-mail --productie`-guard en `APP_ENV`-controle. `APP_ENV=production` staat in Render; CI en Render-deploy groen; `/health` 200.
+- **Purge-controle op productie:** bevestigd met het flask-commando, vanuit de code op `main`: 0 reserveringen buiten de bewaartermijn, geen fout.
+- **Afzenderdomein `waroengpadang.nl`:** bij Resend **Verified**. DNS bij TransIP: DKIM `resend._domainkey`, CNAME `send`, CNAME `rsend`; DMARC van Resend overgeslagen omdat `_dmarc` al bestaat. `VERZENDER_EMAIL` = `reserveringen@waroengpadang.nl`; testmail aangekomen.
 - **Open:**
-  1. Afzenderdomein `waroengpadang.nl` bij Resend: status Pending (DNS-records toegevoegd bij TransIP: DKIM `resend._domainkey`, CNAME `send`, CNAME `rsend`; DMARC van Resend overgeslagen omdat `_dmarc` al bestaat). Na Verified: `VERZENDER_EMAIL` = `reserveringen@waroengpadang.nl` in Render, daarna mailtest naar een ander adres (inbox én spam).
-  2. Purge-controle op productie met het flask-commando en de juiste URL: nog niet bevestigd (wel als leesquery gedaan: 0 buiten bewaartermijn).
-  3. Opruimen: worktree `C:\Codes\WPL-resend` na afronding; testmailadressen/-keys die in de chat zijn gebruikt bij gelegenheid vervangen.
+  1. Afzender in de testmail nog expliciet controleren op `reserveringen@waroengpadang.nl`.
+  2. Opruimen: lokale map `C:\Codes\WPL` staat op `main`; de oude lokale wijzigingen staan in de stash (`backup lokale wijzigingen 31 okt`) en als patch in de scratchpad. Die zijn verwerkt in PR #8; de stash kan weg als je zeker bent.
+  3. Testmailadressen en keys die in de chat zijn gebruikt: bij gelegenheid vervangen.
 - **Leerpunten (31 okt):**
   - Controleer de database-host vóór `create-admin` (`echo` van de host, zonder wachtwoord). Een account in de verkeerde database lijkt te werken maar is onvindbaar voor de app.
   - In PowerShell: de URL via `Get-Clipboard` zetten, niet typen. Het `&`-teken in de URL breekt anders het commando.
