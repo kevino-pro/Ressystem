@@ -1,4 +1,4 @@
-# Overdracht WPL — deel 2 (bijgewerkt 6 okt 2026)
+# Overdracht WPL — deel 2 (bijgewerkt 31 okt 2026)
 
 > Voor **Claude** (mentor), **Cline** (uitvoerder via de DeepSeek-API) en **GitHub Copilot Chat** (beperkt).
 > Lokale, **niet-gecommitte** werkkopie. Alles wat als HYPOTHESE staat is niet bewezen; BEWIJS = door de gebruiker of de code bevestigd.
@@ -17,6 +17,23 @@
 - Stack: Flask (Application Factory + Blueprints), SQLAlchemy Core 2.0, Pydantic v2, Alembic. AI: Anthropic Claude Haiku 4.5 met retry. Hosting: Render (gunicorn, 2 workers) + Neon Postgres; SQLite lokaal.
 - n8n roept `POST /api/v1/ai-reservering` aan met header `X-API-Key`.
 - Beheercommando's: `flask create-admin`, `flask purge-retention` én `flask resend-mail <reservering_id>` — alle drie **met** `--productie`-guard; plus `flask init-db` (lokaal hulpmiddel).
+
+## 0. Stand 31 okt 2026 (actueel — heeft voorrang op de secties hieronder)
+- **Stap A t/m E uit §5: klaar.**
+  - B: Render-variabelen gezet, `/health` 200, n8n heeft de nieuwe key (`API_KEY` in de credential van de forward-node).
+  - C: admin `Kevin` aangemaakt in de productiedatabase (de eerste poging ging naar een andere database; de productie-branch bevat nu het account). Inloggen op `/overzicht` werkt.
+  - D: testmail via Resend ontvangen met juiste restaurantnaam en https-annuleerlink.
+  - E: keten werkt: webhook (header-check) → n8n → `POST /api/v1/ai-reservering` → 201. Testreserveringen zijn verwijderd.
+- **Mailverzending:** via de Resend-API (PR #6, gemerged). Render blokkeert uitgaande SMTP-poorten op gratis web services; SMTP blijft als fallback zonder `RESEND_API_KEY`.
+- **Neon-wachtwoord:** tweemaal vervangen (tweede keer voor de zekerheid, na een wachtwoord in de chat). `DATABASE_URL` en `MIGRATION_DATABASE_URL` in Render bijgewerkt; `/health` 200.
+- **Open:**
+  1. Afzenderdomein `waroengpadang.nl` bij Resend: status Pending (DNS-records toegevoegd bij TransIP: DKIM `resend._domainkey`, CNAME `send`, CNAME `rsend`; DMARC van Resend overgeslagen omdat `_dmarc` al bestaat). Na Verified: `VERZENDER_EMAIL` = `reserveringen@waroengpadang.nl` in Render, daarna mailtest naar een ander adres (inbox én spam).
+  2. Purge-controle op productie met het flask-commando en de juiste URL: nog niet bevestigd (wel als leesquery gedaan: 0 buiten bewaartermijn).
+  3. Opruimen: worktree `C:\Codes\WPL-resend` na afronding; testmailadressen/-keys die in de chat zijn gebruikt bij gelegenheid vervangen.
+- **Leerpunten (31 okt):**
+  - Controleer de database-host vóór `create-admin` (`echo` van de host, zonder wachtwoord). Een account in de verkeerde database lijkt te werken maar is onvindbaar voor de app.
+  - In PowerShell: de URL via `Get-Clipboard` zetten, niet typen. Het `&`-teken in de URL breekt anders het commando.
+  - Een 201 van de API bewijst opslag, maar controleer het in de database of in `/overzicht`. Testreserveringen direct verwijderen, dan is de controle later lastiger.
 
 ## 3. Wat is af
 - Sleutelrotatie Anthropic en Neon; git-historie gecontroleerd; Alembic-baseline op Neon.
@@ -105,7 +122,7 @@
 **Stopcriteria:** rode check op `main` (vooral `CI / unit-tests`), een echte waarde in een diff of log, of een commando dat om iets anders vraagt dan afgesproken → stop en meld alleen het type.
 
 ## 6. Voortgang
-Ongeveer **75%**. Wat overblijft: stap B t/m E (één dag werk), de privacytekst, plus één kleine codewijziging (de `resend-mail`-guard). **Stap C, D en E kunnen nog verrassingen geven.**
+Stap A t/m E zijn klaar (31 okt). Wat overblijft: het afzenderdomein verifiëren, de purge-controle op productie, de privacytekst (stap F), en de `resend-mail`-guard (`--productie`) als die nog niet is gedaan. Zie §0 voor de actuele lijst.
 
 ## 7. Lessen (voorkom herhaling)
 - Vermeld bij elk commando de shell. In Git Bash: `grep -c -i -E "..."`, geen PowerShell.
