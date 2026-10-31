@@ -26,6 +26,8 @@ def create_app(config_class=Config):
         raise RuntimeError("Configureer SECRET_KEY via de omgeving voordat de app start.")
     if not any(str(app.config.get(k) or '').strip() for k in ('API_KEY', 'WEBHOOK_API_KEY')):
         raise RuntimeError("Configureer API_KEY of WEBHOOK_API_KEY via de omgeving voordat de app start.")
+    if app.config.get('APP_ENV') == 'production' and app.config.get('DATABASE_URL_IS_DEFAULT'):
+        raise RuntimeError("APP_ENV=production maar DATABASE_URL ontbreekt; de app valt niet terug op SQLite.")
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)
@@ -96,8 +98,10 @@ def create_app(config_class=Config):
 
     @app.cli.command('resend-mail')
     @click.argument('reservering_id')
-    def resend_mail_command(reservering_id):
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def resend_mail_command(reservering_id, productie):
         """Verstuur de bevestigingsmail opnieuw voor een bestaande reservering (na een [MAIL_FAILED] logregel)."""
+        _guard(productie)
         conn = get_db()
         reservering = haal_reservering_op(conn, reservering_id)
         if not reservering:
