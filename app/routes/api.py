@@ -10,6 +10,7 @@ from app.schemas import AIWebhookSchema, AIReserveringExtractieSchema
 from app.services.ai_service import sanitize_user_input, verwerk_tekst_met_anthropic
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit_check
+from app.reserveringsregels import RegelFout
 
 logger = logging.getLogger(__name__)
 _REQUIRED_RESERVATION_FIELDS = ("naam", "email", "telefoon", "datum", "tijd", "aantal")
@@ -111,6 +112,17 @@ def ai_webhook_reservering():
             "status": "fout",
             "bericht": "Vul de ontbrekende reserveringsgegevens aan.",
             "ontbrekende_velden": ontbrekende_velden,
+        }), 400
+
+    try:
+        current_app.config['REGELS'].controleer(
+            geparsed_reservering.datum, geparsed_reservering.tijd, geparsed_reservering.aantal
+        )
+    except RegelFout as fout:
+        return jsonify({
+            "status": "fout",
+            "bericht": fout.bericht,
+            "geparsed_data": geparsed_reservering.model_dump(mode="json"),
         }), 400
 
     max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']

@@ -1,0 +1,18 @@
+# Ruime regels voor de bestaande tests: elke dag open, tot ver in de toekomst.
+[reserveringen]
+tijdzone = "Europe/Amsterdam"
+slot_minuten = 15
+zitduur_minuten = 120
+max_gasten_tegelijk = 10
+max_personen_per_boeking = 20
+min_minuten_vooraf = 0
+max_dagen_vooruit = 3650
+
+[reserveringen.openingstijden]
+maandag = [["12:00", "22:00"]]
+dinsdag = [["12:00", "22:00"]]
+woensdag = [["12:00", "22:00"]]
+donderdag = [["12:00", "22:00"]]
+vrijdag = [["12:00", "22:00"]]
+zaterdag = [["12:00", "22:00"]]
+zondag = [["12:00", "22:00"]]

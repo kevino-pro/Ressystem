@@ -17,6 +17,7 @@ class TestConfig(Config):
     ADMIN_INITIAL_PASSWORD = "test-admin-pw"
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
+    RESTAURANT_CONFIG = "tests/fixtures/restaurant_test.toml"
 
 
 def payload(email, datum="2030-01-01"):
