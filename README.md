@@ -28,6 +28,33 @@ Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Bui
 
 `flask init-db` is alleen een handmatig lokaal hulpprogramma. Productieschemawijzigingen verlopen uitsluitend via Alembic.
 
+## Restaurantconfiguratie
+
+Elke installatie leest zijn openingstijden en boekingsregels uit één TOML-bestand in
+`restaurants/`. Welk bestand, bepaalt de omgevingsvariabele `RESTAURANT_CONFIG`
+(bijvoorbeeld `restaurants/wpl.toml`). Zonder die variabele gebruikt de app
+`restaurants/voorbeeld.toml`, maar met `APP_ENV=production` weigert de app dan te starten.
+
+Voor een nieuw restaurant: kopieer `restaurants/voorbeeld.toml` naar `restaurants/<naam>.toml`,
+pas de waarden aan en zet `RESTAURANT_CONFIG` in de Render-service van dat restaurant.
+
+Alle velden staan onder `[reserveringen]`:
+
+| Veld | Betekenis |
+|---|---|
+| `tijdzone` | Bijvoorbeeld `Europe/Amsterdam`. Bepaalt wat "vandaag" is, ook voor de AI. |
+| `slot_minuten` | Stapgrootte van de tijden: 5, 10, 15, 20, 30 of 60. |
+| `zitduur_minuten` | Hoe lang een reservering een tafel bezet (15 tot 480). |
+| `max_gasten_tegelijk` | Hoeveel gasten er tegelijk mogen zitten, over de hele zitduur geteld. |
+| `max_personen_per_boeking` | Grootste groep die online mag boeken (maximaal 20). |
+| `min_minuten_vooraf` | Hoe kort van tevoren je nog mag boeken. |
+| `max_dagen_vooruit` | Hoe ver vooruit je mag boeken. |
+| `sluitingsdagen` | Losse datums waarop het restaurant dicht is, bijvoorbeeld `[2026-12-25, 2027-01-01]`. |
+| `[reserveringen.openingstijden]` | Per weekdag (`maandag` t/m `zondag`) een lijst vensters, bijvoorbeeld `dinsdag = [["17:00", "20:30"]]`. Een lege lijst of een ontbrekende dag betekent gesloten. Het venster geeft aan wanneer een reservering mag beginnen; de tweede tijd is dus de laatste begintijd, niet de sluitingstijd. Beide tijden moeten op een slotgrens vallen. |
+
+De test `test_alle_restaurantbestanden_zijn_geldig` laadt in CI elk bestand in `restaurants/`,
+dus een tikfout in een restaurantbestand maakt de build rood voordat het live gaat.
+
 ## Beheercommando's
 
 De app kent vier handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
