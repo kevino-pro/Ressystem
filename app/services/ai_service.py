@@ -1,7 +1,7 @@
 import os
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 import anthropic
 from flask import current_app
 from app.schemas import AIReserveringExtractieSchema
@@ -39,7 +39,8 @@ def verwerk_tekst_met_anthropic(klant_tekst: str) -> AIReserveringExtractieSchem
         raise ValueError("ANTHROPIC_API_KEY ontbreekt in .env configuratie!")
 
     client = anthropic.Anthropic(api_key=api_key, max_retries=0)
-    vandaag = datetime.now()
+    regels = current_app.config['REGELS']
+    vandaag = regels.nu()  # lokale tijd van het restaurant; Render draait in UTC
     vandaag_str = vandaag.strftime("%Y-%m-%d (%A)")
     morgen_str = (vandaag + timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -50,6 +51,7 @@ def verwerk_tekst_met_anthropic(klant_tekst: str) -> AIReserveringExtractieSchem
     EXACTE DATUM EN TIJD CONTEXT:
     - Vandaag is: {vandaag_str}
     - Morgen is exact: {morgen_str}
+    - Tijdzone van het restaurant: {regels.tijdzone}
     - Reken relatieve dagen ALTIJD exact om naar het formaat YYYY-MM-DD t.o.v. vandaag.
     - Het veld 'datum' MOET strikt het YYYY-MM-DD formaat hebben.
     - Het veld 'tijd' MOET strikt het HH:MM (24-uurs) formaat hebben.
