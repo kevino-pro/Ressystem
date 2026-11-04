@@ -119,13 +119,14 @@ def nieuwe_reservering():
     if not rate_limit_check_adres(valid_data.email):
         return jsonify({"status": "fout", "bericht": "Te veel verzoeken, probeer het later opnieuw."}), 429
 
-    max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
+    regels = current_app.config['REGELS']
     conn = get_db()
     try:
         unieke_id = verwerk_reservering(
-            conn, max_capaciteit,
+            conn, regels.max_gasten_tegelijk,
             naam=valid_data.naam, email=valid_data.email, telefoon=valid_data.telefoon,
-            datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal
+            datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
+            zitduur_minuten=regels.zitduur_minuten,
         )
     except CapaciteitVolFout as e:
         return jsonify({

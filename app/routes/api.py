@@ -125,19 +125,20 @@ def ai_webhook_reservering():
             "geparsed_data": geparsed_reservering.model_dump(mode="json"),
         }), 400
 
-    max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
+    regels = current_app.config['REGELS']
     reservation_data = geparsed_reservering.model_dump(mode="json")
     try:
         conn = get_db()
         unieke_id = verwerk_reservering(
             conn,
-            max_capaciteit,
+            regels.max_gasten_tegelijk,
             naam=reservation_data["naam"],
             email=reservation_data["email"],
             telefoon=reservation_data["telefoon"],
             datum=reservation_data["datum"],
             tijd=reservation_data["tijd"],
-            aantal=reservation_data["aantal"]
+            aantal=reservation_data["aantal"],
+            zitduur_minuten=regels.zitduur_minuten,
         )
     except CapaciteitVolFout as error:
         return jsonify({
