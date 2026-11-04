@@ -10,6 +10,7 @@ from app.schemas import AIWebhookSchema, AIReserveringExtractieSchema
 from app.services.ai_service import sanitize_user_input, verwerk_tekst_met_anthropic
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit_check
+from app.reserveringsregels import RegelFout
 
 logger = logging.getLogger(__name__)
 _REQUIRED_RESERVATION_FIELDS = ("naam", "email", "telefoon", "datum", "tijd", "aantal")
@@ -113,19 +114,31 @@ def ai_webhook_reservering():
             "ontbrekende_velden": ontbrekende_velden,
         }), 400
 
-    max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
+    try:
+        current_app.config['REGELS'].controleer(
+            geparsed_reservering.datum, geparsed_reservering.tijd, geparsed_reservering.aantal
+        )
+    except RegelFout as fout:
+        return jsonify({
+            "status": "fout",
+            "bericht": fout.bericht,
+            "geparsed_data": geparsed_reservering.model_dump(mode="json"),
+        }), 400
+
+    regels = current_app.config['REGELS']
     reservation_data = geparsed_reservering.model_dump(mode="json")
     try:
         conn = get_db()
         unieke_id = verwerk_reservering(
             conn,
-            max_capaciteit,
+            regels.max_gasten_tegelijk,
             naam=reservation_data["naam"],
             email=reservation_data["email"],
             telefoon=reservation_data["telefoon"],
             datum=reservation_data["datum"],
             tijd=reservation_data["tijd"],
-            aantal=reservation_data["aantal"]
+            aantal=reservation_data["aantal"],
+            zitduur_minuten=regels.zitduur_minuten,
         )
     except CapaciteitVolFout as error:
         return jsonify({

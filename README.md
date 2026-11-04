@@ -16,6 +16,7 @@ Stel deze Render Environment Variables in:
 - `DATABASE_URL`: Neon pooled connection string; de host bevat `-pooler`. Alleen voor de runtime-app.
 - `MIGRATION_DATABASE_URL`: Neon direct connection string; de host bevat geen `-pooler`. Alembic gebruikt deze tijdens de build.
 - `APP_ENV`: `production`. De app weigert dan te starten als `DATABASE_URL` ontbreekt.
+- `RESTAURANT_CONFIG`: pad naar het restaurantbestand, bijvoorbeeld `restaurants/wpl.toml`. Verplicht als `APP_ENV=production`.
 - `API_KEY`: geheim voor de webhook-header `X-API-Key`; stel dezelfde waarde in n8n in. `WEBHOOK_API_KEY` blijft tijdelijk ondersteund als legacy alias.
 - `ANTHROPIC_API_KEY`: Anthropic API key.
 - `SECRET_KEY`: willekeurige, sterke Flask secret.

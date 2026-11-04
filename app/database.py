@@ -75,16 +75,38 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal):
+def _minuten(tijd):
+    uur, minuut = str(tijd).split(':')[:2]
+    return int(uur) * 60 + int(minuut)
+
+def piekbezetting(bestaande, start, zitduur):
+    """
+    Hoogste aantal gasten dat tegelijk aan tafel zit tijdens [start, start + zitduur).
+    `bestaande` is een lijst (begin_in_minuten, aantal) van reserveringen op dezelfde dag;
+    elke reservering bezet [begin, begin + zitduur). De bezetting kan alleen stijgen op het
+    begin van een reservering, dus het volstaat om op die momenten (en op `start`) te tellen.
+    """
+    eind = start + zitduur
+    momenten = {start} | {begin for begin, _ in bestaande if start <= begin < eind}
+    return max(
+        sum(aantal for begin, aantal in bestaande if begin <= moment < begin + zitduur)
+        for moment in momenten
+    )
+
+def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
     en api.py (AI-webhook) gebruikt zodat de capaciteitsregel maar op één plek staat.
+
+    Met `zitduur_minuten` telt elke reservering zo lang mee: `max_capaciteit` is dan het
+    maximale aantal gasten tegelijk aan tafel. Zonder zitduur (None) tellen alleen
+    reserveringen op exact hetzelfde tijdstip mee (oud gedrag, nog gebruikt in tests).
 
     De check + insert moet atomisch zijn t.o.v. gelijktijdige boekingen op hetzelfde slot.
     SQLAlchemy Core abstraheert de queries zelf, maar de serialisatie-mechanismen verschillen
     onvermijdelijk per database: SQLite grijpt een exclusieve bestandslock (BEGIN EXCLUSIVE,
     afgedwongen via de 'begin'-event in init_db_pool), Postgres gebruikt een sessie-advisory-
-    lock op de (datum, tijd)-sleutel met een lock_timeout zodat een aanvraag bij hoge contentie
+    lock op de datum met een lock_timeout zodat een aanvraag bij hoge contentie
     faalt in plaats van te blijven hangen. Beide geven de lock automatisch vrij bij commit of
     rollback van de transactie; bij CapaciteitVolFout rollt `with conn.begin():` terug.
     """
@@ -97,14 +119,23 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
             conn.execute(text("SET LOCAL lock_timeout = '5s'"))
             conn.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext('reservering_slot'), hashtext(:sleutel))"),
-                {'sleutel': f'{datum}|{tijd}'}
+                {'sleutel': datum}  # per dag: met een zitduur overlappen tijden elkaar
             )
 
-        huidige_gasten = conn.execute(
-            select(func.sum(reserveringen.c.aantal)).where(
-                reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
-            )
-        ).scalar() or 0
+        if zitduur_minuten is None:
+            huidige_gasten = conn.execute(
+                select(func.sum(reserveringen.c.aantal)).where(
+                    reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
+                )
+            ).scalar() or 0
+        else:
+            bestaande = [
+                (_minuten(rij.tijd), rij.aantal)
+                for rij in conn.execute(
+                    select(reserveringen.c.tijd, reserveringen.c.aantal).where(reserveringen.c.datum == datum)
+                )
+            ]
+            huidige_gasten = piekbezetting(bestaande, _minuten(tijd), zitduur_minuten)
 
         if huidige_gasten + aantal > max_capaciteit:
             raise CapaciteitVolFout(max_capaciteit - huidige_gasten)

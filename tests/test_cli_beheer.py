@@ -159,6 +159,7 @@ class AppEnvTests(unittest.TestCase):
         class ProductieMetDb(TestConfig):
             APP_ENV = "production"
             DATABASE_URL_IS_DEFAULT = False
+            RESTAURANT_CONFIG_IS_DEFAULT = False
         create_app(ProductieMetDb)
 
 

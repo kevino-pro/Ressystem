@@ -30,9 +30,10 @@ class Config:
     # ==========================================
     # 2. CAPACITEIT & BUSINESS LOGIC
     # ==========================================
-    MAX_CAPACITEIT_PER_SLOT = int(os.getenv('MAX_CAPACITEIT_PER_SLOT', 10))
-    MAX_PERSONEN_PER_BOEKING = int(os.getenv('MAX_PERSONEN_PER_BOEKING', 20))
     RETENTIE_DAGEN_AVG = int(os.getenv('RETENTIE_DAGEN_AVG', 60))
+    # Openingstijden, tijdsloten en zitduur per restaurant (zie restaurants/voorbeeld.toml).
+    RESTAURANT_CONFIG = os.getenv('RESTAURANT_CONFIG') or 'restaurants/voorbeeld.toml'
+    RESTAURANT_CONFIG_IS_DEFAULT = not os.getenv('RESTAURANT_CONFIG')
 
     # ==========================================
     # 2b. AI

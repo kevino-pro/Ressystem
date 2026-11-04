@@ -90,6 +90,17 @@ class PostgresTests(unittest.TestCase):
                 totaal = conn.execute(select(func.sum(reserveringen.c.aantal))).scalar()
         self.assertEqual(totaal, 3)
 
+    def test_overlappende_tijden_met_zitduur(self):
+        with self.app.app_context():
+            conn = get_db()
+            verwerk_reservering(conn, 4, "Jan", "a@example.com", "0612345678", "2030-01-01", "19:00", 3,
+                                zitduur_minuten=120)
+            with self.assertRaises(CapaciteitVolFout):
+                verwerk_reservering(conn, 4, "Piet", "b@example.com", "0612345678", "2030-01-01", "20:00", 2,
+                                    zitduur_minuten=120)
+            verwerk_reservering(conn, 4, "Kees", "c@example.com", "0612345678", "2030-01-01", "21:00", 4,
+                                zitduur_minuten=120)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ from app.database import (
 from app.schemas import ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
+from app.reserveringsregels import RegelFout
 
 web_bp = Blueprint('web', __name__)
 web_bp.before_request(valideer_csrf)
@@ -110,16 +111,22 @@ def nieuwe_reservering():
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
 
+    try:
+        current_app.config['REGELS'].controleer(valid_data.datum, valid_data.tijd, valid_data.aantal)
+    except RegelFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
+
     if not rate_limit_check_adres(valid_data.email):
         return jsonify({"status": "fout", "bericht": "Te veel verzoeken, probeer het later opnieuw."}), 429
 
-    max_capaciteit = current_app.config['MAX_CAPACITEIT_PER_SLOT']
+    regels = current_app.config['REGELS']
     conn = get_db()
     try:
         unieke_id = verwerk_reservering(
-            conn, max_capaciteit,
+            conn, regels.max_gasten_tegelijk,
             naam=valid_data.naam, email=valid_data.email, telefoon=valid_data.telefoon,
-            datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal
+            datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
+            zitduur_minuten=regels.zitduur_minuten,
         )
     except CapaciteitVolFout as e:
         return jsonify({

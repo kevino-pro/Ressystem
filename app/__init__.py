@@ -1,5 +1,6 @@
 # app/__init__.py
 import logging
+from pathlib import Path
 import click
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,6 +13,7 @@ from app.database import (
     ProductieVlagVereist,
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
+from app.reserveringsregels import laad_regels
 
 MIN_WACHTWOORD_LENGTE = 12
 
@@ -28,6 +30,13 @@ def create_app(config_class=Config):
         raise RuntimeError("Configureer API_KEY of WEBHOOK_API_KEY via de omgeving voordat de app start.")
     if app.config.get('APP_ENV') == 'production' and app.config.get('DATABASE_URL_IS_DEFAULT'):
         raise RuntimeError("APP_ENV=production maar DATABASE_URL ontbreekt; de app valt niet terug op SQLite.")
+    if app.config.get('APP_ENV') == 'production' and app.config.get('RESTAURANT_CONFIG_IS_DEFAULT'):
+        raise RuntimeError("APP_ENV=production maar RESTAURANT_CONFIG ontbreekt; zet het pad naar restaurants/<naam>.toml.")
+    # Relatieve paden gelden vanaf de projectmap, zodat het niet uitmaakt waar gunicorn of flask start.
+    regels_pad = Path(app.config['RESTAURANT_CONFIG'])
+    if not regels_pad.is_absolute():
+        regels_pad = Path(app.root_path).parent / regels_pad
+    app.config['REGELS'] = laad_regels(regels_pad)
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)

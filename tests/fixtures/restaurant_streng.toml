@@ -1,0 +1,18 @@
+# Regels om te testen dat de routes weigeren: maandag dicht, rest 17:00-21:00, max 6 personen.
+[reserveringen]
+tijdzone = "Europe/Amsterdam"
+slot_minuten = 15
+zitduur_minuten = 120
+max_gasten_tegelijk = 10
+max_personen_per_boeking = 6
+min_minuten_vooraf = 60
+max_dagen_vooruit = 90
+
+[reserveringen.openingstijden]
+maandag = []
+dinsdag = [["17:00", "21:00"]]
+woensdag = [["17:00", "21:00"]]
+donderdag = [["17:00", "21:00"]]
+vrijdag = [["17:00", "21:00"]]
+zaterdag = [["17:00", "21:00"]]
+zondag = [["17:00", "21:00"]]

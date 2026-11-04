@@ -1,0 +1,22 @@
+# Waroeng Padang Lapek, vestiging Den Haag (Schoolstraat 35).
+# Render: RESTAURANT_CONFIG=restaurants/wpl.toml
+
+[reserveringen]
+tijdzone = "Europe/Amsterdam"
+slot_minuten = 15              # gasten kiezen een tijd per 15 minuten
+zitduur_minuten = 90           # anderhalf uur per reservering
+max_gasten_tegelijk = 69       # zitplaatsen in Den Haag
+max_personen_per_boeking = 8   # grotere groepen bellen het restaurant
+min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
+max_dagen_vooruit = 90
+sluitingsdagen = []            # nog geen vaste sluitingsdagen
+
+# Open di t/m zo 12:00-21:00. Met 90 minuten zitduur is 19:30 de laatste begintijd.
+[reserveringen.openingstijden]
+maandag = []
+dinsdag = [["12:00", "19:30"]]
+woensdag = [["12:00", "19:30"]]
+donderdag = [["12:00", "19:30"]]
+vrijdag = [["12:00", "19:30"]]
+zaterdag = [["12:00", "19:30"]]
+zondag = [["12:00", "19:30"]]
