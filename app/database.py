@@ -99,7 +99,8 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-def _minuten(tijd):
+def minuten_van(tijd):
+    """'19:30' wordt 1170: minuten sinds middernacht."""
     uur, minuut = str(tijd).split(':')[:2]
     return int(uur) * 60 + int(minuut)
 
@@ -164,7 +165,7 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
                 {'sleutel': reservering['datum']}  # zelfde sleutel als verwerk_reservering
             )
 
-        start = _minuten(reservering['tijd'])
+        start = minuten_van(reservering['tijd'])
         anderen = conn.execute(
             select(tafeltoewijzingen.c.tafel, reserveringen.c.tijd)
             .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
@@ -174,7 +175,7 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
             )
         )
         for rij in anderen:
-            if rij.tafel in tafels and abs(_minuten(rij.tijd) - start) < zitduur_minuten:
+            if rij.tafel in tafels and abs(minuten_van(rij.tijd) - start) < zitduur_minuten:
                 raise TafelBezetFout(rij.tafel, rij.tijd)
 
         conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
@@ -270,12 +271,12 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
             ).scalar() or 0
         else:
             bestaande = [
-                (_minuten(rij.tijd), rij.aantal)
+                (minuten_van(rij.tijd), rij.aantal)
                 for rij in conn.execute(
                     select(reserveringen.c.tijd, reserveringen.c.aantal).where(reserveringen.c.datum == datum)
                 )
             ]
-            huidige_gasten = piekbezetting(bestaande, _minuten(tijd), zitduur_minuten)
+            huidige_gasten = piekbezetting(bestaande, minuten_van(tijd), zitduur_minuten)
 
         if huidige_gasten + aantal > max_capaciteit:
             raise CapaciteitVolFout(max_capaciteit - huidige_gasten)

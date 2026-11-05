@@ -7,6 +7,11 @@
         <p class="text-xs text-slate-500 mt-0.5">Bekijk, filter en beheer alle binnengekomen reserveringen.</p>
     </div>
     <div class="flex items-center gap-4">
+        {% if config.PLATTEGROND %}
+        <a href="/plattegrond{{ '?datum=' ~ gekozen_datum if gekozen_datum else '' }}" class="inline-flex items-center text-xs font-semibold text-slate-900 hover:underline">
+            Plattegrond
+        </a>
+        {% endif %}
         <a href="/" class="inline-flex items-center text-xs font-medium text-slate-600 hover:text-slate-900 transition">
             ← Terug naar reserveringsformulier
         </a>
