@@ -1,13 +1,16 @@
+import re
+from datetime import date, time
+
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, current_app
+from flask import Blueprint, abort, render_template, request, jsonify, redirect, url_for, session, current_app
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
 from app.database import (
     get_db, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
-    haal_personeel_op, haal_reserveringen_op, haal_reservering_op,
-    verwijder_reservering as db_verwijder_reservering,
+    haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
+    minuten_van, verwijder_reservering as db_verwijder_reservering,
 )
 from app.schemas import NAAM_MELDING, TELEFOON_MELDING, ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
@@ -16,6 +19,9 @@ from app.reserveringsregels import RegelFout
 
 web_bp = Blueprint('web', __name__)
 web_bp.before_request(valideer_csrf)
+
+TIJD_PATROON = re.compile(r'\d{2}:\d{2}')
+HOKJE = 48  # pixels per hokje op de plattegrond
 
 @web_bp.route('/')
 def home():
@@ -94,6 +100,56 @@ def overzicht():
     gekozen_datum = request.args.get('datum')
     reserveringen = haal_reserveringen_op(conn, gekozen_datum)
     return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum)
+
+def _kies_moment(regels, datum_tekst, tijd_tekst):
+    """
+    Datum en tijd voor de plattegrond. Zonder datum: vandaag (in de tijdzone van het restaurant).
+    Zonder tijd: nu als het vandaag is, anders het begin van de eerste openingstijd die dag.
+    Geeft None bij een ongeldige datum of tijd.
+    """
+    nu = regels.nu()
+    try:
+        dag = date.fromisoformat(datum_tekst) if datum_tekst else nu.date()
+        if tijd_tekst:
+            if not TIJD_PATROON.fullmatch(tijd_tekst):
+                return None
+            tijdstip = time.fromisoformat(tijd_tekst)
+        elif dag == nu.date():
+            tijdstip = time(nu.hour, nu.minute)
+        else:
+            blokken = regels.blokken_op(dag)
+            tijdstip = blokken[0].van if blokken else time(12, 0)
+    except ValueError:
+        return None
+    return dag.isoformat(), f"{tijdstip:%H:%M}"
+
+@web_bp.route('/plattegrond')
+def plattegrond():
+    if not session.get('ingelogd'):
+        return redirect(url_for('web.login'))
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    regels = current_app.config['REGELS']
+    moment = _kies_moment(regels, request.args.get('datum'), request.args.get('tijd'))
+    if moment is None:
+        return "Ongeldige datum of tijd.", 400
+    datum, tijd = moment
+
+    conn = get_db()
+    lijst = haal_reserveringen_op(conn, datum)
+    toewijzingen = haal_toewijzingen_op(conn, datum)
+    start = minuten_van(tijd)
+    zitduur = regels.zitduur_minuten
+    aan_tafel = [r for r in lijst if minuten_van(r['tijd']) <= start < minuten_van(r['tijd']) + zitduur]
+    bezet = {tafel: r for r in aan_tafel for tafel in toewijzingen.get(r['id'], [])}
+
+    return render_template(
+        'plattegrond.html', indeling=indeling, datum=datum, tijd=tijd, zitduur=zitduur,
+        reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet,
+        aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE,
+    )
 
 @web_bp.route('/reservering', methods=['POST'])
 @rate_limit('reservering', 10, 600, json_response=True)
