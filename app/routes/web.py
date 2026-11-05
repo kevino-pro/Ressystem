@@ -9,7 +9,7 @@ from app.database import (
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op,
     verwijder_reservering as db_verwijder_reservering,
 )
-from app.schemas import ReserveringSchema
+from app.schemas import NAAM_MELDING, TELEFOON_MELDING, ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
@@ -106,7 +106,12 @@ def nieuwe_reservering():
         valid_data = ReserveringSchema(**json_data)
     except ValidationError as error:
         fields = sorted({str(issue["loc"][0]) for issue in error.errors() if issue.get("loc")})
-        return jsonify({"status": "fout", "bericht": "Datavalidatie mislukt", "velden": fields}), 422
+        bericht = "Datavalidatie mislukt"
+        if "telefoon" in fields:
+            bericht = TELEFOON_MELDING
+        elif "naam" in fields:
+            bericht = NAAM_MELDING
+        return jsonify({"status": "fout", "bericht": bericht, "velden": fields}), 422
 
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
