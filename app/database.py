@@ -7,6 +7,7 @@ from sqlalchemy import (
     MetaData, Table, Column, Text, Integer, DateTime,
     create_engine, event, select, insert, delete, func, text,
 )
+from app.normalisatie import normaliseer_email, normaliseer_telefoon
 
 # Eén proces-brede engine; SQLAlchemy beheert zelf de connectie-pool per dialect.
 _engine = None
@@ -37,6 +38,20 @@ class CapaciteitVolFout(Exception):
     def __init__(self, vrij):
         self.vrij = vrij
         super().__init__(f"Geen capaciteit: nog {vrij} plek(ken) vrij.")
+
+MAANDEN = ("januari", "februari", "maart", "april", "mei", "juni", "juli",
+           "augustus", "september", "oktober", "november", "december")
+
+class DubbeleReserveringFout(Exception):
+    """Deze gast heeft al een reservering op dezelfde datum en tijd. `bericht` is geschikt voor de gast."""
+    def __init__(self, datum, tijd):
+        dag = date.fromisoformat(datum)
+        self.bericht = (
+            f"Je hebt al een reservering op {dag.day} {MAANDEN[dag.month - 1]} om {tijd}. "
+            "Die staat genoteerd, je hoeft niets opnieuw te doen. Wil je iets wijzigen? "
+            "Gebruik de link in je bevestigingsmail of bel het restaurant."
+        )
+        super().__init__(self.bericht)
 
 def init_db_pool(app):
     """
@@ -93,6 +108,29 @@ def piekbezetting(bestaande, start, zitduur):
         for moment in momenten
     )
 
+def is_zelfde_gast(a, b):
+    """
+    True als twee reserveringen (mappings met email en telefoon) bij dezelfde gast horen:
+    hetzelfde e-mailadres of telefoonnummer, na normalisatie. De naam telt niet mee:
+    twee verschillende gasten kunnen dezelfde naam hebben.
+    """
+    return (
+        normaliseer_email(a['email']) == normaliseer_email(b['email'])
+        or normaliseer_telefoon(a['telefoon']) == normaliseer_telefoon(b['telefoon'])
+    )
+
+def _heeft_al_reservering(conn, gast, datum, tijd):
+    """
+    Zoekt een bestaande reservering van dezelfde gast op exact dezelfde datum en tijd.
+    Vergelijkt in Python in plaats van in SQL, zodat het op SQLite en Postgres precies gelijk werkt.
+    """
+    bestaande = conn.execute(
+        select(reserveringen.c.naam, reserveringen.c.email, reserveringen.c.telefoon).where(
+            reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
+        )
+    ).mappings()
+    return any(is_zelfde_gast(rij, gast) for rij in bestaande)
+
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
@@ -101,6 +139,10 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     Met `zitduur_minuten` telt elke reservering zo lang mee: `max_capaciteit` is dan het
     maximale aantal gasten tegelijk aan tafel. Zonder zitduur (None) tellen alleen
     reserveringen op exact hetzelfde tijdstip mee (oud gedrag, nog gebruikt in tests).
+
+    Heeft dezelfde gast al een reservering op deze datum en tijd, dan volgt DubbeleReserveringFout.
+    Die controle draait binnen dezelfde lock als de capaciteit, zodat een herhaalde of gelijktijdige
+    poging nooit een tweede boeking oplevert.
 
     De check + insert moet atomisch zijn t.o.v. gelijktijdige boekingen op hetzelfde slot.
     SQLAlchemy Core abstraheert de queries zelf, maar de serialisatie-mechanismen verschillen
@@ -121,6 +163,9 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
                 text("SELECT pg_advisory_xact_lock(hashtext('reservering_slot'), hashtext(:sleutel))"),
                 {'sleutel': datum}  # per dag: met een zitduur overlappen tijden elkaar
             )
+
+        if _heeft_al_reservering(conn, {'naam': naam, 'email': email, 'telefoon': telefoon}, datum, tijd):
+            raise DubbeleReserveringFout(datum, tijd)
 
         if zitduur_minuten is None:
             huidige_gasten = conn.execute(

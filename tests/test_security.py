@@ -71,10 +71,10 @@ class SecurityTests(unittest.TestCase):
             init_db()
             ids = {
                 verwerk_reservering(
-                    get_db(), 100, naam="N", email="a@b.nl", telefoon="0612345678",
+                    get_db(), 100, naam=f"Gast {i}", email=f"gast{i}@b.nl", telefoon=f"061234567{i}",
                     datum="2030-01-01", tijd="18:00", aantal=2,
                 )
-                for _ in range(5)
+                for i in range(5)
             }
         self.assertEqual(len(ids), 5)
         self.assertTrue(all(len(i) >= 22 for i in ids))

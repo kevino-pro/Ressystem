@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify, current_app
 from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
-from app.database import get_db, verwerk_reservering, CapaciteitVolFout
+from app.database import get_db, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout
 from app.schemas import AIWebhookSchema, AIReserveringExtractieSchema
 from app.services.ai_service import sanitize_user_input, verwerk_tekst_met_anthropic
 from app.services.email_service import stuur_bevestigingsmail_async
@@ -140,6 +140,12 @@ def ai_webhook_reservering():
             aantal=reservation_data["aantal"],
             zitduur_minuten=regels.zitduur_minuten,
         )
+    except DubbeleReserveringFout as fout:
+        return jsonify({
+            "status": "fout",
+            "bericht": fout.bericht,
+            "geparsed_data": reservation_data
+        }), 409
     except CapaciteitVolFout as error:
         return jsonify({
             "status": "fout",

@@ -3,6 +3,7 @@ Tests die een echte Postgres nodig hebben. Ze draaien alleen als TEST_POSTGRES_U
 (in CI de job `postgres-tests`); lokaal worden ze overgeslagen.
 """
 import os
+import threading
 import unittest
 from datetime import date, timedelta
 
@@ -11,7 +12,9 @@ from sqlalchemy import func, insert, select
 import app.database as database
 from app import create_app
 from app.config import Config
-from app.database import CapaciteitVolFout, get_db, metadata, reserveringen, verwerk_reservering
+from app.database import (
+    CapaciteitVolFout, DubbeleReserveringFout, get_db, metadata, reserveringen, verwerk_reservering,
+)
 
 POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 
@@ -85,7 +88,7 @@ class PostgresTests(unittest.TestCase):
             conn = get_db()
             verwerk_reservering(conn, 4, "Jan", "a@example.com", "0612345678", "2030-01-01", "19:00", 3)
             with self.assertRaises(CapaciteitVolFout):
-                verwerk_reservering(conn, 4, "Piet", "b@example.com", "0612345678", "2030-01-01", "19:00", 2)
+                verwerk_reservering(conn, 4, "Piet", "b@example.com", "0687654321", "2030-01-01", "19:00", 2)
             with conn.begin():
                 totaal = conn.execute(select(func.sum(reserveringen.c.aantal))).scalar()
         self.assertEqual(totaal, 3)
@@ -100,6 +103,31 @@ class PostgresTests(unittest.TestCase):
                                     zitduur_minuten=120)
             verwerk_reservering(conn, 4, "Kees", "c@example.com", "0612345678", "2030-01-01", "21:00", 4,
                                 zitduur_minuten=120)
+
+    def test_gelijktijdige_dubbele_boeking_slaagt_maar_een_keer(self):
+        start = threading.Barrier(4)
+        uitkomsten = []
+
+        def poging():
+            with self.app.app_context():
+                start.wait()
+                try:
+                    verwerk_reservering(get_db(), 20, "Jan", "a@example.com", "0612345678",
+                                        "2030-01-01", "19:00", 2, zitduur_minuten=120)
+                    uitkomsten.append("opgeslagen")
+                except DubbeleReserveringFout:
+                    uitkomsten.append("dubbel")
+
+        threads = [threading.Thread(target=poging) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        self.assertEqual(sorted(uitkomsten), ["dubbel", "dubbel", "dubbel", "opgeslagen"])
+        with self.app.app_context():
+            conn = get_db()
+            with conn.begin():
+                self.assertEqual(conn.execute(select(func.count()).select_from(reserveringen)).scalar(), 1)
 
 
 if __name__ == "__main__":
