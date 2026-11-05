@@ -57,7 +57,7 @@ dus een tikfout in een restaurantbestand maakt de build rood voordat het live ga
 
 ## Beheercommando's
 
-De app kent vier handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
+De app kent vijf handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
 
 ### `flask create-admin`
 
@@ -77,6 +77,15 @@ Telt of verwijdert reserveringen die buiten de bewaartermijn (`RETENTIE_DAGEN_AV
 - **`--uitvoeren`:** verwijdert de gevonden reserveringen. Zonder deze vlag wordt er alleen geteld en verandert er niets.
 - **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend. Let op: `--productie` maakt ook bij het alleen tellen een echte databaseverbinding.
 - **Waarschuwing:** met `--uitvoeren` worden gegevens **definitief** verwijderd; deze actie is niet terug te draaien.
+
+### `flask dubbele-reserveringen`
+
+Toont toekomstige reserveringen die dubbel lijken: zelfde datum en tijd, en hetzelfde e-mailadres of telefoonnummer. Alleen dezelfde naam telt niet als dubbel.
+
+- **Aanroep:** `flask dubbele-reserveringen [--productie]`
+- **Alleen lezen:** het commando verwijdert niets. Per reservering toont het het id, de voornaam, de eerste drie tekens van het e-mailadres en de aanmaaktijd.
+- **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend.
+- **Opruimen:** handmatig via het personeelsoverzicht. Houd per groep de oudste, want die gast heeft de bevestigingsmail met de annuleerlink.
 
 ### `flask resend-mail`
 

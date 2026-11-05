@@ -195,6 +195,37 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
 
     return unieke_id
 
+def zoek_dubbele_reserveringen(conn, vanaf):
+    """
+    Alleen lezen: groepen reserveringen vanaf `vanaf` ('YYYY-MM-DD') die bij dezelfde gast op
+    dezelfde datum en tijd horen: hetzelfde e-mailadres of telefoonnummer volgens is_zelfde_gast.
+    De naam telt niet mee, net als bij het boeken. Elke groep is een lijst rijen, oudste eerst.
+    """
+    with conn.begin():
+        rijen = conn.execute(
+            select(reserveringen).where(reserveringen.c.datum >= vanaf).order_by(
+                reserveringen.c.datum, reserveringen.c.tijd, reserveringen.c.aangemaakt_op, reserveringen.c.id
+            )
+        ).mappings().all()
+    per_tijdstip = {}
+    for rij in rijen:
+        per_tijdstip.setdefault((rij['datum'], rij['tijd']), []).append(rij)
+    groepen = []
+    for rijen_op_tijdstip in per_tijdstip.values():
+        restant = list(rijen_op_tijdstip)
+        while restant:
+            groep = [restant.pop(0)]
+            # Blijf aanvullen: A en C kunnen via B bij elkaar horen (zelfde mail, dan zelfde telefoon).
+            gevonden = True
+            while gevonden:
+                gevonden = [r for r in restant if any(is_zelfde_gast(r, g) for g in groep)]
+                for r in gevonden:
+                    restant.remove(r)
+                groep.extend(gevonden)
+            if len(groep) > 1:
+                groepen.append(groep)
+    return groepen
+
 def haal_personeel_op(conn, gebruikersnaam):
     with conn.begin():
         return conn.execute(

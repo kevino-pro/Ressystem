@@ -1,5 +1,6 @@
 # app/__init__.py
 import logging
+from datetime import date
 from pathlib import Path
 import click
 from flask import Flask
@@ -10,6 +11,7 @@ from app.config import Config
 from app.database import (
     init_db_pool, close_db, init_db, get_db, haal_reservering_op,
     controleer_dialect, dialect_uit_config, maak_gebruiker, tel_of_schoon_oude_reserveringen,
+    zoek_dubbele_reserveringen,
     ProductieVlagVereist,
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
@@ -104,6 +106,31 @@ def create_app(config_class=Config):
             click.echo(f"{aantal} reservering(en) verwijderd.")
         else:
             click.echo(f"{aantal} reservering(en) zouden worden verwijderd (gebruik --uitvoeren).")
+
+    @app.cli.command('dubbele-reserveringen')
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def dubbele_reserveringen_command(productie):
+        """Toon (alleen lezen) toekomstige reserveringen die dubbel lijken. Verwijdert niets."""
+        _guard(productie)
+        try:
+            groepen = zoek_dubbele_reserveringen(get_db(), date.today().isoformat())
+        except SQLAlchemyError:
+            app.logger.error("dubbele-reserveringen mislukt door een databasefout.")
+            raise click.ClickException("Zoeken mislukt door een databasefout.")
+        if not groepen:
+            click.echo("Geen dubbele reserveringen gevonden.")
+            return
+        for groep in groepen:
+            eerste = groep[0]
+            click.echo(f"{eerste['datum']} {eerste['tijd']}: {len(groep)} reserveringen")
+            for rij in groep:
+                # Geen volledige persoonsgegevens in de terminal of logs: voornaam en begin van het e-mailadres.
+                voornaam = rij['naam'].split()[0] if rij['naam'].split() else '?'
+                click.echo(
+                    f"  id={rij['id']}  {voornaam}  {rij['email'][:3]}***  {rij['aantal']} pers.  "
+                    f"aangemaakt {rij['aangemaakt_op']}"
+                )
+        click.echo(f"{len(groepen)} groep(en). Houd per groep de oudste; verwijder de rest via het personeelsoverzicht.")
 
     @app.cli.command('resend-mail')
     @click.argument('reservering_id')
