@@ -16,6 +16,7 @@ from app.database import (
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
+from app.plattegrond import laad_plattegrond
 
 MIN_WACHTWOORD_LENGTE = 12
 
@@ -39,6 +40,7 @@ def create_app(config_class=Config):
     if not regels_pad.is_absolute():
         regels_pad = Path(app.root_path).parent / regels_pad
     app.config['REGELS'] = laad_regels(regels_pad)
+    app.config['PLATTEGROND'] = laad_plattegrond(regels_pad)  # None als het bestand geen [plattegrond] heeft
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)

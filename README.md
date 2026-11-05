@@ -55,6 +55,16 @@ Alle velden staan onder `[reserveringen]`:
 De test `test_alle_restaurantbestanden_zijn_geldig` laadt in CI elk bestand in `restaurants/`,
 dus een tikfout in een restaurantbestand maakt de build rood voordat het live gaat.
 
+## Plattegrond voor het personeel
+
+Een restaurantbestand kan een sectie `[plattegrond]` hebben. Dan krijgt het personeel na inloggen een plattegrond waarop het reserveringen aan tafels kan toewijzen. Zonder die sectie werkt alles zoals voorheen en is er geen plattegrond. Gasten zien de plattegrond nooit.
+
+- **Raster:** `kolommen` en `rijen` bepalen de grootte. Elke tafel en elk element staat op `kolom` en `rij` (vanaf 0, linksboven) met een `breedte` en `hoogte` in hokjes (standaard 1).
+- **Tafels:** `nummer` (letters en cijfers, zoals het personeel het zegt), `stoelen` (1 tot 20) en optioneel `vorm = "rond"`.
+- **Elementen:** vaste dingen zonder stoelen, zoals de bar, een paal of de ingang. Alleen voor de tekening.
+- **Combinaties:** groepen tafels die vaak aan elkaar geschoven worden. Elke tafel mag in hoogstens één groep staan.
+- **Controle:** tafels en elementen mogen niet overlappen of buiten het raster vallen. Een fout laat de app niet starten; de tests controleren elk bestand in `restaurants/`.
+
 ## Beheercommando's
 
 De app kent vijf handmatige beheercommando's, aan te roepen via `flask <naam>`. Voer ze uit vanuit een terminal waar de databaseconfiguratie van de app is ingesteld.
