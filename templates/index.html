@@ -46,7 +46,9 @@
                 <div>
                     <label for="telefoon"
                         class="block text-xs font-semibold text-slate-600 uppercase mb-1">Telefoonnummer *</label>
-                    <input type="tel" id="telefoon" required minlength="8" maxlength="20" placeholder="0612345678"
+                    <input type="tel" id="telefoon" required minlength="9" maxlength="20" placeholder="0612345678"
+                        inputmode="tel" pattern="\+?[0-9][0-9 \-]*"
+                        title="Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678."
                         class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
                 </div>
             </div>
@@ -157,13 +159,8 @@
                 window.location.href = '/bevestiging';
             } else {
                 // Toon foutmelding van de backend (Pydantic / Capaciteit / Database)
-                let errorMsg = result.bericht || "Er is een fout opgetreden bij het verzenden.";
-                if (result.details && Array.isArray(result.details)) {
-                    // Als Pydantic specifieke veldfouten teruggeeft
-                    errorMsg = result.details.map(err => `${err.loc.join('.')}: ${err.msg}`).join('<br>');
-                }
-
-                alertBox.innerHTML = errorMsg;
+                // textContent: meldingen van de server worden nooit als HTML uitgevoerd
+                alertBox.textContent = result.bericht || "Er is een fout opgetreden bij het verzenden.";
                 alertBox.classList.remove('hidden');
                 alertBox.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
             }

@@ -1,8 +1,17 @@
 import re
+import unicodedata
 from datetime import date, time
 from typing import Annotated, Literal, Optional
 
 from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, EmailStr, Field, PlainSerializer
+
+from app.normalisatie import telefoon_cijfers
+
+TELEFOON_PATROON = re.compile(r"\+?[0-9][0-9 \-]*")
+MIN_TELEFOON_CIJFERS = 9
+MAX_TELEFOON_CIJFERS = 15
+TELEFOON_MELDING = "Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678."
+NAAM_MELDING = "Vul je naam in."
 
 
 def _validate_iso_date(value: object) -> object:
@@ -21,12 +30,37 @@ def _serialize_iso_time(value: time) -> str:
     return value.strftime("%H:%M")
 
 
+def _validate_telefoon(value: object) -> object:
+    """Cijfers, spaties en koppeltekens, optioneel een + vooraan; 9 tot 15 cijfers."""
+    if not isinstance(value, str):
+        raise ValueError(TELEFOON_MELDING)
+    value = value.strip()
+    aantal_cijfers = len(telefoon_cijfers(value))
+    if not TELEFOON_PATROON.fullmatch(value) or not MIN_TELEFOON_CIJFERS <= aantal_cijfers <= MAX_TELEFOON_CIJFERS:
+        raise ValueError(TELEFOON_MELDING)
+    return value
+
+
+def _validate_naam(value: object) -> object:
+    """Spaties aan de randen en dubbele spaties weg; minstens een letter, geen stuurtekens."""
+    if not isinstance(value, str):
+        raise ValueError(NAAM_MELDING)
+    value = " ".join(value.split())
+    if not any(teken.isalpha() for teken in value):
+        raise ValueError(NAAM_MELDING)
+    if any(unicodedata.category(teken).startswith("C") for teken in value):
+        raise ValueError(NAAM_MELDING)
+    return value
+
+
 ISODate = Annotated[date, BeforeValidator(_validate_iso_date)]
 ISOTime = Annotated[
     time,
     BeforeValidator(_validate_iso_time),
     PlainSerializer(_serialize_iso_time, return_type=str, when_used="json"),
 ]
+Telefoon = Annotated[str, BeforeValidator(_validate_telefoon), Field(max_length=20)]
+Naam = Annotated[str, BeforeValidator(_validate_naam), Field(min_length=2, max_length=100)]
 
 
 class DTO(BaseModel):
@@ -34,9 +68,9 @@ class DTO(BaseModel):
 
 
 class ReserveringSchema(DTO):
-    naam: str = Field(..., min_length=2, max_length=100)
+    naam: Naam
     email: EmailStr
-    telefoon: str = Field(..., min_length=8, max_length=20)
+    telefoon: Telefoon
     datum: ISODate
     tijd: ISOTime
     aantal: int = Field(..., ge=1, le=20, validation_alias=AliasChoices("aantal", "aantal_personen"))
@@ -50,9 +84,9 @@ class AIWebhookSchema(DTO):
 
 
 class AIReserveringExtractieSchema(DTO):
-    naam: Optional[str] = Field(default=None, min_length=2, max_length=100, description="Volledige naam van de gast")
+    naam: Optional[Naam] = Field(default=None, description="Volledige naam van de gast")
     email: Optional[EmailStr] = Field(default=None, description="E-mailadres van de gast")
-    telefoon: Optional[str] = Field(default=None, min_length=8, max_length=20, description="Telefoonnummer van de gast")
+    telefoon: Optional[Telefoon] = Field(default=None, description="Telefoonnummer van de gast")
     datum: Optional[ISODate] = Field(default=None, description="Reserveringsdatum in YYYY-MM-DD formaat")
     tijd: Optional[ISOTime] = Field(default=None, description="Tijdstip in HH:MM-formaat (24-uurs)")
     aantal: Optional[int] = Field(default=None, ge=1, le=20, description="Aantal personen als geheel getal")
