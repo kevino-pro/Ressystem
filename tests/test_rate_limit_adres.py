@@ -4,7 +4,7 @@ from unittest import mock
 
 from app import create_app
 from app.config import Config
-from app.database import init_db
+from app.database import get_db, init_db, reserveringen
 from app.security import reset_rate_limits
 
 
@@ -20,10 +20,10 @@ class TestConfig(Config):
     RESTAURANT_CONFIG = "tests/fixtures/restaurant_test.toml"
 
 
-def payload(email, datum="2030-01-01"):
+def payload(email, datum="2030-01-01", tijd="18:00"):
     return {
         "naam": "Test Gast", "email": email, "telefoon": "0612345678",
-        "datum": datum, "tijd": "18:00", "aantal": 1, "privacy_akkoord": True,
+        "datum": datum, "tijd": tijd, "aantal": 1, "privacy_akkoord": True,
     }
 
 
@@ -33,6 +33,9 @@ class AdresLimietTests(unittest.TestCase):
         self.app = create_app(TestConfig)
         with self.app.app_context():
             init_db()
+            conn = get_db()
+            with conn.begin():  # de :memory:-database wordt gedeeld tussen tests
+                conn.execute(reserveringen.delete())
         self.client = self.app.test_client()
         html = self.client.get("/login").get_data(as_text=True)
         self.headers = {"X-CSRF-Token": re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)}
@@ -41,7 +44,10 @@ class AdresLimietTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def _post(self, email):
-        return self.client.post("/reservering", json=payload(email), headers=self.headers)
+        # Elke poging op een eigen tijd, anders telt de tweede als dubbele boeking.
+        self._pogingen = getattr(self, "_pogingen", 0) + 1
+        tijd = f"{17 + self._pogingen // 4:02d}:{(self._pogingen % 4) * 15:02d}"
+        return self.client.post("/reservering", json=payload(email, tijd=tijd), headers=self.headers)
 
     def test_vierde_verzoek_zelfde_adres_geeft_429(self):
         for _ in range(3):

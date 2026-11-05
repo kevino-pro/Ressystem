@@ -5,7 +5,7 @@ from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
 from app.database import (
-    get_db, verwerk_reservering, CapaciteitVolFout,
+    get_db, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op,
     verwijder_reservering as db_verwijder_reservering,
 )
@@ -133,6 +133,8 @@ def nieuwe_reservering():
             datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
             zitduur_minuten=regels.zitduur_minuten,
         )
+    except DubbeleReserveringFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 409
     except CapaciteitVolFout as e:
         return jsonify({
             "status": "fout",
