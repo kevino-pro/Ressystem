@@ -13,8 +13,10 @@ import app.database as database
 from app import create_app
 from app.config import Config
 from app.database import (
-    CapaciteitVolFout, DubbeleReserveringFout, get_db, metadata, reserveringen, verwerk_reservering,
+    CapaciteitVolFout, DubbeleReserveringFout, TafelBezetFout, get_db, metadata, reserveringen,
+    tafeltoewijzingen, verwerk_reservering, wijs_tafels_toe,
 )
+from app.plattegrond import Plattegrond
 
 POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
 
@@ -50,6 +52,7 @@ class PostgresTests(unittest.TestCase):
             metadata.create_all(conn)
             conn.commit()
             with conn.begin():
+                conn.execute(tafeltoewijzingen.delete())
                 conn.execute(reserveringen.delete())
         self.runner = self.app.test_cli_runner()
 
@@ -128,6 +131,40 @@ class PostgresTests(unittest.TestCase):
             conn = get_db()
             with conn.begin():
                 self.assertEqual(conn.execute(select(func.count()).select_from(reserveringen)).scalar(), 1)
+
+
+    def test_gelijktijdig_dezelfde_tafel_slaagt_maar_een_keer(self):
+        plattegrond = Plattegrond.model_validate({
+            "kolommen": 2, "rijen": 1,
+            "tafels": [{"nummer": "1", "stoelen": 4, "kolom": 0, "rij": 0}],
+        })
+        ids = []
+        with self.app.app_context():
+            for i, tijd in enumerate(["19:00", "19:15", "19:30", "19:45"]):
+                ids.append(verwerk_reservering(get_db(), 20, f"Gast {i}", f"g{i}@example.com",
+                                               "0612345678", "2030-01-01", tijd, 2, zitduur_minuten=90))
+        start = threading.Barrier(len(ids))
+        uitkomsten = []
+
+        def poging(reservering_id):
+            with self.app.app_context():
+                start.wait()
+                try:
+                    wijs_tafels_toe(get_db(), reservering_id, ["1"], plattegrond, 90)
+                    uitkomsten.append("toegewezen")
+                except TafelBezetFout:
+                    uitkomsten.append("bezet")
+
+        threads = [threading.Thread(target=poging, args=(rid,)) for rid in ids]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        self.assertEqual(sorted(uitkomsten), ["bezet", "bezet", "bezet", "toegewezen"])
+        with self.app.app_context():
+            conn = get_db()
+            with conn.begin():
+                self.assertEqual(conn.execute(select(func.count()).select_from(tafeltoewijzingen)).scalar(), 1)
 
 
 if __name__ == "__main__":
