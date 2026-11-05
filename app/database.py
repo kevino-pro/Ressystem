@@ -4,7 +4,7 @@ from flask import current_app, g
 from werkzeug.security import generate_password_hash
 from sqlalchemy.engine import make_url
 from sqlalchemy import (
-    MetaData, Table, Column, Text, Integer, DateTime,
+    MetaData, Table, Column, Text, Integer, DateTime, ForeignKey,
     create_engine, event, select, insert, delete, func, text,
 )
 from app.normalisatie import normaliseer_email, normaliseer_telefoon
@@ -24,6 +24,15 @@ reserveringen = Table(
     Column('tijd', Text, nullable=False),
     Column('aantal', Integer, nullable=False),
     Column('aangemaakt_op', DateTime, server_default=func.current_timestamp()),
+)
+
+# Welke tafel(s) bij een reservering horen. Een groep kan meerdere tafels krijgen.
+# De code verwijdert toewijzingen zelf mee met een reservering, want SQLite handhaaft
+# foreign keys standaard niet; ON DELETE CASCADE is een extra vangnet op Postgres.
+tafeltoewijzingen = Table(
+    'tafeltoewijzingen', metadata,
+    Column('reservering_id', Text, ForeignKey('reserveringen.id', ondelete='CASCADE'), primary_key=True),
+    Column('tafel', Text, primary_key=True),
 )
 
 personeel = Table(
@@ -107,6 +116,92 @@ def piekbezetting(bestaande, start, zitduur):
         sum(aantal for begin, aantal in bestaande if begin <= moment < begin + zitduur)
         for moment in momenten
     )
+
+class OnbekendeTafelFout(Exception):
+    """Een tafelnummer staat niet op de plattegrond."""
+    def __init__(self, tafels):
+        self.bericht = f"Onbekende tafel: {', '.join(tafels)}."
+        super().__init__(self.bericht)
+
+class TafelBezetFout(Exception):
+    """De tafel hoort al bij een andere reservering die in dezelfde zitduur valt."""
+    def __init__(self, tafel, tijd):
+        self.bericht = f"Tafel {tafel} is al toegewezen aan een reservering van {tijd}."
+        super().__init__(self.bericht)
+
+class GeenReserveringFout(Exception):
+    """De reservering bestaat niet (meer)."""
+    bericht = "Deze reservering bestaat niet meer. Ververs de pagina."
+
+def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
+    """
+    Zet de tafels van een reservering; wat er stond wordt vervangen, een lege lijst maakt haar los.
+    Weigert een tafel die al bij een andere reservering hoort die in dezelfde zitduur valt.
+    Geeft een waarschuwing terug als er minder stoelen zijn dan gasten, anders None.
+
+    Draait onder dezelfde daglock als verwerk_reservering, zodat twee mensen die tegelijk
+    dezelfde tafel toewijzen niet allebei slagen.
+    """
+    tafels = list(dict.fromkeys(tafels))  # dubbele weg, volgorde behouden
+    onbekend = [tafel for tafel in tafels if plattegrond.tafel(tafel) is None]
+    if onbekend:
+        raise OnbekendeTafelFout(onbekend)
+
+    dialect = conn.engine.dialect.name
+    if dialect == 'sqlite':
+        conn.info['exclusieve_lock'] = True
+
+    with conn.begin():
+        reservering = conn.execute(
+            select(reserveringen).where(reserveringen.c.id == reservering_id)
+        ).mappings().first()
+        if reservering is None:
+            raise GeenReserveringFout()
+        if dialect == 'postgresql':
+            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+            conn.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext('reservering_slot'), hashtext(:sleutel))"),
+                {'sleutel': reservering['datum']}  # zelfde sleutel als verwerk_reservering
+            )
+
+        start = _minuten(reservering['tijd'])
+        anderen = conn.execute(
+            select(tafeltoewijzingen.c.tafel, reserveringen.c.tijd)
+            .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
+            .where(
+                reserveringen.c.datum == reservering['datum'],
+                tafeltoewijzingen.c.reservering_id != reservering_id,
+            )
+        )
+        for rij in anderen:
+            if rij.tafel in tafels and abs(_minuten(rij.tijd) - start) < zitduur_minuten:
+                raise TafelBezetFout(rij.tafel, rij.tijd)
+
+        conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
+        if tafels:
+            conn.execute(
+                insert(tafeltoewijzingen),
+                [{'reservering_id': reservering_id, 'tafel': tafel} for tafel in tafels],
+            )
+
+    stoelen = sum(plattegrond.tafel(tafel).stoelen for tafel in tafels)
+    if tafels and stoelen < reservering['aantal']:
+        return f"Let op: {stoelen} stoelen voor {reservering['aantal']} gasten."
+    return None
+
+def haal_toewijzingen_op(conn, datum):
+    """Tafels per reservering op deze datum: {reservering_id: [tafel, ...]}."""
+    with conn.begin():
+        rijen = conn.execute(
+            select(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+            .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
+            .where(reserveringen.c.datum == datum)
+            .order_by(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+        ).all()
+    toewijzingen = {}
+    for reservering_id, tafel in rijen:
+        toewijzingen.setdefault(reservering_id, []).append(tafel)
+    return toewijzingen
 
 def is_zelfde_gast(a, b):
     """
@@ -249,6 +344,7 @@ def haal_reservering_op(conn, reservering_id):
 
 def verwijder_reservering(conn, reservering_id):
     with conn.begin():
+        conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
         conn.execute(delete(reserveringen).where(reserveringen.c.id == reservering_id))
 
 def _retentiegrens():
@@ -260,11 +356,17 @@ def _retentiegrens():
     retentie_dagen = int(current_app.config['RETENTIE_DAGEN_AVG'])
     return (date.today() - timedelta(days=retentie_dagen)).isoformat()
 
+def _verwijder_ouder_dan(conn, grens):
+    """Verwijdert reserveringen (en hun tafeltoewijzingen) met een datum voor `grens`."""
+    oude_ids = select(reserveringen.c.id).where(reserveringen.c.datum < grens)
+    conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id.in_(oude_ids)))
+    conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+
 def schonen_oude_reserveringen():
     conn = get_db()
     grens = _retentiegrens()
     with conn.begin():
-        conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+        _verwijder_ouder_dan(conn, grens)
 
 def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
     """Telt reserveringen buiten de bewaartermijn en verwijdert ze alleen als `uitvoeren` True is."""
@@ -274,7 +376,7 @@ def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
             select(func.count()).select_from(reserveringen).where(reserveringen.c.datum < grens)
         ).scalar()
         if uitvoeren and aantal:
-            conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+            _verwijder_ouder_dan(conn, grens)
     return aantal
 
 def maak_gebruiker(conn, gebruikersnaam, wachtwoord):
