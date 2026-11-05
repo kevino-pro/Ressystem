@@ -9,8 +9,9 @@ from pydantic import ValidationError
 
 from app.database import (
     get_db, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
+    GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
-    minuten_van, verwijder_reservering as db_verwijder_reservering,
+    minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
 )
 from app.schemas import NAAM_MELDING, TELEFOON_MELDING, ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
@@ -99,7 +100,9 @@ def overzicht():
     conn = get_db()
     gekozen_datum = request.args.get('datum')
     reserveringen = haal_reserveringen_op(conn, gekozen_datum)
-    return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum)
+    toewijzingen = haal_toewijzingen_op(conn, gekozen_datum) if current_app.config.get('PLATTEGROND') else {}
+    return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum,
+                           toewijzingen=toewijzingen)
 
 def _kies_moment(regels, datum_tekst, tijd_tekst):
     """
@@ -150,6 +153,38 @@ def plattegrond():
         reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet,
         aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE,
     )
+
+@web_bp.route('/plattegrond/toewijzen', methods=['POST'])
+def tafels_toewijzen():
+    if not session.get('ingelogd'):
+        return jsonify({"status": "fout", "bericht": "Je bent uitgelogd. Log opnieuw in."}), 401
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    reservering_id = data.get('reservering_id')
+    tafels = data.get('tafels')
+    if (not isinstance(reservering_id, str) or not isinstance(tafels, list)
+            or len(tafels) > len(indeling.tafels) or not all(isinstance(t, str) for t in tafels)):
+        return jsonify({"status": "fout", "bericht": "Ongeldig verzoek."}), 400
+
+    try:
+        waarschuwing = wijs_tafels_toe(
+            get_db(), reservering_id, tafels, indeling, current_app.config['REGELS'].zitduur_minuten
+        )
+    except OnbekendeTafelFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
+    except GeenReserveringFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 404
+    except TafelBezetFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 409
+    except OperationalError:
+        current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
+        return jsonify({"status": "fout", "bericht": "Het lukte niet om op te slaan. Probeer het opnieuw."}), 503
+    return jsonify({"status": "succes", "bericht": "Opgeslagen.", "waarschuwing": waarschuwing}), 200
 
 @web_bp.route('/reservering', methods=['POST'])
 @rate_limit('reservering', 10, 600, json_response=True)

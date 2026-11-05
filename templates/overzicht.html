@@ -53,6 +53,7 @@
                     <th class="py-3 px-4">E-mail</th>
                     <th class="py-3 px-4">Telefoon</th>
                     <th class="py-3 px-4 text-center">Aantal</th>
+                    {% if config.PLATTEGROND %}<th class="py-3 px-4">Tafel</th>{% endif %}
                     <th class="py-3 px-4 text-right">Acties</th>
                 </tr>
             </thead>
@@ -74,6 +75,12 @@
                             {{ r.aantal }}
                         </span>
                     </td>
+                    {% if config.PLATTEGROND %}
+                    <td class="py-3 px-4 whitespace-nowrap">
+                        {% if toewijzingen.get(r.id) %}{{ toewijzingen[r.id] | join(' + ') }}{% else %}<span class="text-amber-700">geen</span>{% endif %}
+                    </td>
+                    {% endif %}
+
                     <td class="py-3 px-4 text-right whitespace-nowrap">
                         <form action="/verwijder/{{ r.id }}" method="POST"
                             data-bericht="Weet je zeker dat je deze reservering van {{ r.naam }} wilt verwijderen?"
@@ -89,7 +96,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="py-8 text-center text-slate-400 italic">
+                    <td colspan="{{ 8 if config.PLATTEGROND else 7 }}" class="py-8 text-center text-slate-400 italic">
                         {% if gekozen_datum %}
                         Geen reserveringen gevonden voor <strong>{{ gekozen_datum }}</strong>.
                         {% else %}
