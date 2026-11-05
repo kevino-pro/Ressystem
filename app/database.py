@@ -190,15 +190,17 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
         return f"Let op: {stoelen} stoelen voor {reservering['aantal']} gasten."
     return None
 
-def haal_toewijzingen_op(conn, datum):
-    """Tafels per reservering op deze datum: {reservering_id: [tafel, ...]}."""
+def haal_toewijzingen_op(conn, datum=None):
+    """Tafels per reservering op deze datum (of alle datums bij None): {reservering_id: [tafel, ...]}."""
+    query = (
+        select(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+        .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
+        .order_by(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+    )
+    if datum:
+        query = query.where(reserveringen.c.datum == datum)
     with conn.begin():
-        rijen = conn.execute(
-            select(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
-            .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
-            .where(reserveringen.c.datum == datum)
-            .order_by(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
-        ).all()
+        rijen = conn.execute(query).all()
     toewijzingen = {}
     for reservering_id, tafel in rijen:
         toewijzingen.setdefault(reservering_id, []).append(tafel)

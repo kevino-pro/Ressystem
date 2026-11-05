@@ -55,7 +55,8 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 lg:w-80">
-        <h3 class="text-sm font-bold text-slate-900 mb-2">Reserveringen op {{ datum }}</h3>
+        <h3 class="text-sm font-bold text-slate-900">Reserveringen op {{ datum }}</h3>
+        <p class="text-xs text-slate-500 mb-2">Klik op een reservering en daarna op de tafels.</p>
         <ul id="reserveringen" class="divide-y divide-slate-100 text-xs">
             {% for r in reserveringen %}
             {% set tafels = toewijzingen.get(r.id, []) %}
@@ -75,7 +76,104 @@
             <li class="py-4 text-center text-slate-400 italic">Geen reserveringen op deze dag.</li>
             {% endfor %}
         </ul>
+        <div id="toewijzen" class="hidden mt-3 border-t border-slate-200 pt-3 text-xs">
+            <p class="font-semibold text-slate-900" id="toewijzen-titel"></p>
+            <p class="text-slate-600 mt-1">Klik op tafels om ze aan of uit te zetten.</p>
+            <p class="text-slate-900 mt-1" id="toewijzen-keuze"></p>
+            <p class="text-red-700 font-medium mt-1" id="toewijzen-melding" role="alert"></p>
+            <div class="flex gap-2 mt-2">
+                <button type="button" id="toewijzen-opslaan" class="px-3 py-1.5 bg-slate-900 text-white font-medium rounded-lg">Opslaan</button>
+                <button type="button" id="toewijzen-annuleren" class="px-3 py-1.5 border border-slate-300 rounded-lg">Annuleren</button>
+            </div>
+        </div>
     </div>
 </div>
 </div>
+
+<script>
+(function () {
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const paneel = document.getElementById('toewijzen');
+    const titel = document.getElementById('toewijzen-titel');
+    const keuze = document.getElementById('toewijzen-keuze');
+    const melding = document.getElementById('toewijzen-melding');
+    const opslaan = document.getElementById('toewijzen-opslaan');
+    let actief = null;      // het <li> van de gekozen reservering
+    let gekozen = new Set();  // tafelnummers
+
+    function vorm(tafel) { return tafel.querySelector('rect, ellipse'); }
+
+    function teken() {
+        let stoelen = 0;
+        document.querySelectorAll('#plattegrond .tafel').forEach(function (tafel) {
+            const aan = gekozen.has(tafel.dataset.tafel);
+            if (aan) { stoelen += Number(tafel.dataset.stoelen); }
+            vorm(tafel).setAttribute('stroke', aan ? '#2563eb' : vorm(tafel).dataset.rand);
+            vorm(tafel).setAttribute('stroke-width', aan ? '5' : '2');
+        });
+        document.querySelectorAll('#reserveringen .reservering').forEach(function (li) {
+            li.classList.toggle('ring-2', li === actief);
+            li.classList.toggle('ring-blue-600', li === actief);
+        });
+        if (!actief) { paneel.classList.add('hidden'); return; }
+        paneel.classList.remove('hidden');
+        const lijst = Array.from(gekozen);
+        keuze.textContent = lijst.length
+            ? 'Tafel ' + lijst.join(' + ') + ': ' + stoelen + ' stoelen voor ' + actief.dataset.aantal + ' gasten.'
+            : 'Geen tafel gekozen. Opslaan maakt de reservering los van haar tafel.';
+    }
+
+    document.querySelectorAll('#plattegrond .tafel').forEach(function (tafel) {
+        vorm(tafel).dataset.rand = vorm(tafel).getAttribute('stroke');
+        tafel.style.cursor = 'pointer';
+        tafel.addEventListener('click', function () {
+            if (!actief) { melding.textContent = ''; return; }
+            const nummer = tafel.dataset.tafel;
+            if (gekozen.has(nummer)) { gekozen.delete(nummer); } else { gekozen.add(nummer); }
+            teken();
+        });
+    });
+
+    document.querySelectorAll('#reserveringen .reservering').forEach(function (li) {
+        li.style.cursor = 'pointer';
+        li.addEventListener('click', function () {
+            actief = li;
+            gekozen = new Set(li.dataset.tafels.split(' ').filter(Boolean));
+            titel.textContent = li.querySelector('.font-semibold').textContent;
+            melding.textContent = '';
+            teken();
+        });
+    });
+
+    document.getElementById('toewijzen-annuleren').addEventListener('click', function () {
+        actief = null;
+        gekozen = new Set();
+        teken();
+    });
+
+    opslaan.addEventListener('click', async function () {
+        if (!actief) { return; }
+        opslaan.disabled = true;
+        melding.textContent = '';
+        try {
+            const antwoord = await fetch('/plattegrond/toewijzen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+                body: JSON.stringify({ reservering_id: actief.dataset.id, tafels: Array.from(gekozen) })
+            });
+            const data = await antwoord.json();
+            if (!antwoord.ok) {
+                melding.textContent = data.bericht || 'Opslaan is mislukt.';
+                return;
+            }
+            if (data.waarschuwing) { window.alert(data.waarschuwing); }
+            window.location.reload();
+        } catch (fout) {
+            melding.textContent = 'Geen verbinding. Probeer het opnieuw.';
+        } finally {
+            opslaan.disabled = false;
+        }
+    });
+})();
+</script>
 {% endblock %}
