@@ -1,52 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
+{% set p = config.PRIVACY %}
+<main class="max-w-2xl mx-auto px-4 py-10 w-full space-y-8">
 <div class="border-b border-slate-100 pb-4">
     <h2 class="text-2xl font-bold text-slate-900">Privacyverklaring</h2>
-    <p class="text-xs text-slate-500 mt-1">Conform de Algemene Verordening Gegevensbescherming (AVG)</p>
+    <p class="text-xs text-slate-500 mt-1">
+        {{ config.RESTAURANT_NAAM }}{% if p %} · laatst bijgewerkt op {{ p.bijgewerkt.strftime('%d-%m-%Y') }}{% endif %}
+    </p>
 </div>
 
-<p class="text-sm text-slate-600 leading-relaxed">
-    <strong class="text-slate-900">{{ config.RESTAURANT_NAAM }}</strong> verwerkt persoonsgegevens uitsluitend voor het
-    correct afhandelen van tafelreserveringen en het informeren van gasten over hun boeking.
+{% if not p %}
+<p class="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3">
+    Deze installatie heeft nog geen sectie [privacy] in het restaurantbestand. Vul die in voordat de site live gaat.
 </p>
+{% endif %}
 
-<div class="space-y-3">
-    <h3 class="text-base font-semibold text-slate-900">1. Welke gegevens verzamelen wij?</h3>
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">1. Wie is verantwoordelijk?</h3>
     <p class="text-sm text-slate-600 leading-relaxed">
-        Wanneer je een reservering maakt via ons formulier of via onze geautomatiseerde kanalen, verwerken wij de
-        volgende gegevens:
+        {% if p %}<strong class="text-slate-900">{{ p.verantwoordelijke }}</strong>, {{ p.adres }}{% if p.kvk %} (KvK {{ p.kvk }}){% endif %},
+        {% else %}<strong class="text-slate-900">{{ config.RESTAURANT_NAAM }}</strong>{% endif %}
+        is verantwoordelijk voor de gegevens die je via deze website achterlaat. Vragen? Mail naar
+        <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline">{{ config.RESTAURANT_EMAIL }}</a>
+        of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}" class="text-brand font-medium underline">{{ config.RESTAURANT_TELEFOON }}</a>.
     </p>
+</section>
+
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">2. Welke gegevens gebruiken wij?</h3>
     <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 pl-2">
-        <li>Volledige naam</li>
-        <li>E-mailadres</li>
-        <li>Telefoonnummer</li>
-        <li>Datum, tijdstip en aantal personen voor de reservering</li>
+        <li>Je naam, e-mailadres en telefoonnummer.</li>
+        <li>De datum, het tijdstip en het aantal personen van je reservering.</li>
+        <li>Reserveer je via een bericht, dan ook de tekst van dat bericht.</li>
+        <li>Je IP-adres, kort en alleen in het geheugen van de server, om misbruik van het formulier tegen te gaan. Het wordt niet opgeslagen.</li>
     </ul>
-</div>
+</section>
 
-<div class="space-y-3">
-    <h3 class="text-base font-semibold text-slate-900">2. Bewaartermijn (Dataminimalisatie)</h3>
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">3. Waarvoor?</h3>
     <p class="text-sm text-slate-600 leading-relaxed">
-        Wij bewaren persoonsgegevens niet langer dan strikt noodzakelijk. Reserveringsgegevens worden automatisch na
-        <strong class="text-slate-900">{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> definitief uit onze database
-        gewist.
+        Alleen om je reservering vast te leggen, je een bevestiging met annuleerlink te sturen en contact op te nemen
+        als er iets verandert. Dat is nodig om de reservering uit te voeren (artikel 6 lid 1 onder b AVG).
+        Wij gebruiken je gegevens niet voor reclame en verkopen ze niet.
     </p>
-</div>
+</section>
 
-<div class="space-y-3">
-    <h3 class="text-base font-semibold text-slate-900">3. Jouw rechten</h3>
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">4. Hoe lang bewaren wij ze?</h3>
     <p class="text-sm text-slate-600 leading-relaxed">
-        Je hebt te allen tijde het recht om te verzoeken om inzage, correctie of volledige verwijdering van je
-        persoonsgegevens. Neem voor verzoeken contact op via
-        <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline hover:opacity-80">{{
-            config.RESTAURANT_EMAIL }}</a>.
+        Tot <strong class="text-slate-900">{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> na de datum van je reservering.
+        Daarna worden ze elke nacht automatisch en definitief verwijderd. Annuleer je, dan verwijderen wij je reservering direct.
     </p>
-</div>
+</section>
 
-<div class="pt-6 border-t border-slate-100 flex justify-between items-center">
+{% if p %}
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">5. Wie helpen ons daarbij?</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Deze partijen verwerken gegevens in onze opdracht, alleen voor het genoemde doel:
+    </p>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-600 border-collapse">
+            <thead>
+                <tr class="border-b border-slate-200 text-slate-900">
+                    <th class="py-2 pr-4 font-semibold">Partij</th>
+                    <th class="py-2 pr-4 font-semibold">Waarvoor</th>
+                    <th class="py-2 font-semibold">Waar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for v in p.verwerkers %}
+                <tr>
+                    <td class="py-2 pr-4 font-medium text-slate-900">{{ v.naam }}</td>
+                    <td class="py-2 pr-4">{{ v.doel }}</td>
+                    <td class="py-2">{{ v.locatie }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Gaan gegevens naar een land buiten de Europese Unie, dan gebeurt dat alleen met de waarborgen die de AVG
+        daarvoor vraagt, zoals de standaardcontractbepalingen van de Europese Commissie.
+    </p>
+</section>
+{% endif %}
+
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">{{ 6 if p else 5 }}. Cookies</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Wij gebruiken één functionele cookie die nodig is om het formulier veilig te versturen (en om personeel
+        ingelogd te houden). Geen tracking- of advertentiecookies. De opmaak van de site wordt geladen via
+        cdn.tailwindcss.com; daarbij ziet die dienst je IP-adres.
+    </p>
+</section>
+
+<section class="space-y-2">
+    <h3 class="text-base font-semibold text-slate-900">{{ 7 if p else 6 }}. Jouw rechten</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">
+        Je mag je gegevens inzien, laten verbeteren of laten verwijderen, en bezwaar maken tegen het gebruik ervan.
+        Mail daarvoor naar <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline">{{ config.RESTAURANT_EMAIL }}</a>.
+        Wij reageren binnen een maand. Ben je het niet eens met hoe wij met je gegevens omgaan, dan kun je een klacht
+        indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" class="text-brand font-medium underline" rel="noopener">Autoriteit Persoonsgegevens</a>.
+    </p>
+</section>
+
+<div class="pt-6 border-t border-slate-100">
     <a href="/" class="inline-flex items-center text-xs font-semibold text-slate-700 hover:text-slate-900 transition">
         ← Terug naar het reserveringsformulier
     </a>
 </div>
-</div>
+</main>
 {% endblock %}
