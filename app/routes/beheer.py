@@ -1,0 +1,45 @@
+"""
+Beheerroutes die door een geplande taak worden aangeroepen, niet door mensen.
+Beveiligd met een eigen sleutel (BEHEER_API_KEY), los van de n8n-sleutel. Zonder sleutel bestaat
+de route niet (404), zodat een installatie zonder geplande taak niets openzet.
+"""
+import logging
+
+from flask import Blueprint, abort, current_app, jsonify, request
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.database import get_db, tel_of_schoon_oude_reserveringen
+from app.security import constant_time_equals, rate_limit_check
+
+logger = logging.getLogger(__name__)
+
+MIN_SLEUTEL_LENGTE = 32
+
+beheer_bp = Blueprint('beheer', __name__, url_prefix='/beheer')
+
+
+@beheer_bp.before_request
+def valideer_beheer_key():
+    verwacht = current_app.config.get('BEHEER_API_KEY') or ''
+    if len(verwacht) < MIN_SLEUTEL_LENGTE:
+        if verwacht:
+            logger.error("[BEHEER] BEHEER_API_KEY is korter dan %s tekens; beheerroutes staan uit.", MIN_SLEUTEL_LENGTE)
+        abort(404)
+    if not rate_limit_check('beheer', 10, 3600):
+        return jsonify({"status": "fout", "bericht": "Te veel verzoeken."}), 429
+    if not constant_time_equals(request.headers.get('X-Beheer-Key'), verwacht):
+        logger.warning("[BEHEER] Verzoek met ongeldige of ontbrekende sleutel geweigerd.")
+        return jsonify({"status": "fout", "bericht": "Unauthorized"}), 401
+    return None
+
+
+@beheer_bp.post('/opschonen')
+def opschonen():
+    """Verwijdert reserveringen buiten de bewaartermijn: hetzelfde werk als `flask purge-retention --uitvoeren`."""
+    try:
+        verwijderd = tel_of_schoon_oude_reserveringen(get_db(), True)
+    except SQLAlchemyError:
+        logger.error("[BEHEER] Opschonen mislukt door een databasefout.")
+        return jsonify({"status": "fout", "bericht": "Opschonen mislukt door een databasefout."}), 503
+    logger.info("[BEHEER] Opschonen uitgevoerd; %s reservering(en) verwijderd.", verwijderd)
+    return jsonify({"status": "succes", "verwijderd": verwijderd})

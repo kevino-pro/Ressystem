@@ -88,6 +88,15 @@ Telt of verwijdert reserveringen die buiten de bewaartermijn (`RETENTIE_DAGEN_AV
 - **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend. Let op: `--productie` maakt ook bij het alleen tellen een echte databaseverbinding.
 - **Waarschuwing:** met `--uitvoeren` worden gegevens **definitief** verwijderd; deze actie is niet terug te draaien.
 
+### Dagelijks automatisch opschonen
+
+Een geplande taak in GitHub Actions (`.github/workflows/opschonen.yml`) roept elke nacht `POST /beheer/opschonen` aan. Die route doet hetzelfde als `flask purge-retention --uitvoeren`: reserveringen buiten de bewaartermijn worden definitief verwijderd, samen met hun tafeltoewijzingen.
+
+- **Render:** zet `BEHEER_API_KEY` op een willekeurige waarde van minstens 32 tekens. Zonder (of met een kortere) sleutel bestaat de route niet (404).
+- **GitHub:** zet dezelfde waarde als repository secret `BEHEER_API_KEY`, en het adres van de app (zonder `/health`) als repository variable `RENDER_APP_URL`.
+- **Controle:** start de workflow een keer met de hand (Actions, "Dagelijks opschonen (AVG)", Run workflow). De uitvoer toont `{"status": "succes", "verwijderd": N}`.
+- **Beveiliging:** de route gebruikt een eigen sleutel in de header `X-Beheer-Key`, los van de n8n-sleutel, en weigert na tien pogingen per uur.
+
 ### `flask dubbele-reserveringen`
 
 Toont toekomstige reserveringen die dubbel lijken: zelfde datum en tijd, en hetzelfde e-mailadres of telefoonnummer. Alleen dezelfde naam telt niet als dubbel.

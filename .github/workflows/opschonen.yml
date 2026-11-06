@@ -1,0 +1,21 @@
+name: Dagelijks opschonen (AVG)
+
+on:
+  schedule:
+    - cron: '17 3 * * *'  # elke nacht om 03:17 UTC
+  workflow_dispatch: {}  # handmatig starten om te testen
+
+jobs:
+  opschonen:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ vars.RENDER_APP_URL }}
+      BEHEER_API_KEY: ${{ secrets.BEHEER_API_KEY }}
+    steps:
+      - name: Reserveringen buiten de bewaartermijn verwijderen
+        run: |
+          test -n "$APP_URL" || { echo "Repository variable RENDER_APP_URL ontbreekt"; exit 1; }
+          test -n "$BEHEER_API_KEY" || { echo "Repository secret BEHEER_API_KEY ontbreekt"; exit 1; }
+          curl -sf --max-time 60 --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST -H "X-Beheer-Key: $BEHEER_API_KEY" \
+            "${APP_URL%/}/beheer/opschonen"
