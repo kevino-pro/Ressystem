@@ -71,3 +71,17 @@ elementen = [
     { naam = "Bar", kolom = 7, rij = 8, breedte = 12, hoogte = 2 },
     { naam = "Ingang", kolom = 0, rij = 8, hoogte = 2 },
 ]
+
+# Gegevens voor de privacyverklaring (/privacy). Controleer de locaties in de dashboards van
+# Render, Neon en n8n voordat je dit merget; de verklaring is een belofte aan je gasten.
+[privacy]
+verantwoordelijke = "Waroeng Padang Lapek"
+adres = "Schoolstraat 35, 2511 AW Den Haag"
+bijgewerkt = 2026-11-06
+verwerkers = [
+    { naam = "Render", doel = "hosting van de reserveringswebsite", locatie = "Europese Unie" },
+    { naam = "Neon", doel = "opslag van de reserveringen (database)", locatie = "Europese Unie" },
+    { naam = "Resend", doel = "versturen van de bevestigingsmail", locatie = "Verenigde Staten" },
+    { naam = "n8n", doel = "doorsturen van reserveringen die als bericht binnenkomen", locatie = "Europese Unie" },
+    { naam = "Anthropic", doel = "omzetten van een bericht naar een reservering (alleen bij reserveren via een bericht)", locatie = "Verenigde Staten" },
+]

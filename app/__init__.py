@@ -17,6 +17,7 @@ from app.database import (
 from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
+from app.privacy import laad_privacy
 
 MIN_WACHTWOORD_LENGTE = 12
 
@@ -41,6 +42,9 @@ def create_app(config_class=Config):
         regels_pad = Path(app.root_path).parent / regels_pad
     app.config['REGELS'] = laad_regels(regels_pad)
     app.config['PLATTEGROND'] = laad_plattegrond(regels_pad)  # None als het bestand geen [plattegrond] heeft
+    app.config['PRIVACY'] = laad_privacy(regels_pad)  # None als het bestand geen [privacy] heeft
+    if app.config.get('APP_ENV') == 'production' and app.config['PRIVACY'] is None:
+        raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)
