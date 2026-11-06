@@ -55,6 +55,8 @@ class Config:
     API_KEY = os.getenv('API_KEY') or os.getenv('WEBHOOK_API_KEY')
     WEBHOOK_API_KEY = API_KEY
     ADMIN_INITIAL_PASSWORD = os.getenv('ADMIN_INITIAL_PASSWORD')
+    # Sleutel voor /beheer/opschonen (dagelijkse taak in GitHub Actions). Leeg = route uit.
+    BEHEER_API_KEY = os.getenv('BEHEER_API_KEY', '').strip()
 
     # Sessiecookies en aanvalsbescherming
     SESSION_COOKIE_HTTPONLY = True

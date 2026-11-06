@@ -51,9 +51,11 @@ def create_app(config_class=Config):
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp
+    from app.routes.beheer import beheer_bp
 
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(beheer_bp)
 
     def _guard(productie):
         try:
