@@ -20,3 +20,16 @@ donderdag = [["17:00", "20:30"]]
 vrijdag = [["17:00", "21:00"]]
 zaterdag = [["12:00", "14:30"], ["17:00", "21:00"]]
 zondag = [["12:00", "20:00"]]
+
+# Gegevens voor de privacyverklaring (/privacy). Verplicht als APP_ENV=production.
+# Pas de verwerkers aan als deze installatie andere diensten gebruikt.
+[privacy]
+verantwoordelijke = "Voorbeeldrestaurant B.V."
+adres = "Voorbeeldstraat 1, 1234 AB Voorbeeldstad"
+kvk = "12345678"                 # optioneel
+bijgewerkt = 2026-11-06
+verwerkers = [
+    { naam = "Render", doel = "hosting van de reserveringswebsite", locatie = "Europese Unie" },
+    { naam = "Neon", doel = "opslag van de reserveringen (database)", locatie = "Europese Unie" },
+    { naam = "Resend", doel = "versturen van de bevestigingsmail", locatie = "Verenigde Staten" },
+]
