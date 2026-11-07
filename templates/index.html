@@ -1,149 +1,266 @@
-{% extends "base.html" %}
-{% block content %}
-<!-- NAVBAR -->
-<header class="bg-white shadow-sm border-b border-slate-200">
-    <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">{{ config.RESTAURANT_NAAM }}</h1>
+{% extends "basis.html" %}
+{% block kop_rechts %}<a class="pil" href="/login">Personeel</a>{% endblock %}
+{% block inhoud %}
+<div class="kaart">
+    <h2>Reserveer een tafel</h2>
+    <div class="info">
+        <span>Tafel voor <b>{{ zitduur_tekst }}</b></span>
+        <span>Online tot <b>{{ regels.max_personen_per_boeking }} personen</b></span>
+    </div>
+
+    <form id="reserveringsForm" novalidate>
+        <!-- HONEYPOT (anti-spam, onzichtbaar voor mensen) -->
+        <div hidden aria-hidden="true">
+            <label for="website">Laat dit veld leeg:</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
         </div>
-        <a href="/login" class="text-xs text-slate-400 hover:text-slate-600 transition">Personeel Inlog</a>
-    </div>
-</header>
 
-<!-- MAIN CONTENT / FORMULIER -->
-<main class="max-w-xl mx-auto px-4 py-8 w-full">
-    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md border border-slate-100">
-        <h2 class="text-xl font-semibold text-slate-800 mb-1">Tafel Reserveren</h2>
-        <p class="text-sm text-slate-500 mb-6">Vul je gegevens in om direct een plek te bemachtigen.</p>
-
-        <!-- FOUT- / SUCCESMELDING BOX -->
-        <div id="alertBox" class="hidden p-4 mb-6 rounded-lg text-sm font-medium"></div>
-
-        <form id="reserveringsForm" class="space-y-4">
-
-            <!-- HONEYPOT FIELD (Anti-Spam, onzichtbaar voor mensen) -->
-            <div class="hidden" aria-hidden="true">
-                <label for="website">Laat dit veld leeg:</label>
-                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        <fieldset class="stap">
+            <legend><span class="nr">1</span>Met hoeveel personen?</legend>
+            <div class="keuzes personen" id="personen">
+                {% for n in range(1, regels.max_personen_per_boeking + 1) %}
+                <button type="button" class="keuze" data-aantal="{{ n }}" aria-pressed="{{ 'true' if n == 2 else 'false' }}">{{ n }}</button>
+                {% endfor %}
             </div>
+        </fieldset>
 
-            <!-- NAAM -->
-            <div>
-                <label for="naam" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Volledige Naam
-                    *</label>
-                <input type="text" id="naam" required minlength="2" maxlength="100" placeholder="bijv. Jan Jansen"
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+        <fieldset class="stap">
+            <legend><span class="nr">2</span>Welke dag?</legend>
+            <div class="keuzes dagen" id="dagen">
+                {% for d in dagen %}
+                <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
+                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ 'dicht' if not d.open else d.dag | maand_kort }}</small>
+                </button>
+                {% endfor %}
             </div>
+            <p class="klein" style="margin-top: 8px">
+                <label for="datum" style="display: inline">Andere datum?</label>
+                <input type="date" id="datum" min="{{ vandaag }}" max="{{ laatste }}" style="width: auto; height: 34px; margin-left: 6px">
+            </p>
+        </fieldset>
 
-            <!-- EMAIL & TELEFOON -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label for="email" class="block text-xs font-semibold text-slate-600 uppercase mb-1">E-mailadres
-                        *</label>
-                    <input type="email" id="email" required placeholder="naam@voorbeeld.nl"
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
-                </div>
-                <div>
-                    <label for="telefoon"
-                        class="block text-xs font-semibold text-slate-600 uppercase mb-1">Telefoonnummer *</label>
-                    <input type="tel" id="telefoon" required minlength="9" maxlength="20" placeholder="0612345678"
-                        inputmode="tel" pattern="\+?[0-9][0-9 \-]*"
-                        title="Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678."
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
-                </div>
+        <fieldset class="stap">
+            <legend><span class="nr">3</span>Hoe laat?</legend>
+            <div id="tijden" aria-live="polite"><p class="leeg">Kies eerst een dag.</p></div>
+        </fieldset>
+
+        <fieldset class="stap">
+            <legend><span class="nr">4</span>Je gegevens</legend>
+            <div class="veld">
+                <label for="naam">Naam</label>
+                <input type="text" id="naam" required minlength="2" maxlength="100" autocomplete="name" placeholder="Jan Jansen">
             </div>
-
-            <!-- DATUM, TIJD & AANTAL -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <label for="datum" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Datum *</label>
-                    <input type="date" id="datum" required
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+            <div class="twee">
+                <div class="veld">
+                    <label for="email">E-mailadres</label>
+                    <input type="email" id="email" required autocomplete="email" placeholder="naam@voorbeeld.nl">
                 </div>
-                <div>
-                    <label for="tijd" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tijdstip
-                        *</label>
-                    <input type="time" id="tijd" required step="{{ config.REGELS.slot_minuten * 60 }}"
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
-                </div>
-                <div>
-                    <label for="aantal" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Aantal
-                        personen *</label>
-                    <input type="number" id="aantal" min="1" max="{{ config.REGELS.max_personen_per_boeking }}" value="2"
-                        required
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus-brand">
+                <div class="veld">
+                    <label for="telefoon">Telefoonnummer</label>
+                    <input type="tel" id="telefoon" required minlength="9" maxlength="20" placeholder="06 12345678"
+                           inputmode="tel" autocomplete="tel" pattern="\+?[0-9][0-9 \-]*"
+                           title="Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.">
                 </div>
             </div>
+        </fieldset>
 
-            <!-- PRIVACY AKKOORD -->
-            <div class="pt-2">
-                <label class="flex items-start space-x-3 cursor-pointer">
-                    <input type="checkbox" id="privacy_akkoord" required
-                        class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand">
-                    <span class="text-xs text-slate-600">
-                        Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering. Lees onze
-                        <a href="/privacy" class="text-brand underline hover:opacity-80"
-                            target="_blank">privacyverklaring</a>.
-                    </span>
-                </label>
-            </div>
+        <label class="akkoord">
+            <input type="checkbox" id="privacy_akkoord" required>
+            <span>Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering. Lees de
+                <a href="/privacy" target="_blank">privacyverklaring</a>.</span>
+        </label>
 
-            <!-- SUBMIT BUTTON -->
-            <button type="submit" id="submitBtn"
-                class="w-full py-3 px-4 bg-brand text-white font-medium text-sm rounded-lg shadow hover:opacity-90 transition duration-150 ease-in-out disabled:opacity-50 mt-4">
-                Reservering Bevestigen
-            </button>
-        </form>
-    </div>
-</main>
+        <div id="alertBox" class="melding fout" role="alert" hidden></div>
+        <div id="samenvatting" class="samenvatting" hidden></div>
+        <button type="submit" id="submitBtn" class="knop">Reservering bevestigen</button>
+        <p class="klein" style="text-align: center; margin-top: 12px">
+            Met meer dan {{ regels.max_personen_per_boeking }} personen? Bel
+            <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>
+        </p>
+    </form>
+</div>
+{% endblock %}
 
-<!-- FOOTER -->
-<footer class="bg-slate-100 border-t border-slate-200 py-6 text-center text-xs text-slate-500">
-    <p class="mb-1">&copy; {{ config.RESTAURANT_NAAM }} — Alle rechten voorbehouden.</p>
-    <p>Vragen? Mail naar <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="underline">{{ config.RESTAURANT_EMAIL
-            }}</a> of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}" class="underline">{{ config.RESTAURANT_TELEFOON
-            }}</a></p>
-</footer>
-
-<!-- SCRIPT FOR STRICT TYPE PYDANTIC COMPLIANT AJAX -->
+{% block scripts %}
 <script>
-    // Stel minimale datum in op vandaag (lokale datum; toISOString zou UTC geven)
-    const vandaag = new Date();
-    document.getElementById('datum').min = [
-        vandaag.getFullYear(),
-        String(vandaag.getMonth() + 1).padStart(2, '0'),
-        String(vandaag.getDate()).padStart(2, '0'),
-    ].join('-');
+(function () {
+    const ZITDUUR = {{ regels.zitduur_minuten | int }};
+    const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+    const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus',
+                     'september', 'oktober', 'november', 'december'];
+    const keuze = { aantal: 2, datum: null, tijd: null };
 
     const form = document.getElementById('reserveringsForm');
+    const tijdenVak = document.getElementById('tijden');
     const alertBox = document.getElementById('alertBox');
+    const samenvatting = document.getElementById('samenvatting');
     const submitBtn = document.getElementById('submitBtn');
+    const datumVeld = document.getElementById('datum');
+    let verzoek = 0;  // alleen het laatste antwoord van /beschikbaarheid telt
 
-    form.addEventListener('submit', async (e) => {
+    function druk(groep, knop) {
+        document.querySelectorAll('#' + groep + ' .keuze').forEach(function (k) {
+            k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
+        });
+    }
+
+    function leesbareDatum(iso) {
+        const d = new Date(iso + 'T12:00:00');
+        const tekst = DAGEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()];
+        return tekst.charAt(0).toUpperCase() + tekst.slice(1);
+    }
+
+    function plus(tijd, minuten) {
+        const [u, m] = tijd.split(':').map(Number);
+        const totaal = (u * 60 + m + minuten) % (24 * 60);
+        return String(Math.floor(totaal / 60)).padStart(2, '0') + ':' + String(totaal % 60).padStart(2, '0');
+    }
+
+    function toonSamenvatting() {
+        if (!keuze.datum || !keuze.tijd) { samenvatting.hidden = true; return; }
+        samenvatting.replaceChildren();
+        const regel = document.createElement('b');
+        regel.textContent = leesbareDatum(keuze.datum) + ' · ' + keuze.tijd;
+        const onder = document.createElement('small');
+        onder.textContent = keuze.aantal + (keuze.aantal === 1 ? ' persoon' : ' personen') + ' · tot ' + plus(keuze.tijd, ZITDUUR);
+        samenvatting.append(regel, onder);
+        samenvatting.hidden = false;
+    }
+
+    function melding(tekst) {
+        tijdenVak.replaceChildren();
+        const p = document.createElement('p');
+        p.className = 'leeg';
+        p.textContent = tekst;
+        tijdenVak.append(p);
+    }
+
+    function tekenTijden(data) {
+        tijdenVak.replaceChildren();
+        if (!data.open) { melding(data.bericht); return; }
+        let groep = null;
+        let raster = null;
+        if (!data.tijden.some(function (t) { return t.tijd === keuze.tijd && t.beschikbaar; })) { keuze.tijd = null; }
+        data.tijden.forEach(function (t) {
+            const naam = data.diner_vanaf ? (t.tijd < data.diner_vanaf ? 'Lunch' : 'Diner') : '';
+            if (!raster || naam !== groep) {
+                groep = naam;
+                if (naam) {
+                    const kop = document.createElement('div');
+                    kop.className = 'groep';
+                    kop.textContent = naam;
+                    tijdenVak.append(kop);
+                }
+                raster = document.createElement('div');
+                raster.className = 'keuzes tijden';
+                tijdenVak.append(raster);
+            }
+            const knop = document.createElement('button');
+            knop.type = 'button';
+            knop.className = 'keuze';
+            knop.dataset.tijd = t.tijd;
+            knop.textContent = t.tijd;
+            knop.setAttribute('aria-pressed', t.tijd === keuze.tijd ? 'true' : 'false');
+            if (!t.beschikbaar) {
+                knop.disabled = true;
+                const klein = document.createElement('small');
+                klein.textContent = 'Vol';
+                knop.append(klein);
+            } else if (t.vrij <= 10) {
+                knop.classList.add('bijna');
+                const klein = document.createElement('small');
+                klein.textContent = 'Nog ' + t.vrij + ' plekken';
+                knop.append(klein);
+            }
+            raster.append(knop);
+        });
+        if (!data.tijden.some(function (t) { return t.beschikbaar; })) {
+            const p = document.createElement('p');
+            p.className = 'leeg';
+            p.textContent = 'Deze dag is vol voor ' + keuze.aantal + ' personen. Kies een andere dag of bel ons.';
+            tijdenVak.append(p);
+        }
+        toonSamenvatting();
+    }
+
+    async function laadTijden() {
+        if (!keuze.datum) { return; }
+        const nummer = ++verzoek;
+        melding('Tijden laden…');
+        try {
+            const antwoord = await fetch('/beschikbaarheid?datum=' + encodeURIComponent(keuze.datum) + '&aantal=' + keuze.aantal);
+            const data = await antwoord.json();
+            if (nummer !== verzoek) { return; }
+            if (!antwoord.ok) { melding(data.bericht || 'Tijden laden lukte niet.'); return; }
+            tekenTijden(data);
+        } catch (fout) {
+            if (nummer === verzoek) { melding('Geen verbinding. Probeer het opnieuw.'); }
+        }
+    }
+
+    function kiesDatum(iso, knop) {
+        keuze.datum = iso;
+        druk('dagen', knop);
+        if (knop) { datumVeld.value = ''; }
+        toonSamenvatting();
+        laadTijden();
+    }
+
+    document.getElementById('personen').addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (!knop) { return; }
+        keuze.aantal = Number(knop.dataset.aantal);
+        druk('personen', knop);
+        laadTijden();
+    });
+    document.getElementById('dagen').addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (knop && !knop.disabled) { kiesDatum(knop.dataset.datum, knop); }
+    });
+    datumVeld.addEventListener('change', function () {
+        if (!datumVeld.value) { return; }
+        const knop = document.querySelector('#dagen .keuze[data-datum="' + datumVeld.value + '"]');
+        kiesDatum(datumVeld.value, knop && !knop.disabled ? knop : null);
+    });
+    tijdenVak.addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (!knop || knop.disabled) { return; }
+        keuze.tijd = knop.dataset.tijd;
+        tijdenVak.querySelectorAll('.keuze').forEach(function (k) {
+            k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
+        });
+        toonSamenvatting();
+    });
+
+    // Begin met de eerste open dag.
+    const eerste = document.querySelector('#dagen .keuze:not(:disabled)');
+    if (eerste) { kiesDatum(eerste.dataset.datum, eerste); } else { melding('Kies een datum in de kalender.'); }
+
+    function fout(tekst) {
+        alertBox.textContent = tekst;  // textContent: meldingen van de server worden nooit als HTML uitgevoerd
+        alertBox.hidden = false;
+    }
+
+    form.addEventListener('submit', async function (e) {
         e.preventDefault();
+        alertBox.hidden = true;
+        if (!keuze.datum || !keuze.tijd) { fout('Kies een dag en een tijd.'); return; }
+        if (!form.reportValidity()) { return; }
 
-        // Verberg eerdere meldingen
-        alertBox.classList.add('hidden');
-        alertBox.className = "hidden p-4 mb-6 rounded-lg text-sm font-medium";
-
-        // Knop uitschakelen tijdens verwerking
         submitBtn.disabled = true;
-        submitBtn.textContent = "Verwerken...";
-
-        // CRUCIAAL: Expliciete type conversie voor Pydantic
+        submitBtn.textContent = 'Verwerken…';
         const payload = {
             naam: document.getElementById('naam').value.trim(),
             email: document.getElementById('email').value.trim(),
             telefoon: document.getElementById('telefoon').value.trim(),
-            datum: document.getElementById('datum').value,
-            tijd: document.getElementById('tijd').value,
-            aantal: parseInt(document.getElementById('aantal').value, 10), // Must be Integer
-            website: document.getElementById('website').value, // Honeypot
-            privacy_akkoord: document.getElementById('privacy_akkoord').checked // Must be Boolean (true)
+            datum: keuze.datum,
+            tijd: keuze.tijd,
+            aantal: keuze.aantal,  // Integer voor Pydantic
+            website: document.getElementById('website').value,  // honeypot
+            privacy_akkoord: document.getElementById('privacy_akkoord').checked  // Boolean
         };
-
         try {
-            const response = await fetch('/reservering', {
+            const antwoord = await fetch('/reservering', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -151,27 +268,20 @@
                 },
                 body: JSON.stringify(payload)
             });
-
-            const result = await response.json();
-
-            if (response.ok && result.status === 'succes') {
-                // Stuur door naar bevestigingspagina
+            const result = await antwoord.json();
+            if (antwoord.ok && result.status === 'succes') {
                 window.location.href = '/bevestiging';
-            } else {
-                // Toon foutmelding van de backend (Pydantic / Capaciteit / Database)
-                // textContent: meldingen van de server worden nooit als HTML uitgevoerd
-                alertBox.textContent = result.bericht || "Er is een fout opgetreden bij het verzenden.";
-                alertBox.classList.remove('hidden');
-                alertBox.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+                return;
             }
+            fout(result.bericht || 'Er is een fout opgetreden bij het verzenden.');
+            laadTijden();  // misschien is de tijd net vol geraakt
         } catch (err) {
-            alertBox.innerHTML = "Netwerkfout: Kan geen verbinding maken met de server.";
-            alertBox.classList.remove('hidden');
-            alertBox.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+            fout('Netwerkfout: kan geen verbinding maken met de server.');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = "Reservering Bevestigen";
+            submitBtn.textContent = 'Reservering bevestigen';
         }
     });
+})();
 </script>
 {% endblock %}

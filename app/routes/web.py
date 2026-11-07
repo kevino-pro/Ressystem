@@ -24,9 +24,27 @@ web_bp.before_request(valideer_csrf)
 TIJD_PATROON = re.compile(r'\d{2}:\d{2}')
 HOKJE = 48  # pixels per hokje op de plattegrond
 
+DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
+
+def _zitduur_tekst(minuten):
+    """90 -> '1,5 uur', 120 -> '2 uur', 75 -> '75 minuten'."""
+    if minuten % 30:
+        return f"{minuten} minuten"
+    uren = minuten / 60
+    return f"{uren:g} uur".replace(".", ",")
+
 @web_bp.route('/')
 def home():
-    return render_template('index.html')
+    regels = current_app.config['REGELS']
+    vandaag = regels.nu().date()
+    dagen = []
+    for i in range(DAGEN_IN_STRIP):
+        dag = vandaag + timedelta(days=i)
+        dagen.append({'datum': dag.isoformat(), 'dag': dag,
+                      'open': bool(regels.blokken_op(dag)) and dag not in regels.sluitingsdagen})
+    laatste = vandaag + timedelta(days=regels.max_dagen_vooruit)
+    return render_template('index.html', regels=regels, dagen=dagen, vandaag=vandaag.isoformat(),
+                           laatste=laatste.isoformat(), zitduur_tekst=_zitduur_tekst(regels.zitduur_minuten))
 
 def _db_foutdetails(fout):
     """
