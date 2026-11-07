@@ -33,3 +33,9 @@ verwerkers = [
     { naam = "Neon", doel = "opslag van de reserveringen (database)", locatie = "Europese Unie" },
     { naam = "Resend", doel = "versturen van de bevestigingsmail", locatie = "Verenigde Staten" },
 ]
+
+# Huisstijl (optioneel). Zonder deze sectie: goudkleurig accent en geen foto.
+[huisstijl]
+accentkleur = "#d9a441"                 # kleur van knoppen en gekozen tijden, als #rrggbb
+ondertitel = "Voorbeeldstraat 1, Voorbeeldstad"
+# achtergrond = "restaurants/voorbeeld/achtergrond.webp"   # pad binnen static/
