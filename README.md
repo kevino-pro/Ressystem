@@ -50,10 +50,28 @@ Alle velden staan onder `[reserveringen]`:
 | `min_minuten_vooraf` | Hoe kort van tevoren je nog mag boeken. |
 | `max_dagen_vooruit` | Hoe ver vooruit je mag boeken. |
 | `sluitingsdagen` | Losse datums waarop het restaurant dicht is, bijvoorbeeld `[2026-12-25, 2027-01-01]`. |
+| `knop_minuten` | Optioneel. Om de hoeveel minuten het formulier een tijdknop toont (bijvoorbeeld 30). Een veelvoud van `slot_minuten`; zonder dit veld gelijk aan `slot_minuten`. |
+| `diner_vanaf` | Optioneel. Vanaf deze tijd staan de tijdknoppen onder "Diner", ervoor onder "Lunch", bijvoorbeeld `"16:00"`. Zonder dit veld: geen kopjes. |
 | `[reserveringen.openingstijden]` | Per weekdag (`maandag` t/m `zondag`) een lijst vensters, bijvoorbeeld `dinsdag = [["17:00", "20:30"]]`. Een lege lijst of een ontbrekende dag betekent gesloten. Het venster geeft aan wanneer een reservering mag beginnen; de tweede tijd is dus de laatste begintijd, niet de sluitingstijd. Beide tijden moeten op een slotgrens vallen. |
 
 De test `test_alle_restaurantbestanden_zijn_geldig` laadt in CI elk bestand in `restaurants/`,
 dus een tikfout in een restaurantbestand maakt de build rood voordat het live gaat.
+
+## Huisstijl
+
+Elke installatie kan er anders uitzien. In het restaurantbestand staat een optionele sectie:
+
+```toml
+[huisstijl]
+accentkleur = "#d9a441"                          # knoppen, gekozen tijden en de naam; alleen #rrggbb
+ondertitel = "Schoolstraat 35, Den Haag"         # regel onder de naam
+achtergrond = "restaurants/wpl/achtergrond.webp" # pad binnen static/; weglaten = warme donkere gloed
+```
+
+Zet de foto in `static/restaurants/<naam>/`. Gebruik WebP of JPG, ongeveer 1600 pixels breed en
+onder de 300 KB; de site legt er zelf een donkere laag over zodat de tekst leesbaar blijft. Staat de
+foto er niet, dan start de app niet en noemt hij het ontbrekende bestand. De opmaak zelf staat in
+`static/css/huisstijl.css` en is voor elk restaurant gelijk.
 
 ## Plattegrond voor het personeel
 
