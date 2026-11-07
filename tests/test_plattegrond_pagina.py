@@ -109,7 +109,7 @@ class PlattegrondPaginaTests(unittest.TestCase):
 
     def test_overzicht_linkt_naar_plattegrond(self):
         html = self.client.get("/overzicht").get_data(as_text=True)
-        self.assertIn('href="/plattegrond"', html)
+        self.assertIn('href="/plattegrond?datum=', html)
         _, client = maak_client(ZonderPlattegrondConfig)
         self.assertNotIn("/plattegrond", client.get("/overzicht").get_data(as_text=True))
 

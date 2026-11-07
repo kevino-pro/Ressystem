@@ -87,9 +87,10 @@ class TafelsToewijzenTests(unittest.TestCase):
         self.post({"reservering_id": "a", "tafels": ["3a", "3b"]})
         html = self.client.get("/overzicht?datum=2030-01-01").get_data(as_text=True)
         self.assertIn("3a + 3b", html)
-        self.assertIn(">Tafel</th>", html)
+        self.assertIn("Tafel 3a + 3b", html)
+        self.assertIn("Nog zonder tafel", html)
         _, client = maak_client(ZonderPlattegrondConfig)
-        self.assertNotIn(">Tafel</th>", client.get("/overzicht").get_data(as_text=True))
+        self.assertNotIn("Nog zonder tafel", client.get("/overzicht").get_data(as_text=True))
 
 
 if __name__ == "__main__":
