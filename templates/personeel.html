@@ -1,0 +1,24 @@
+{% extends "basis.html" %}
+{# Layout voor de personeelspagina's: rustige effen achtergrond, menu bovenaan, geen gastenvoet. #}
+{% block body_klasse %}personeel{% endblock %}
+{% block pagina %}
+<div class="wrap breed">
+    <nav class="staf">
+        <a class="logo" href="/overzicht"><h1>{{ config.RESTAURANT_NAAM }}</h1></a>
+        <div class="tabs">
+            <a class="pil {{ 'aan' if actief == 'overzicht' }}" href="/overzicht{{ '?datum=' ~ datum if datum }}">Reserveringen</a>
+            {% if config.PLATTEGROND %}
+            <a class="pil {{ 'aan' if actief == 'plattegrond' }}" href="/plattegrond{{ '?datum=' ~ datum if datum }}">Plattegrond</a>
+            {% endif %}
+            <a class="pil" href="/">Reserveringsformulier</a>
+            <form action="/logout" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="pil">Uitloggen</button>
+            </form>
+        </div>
+    </nav>
+    <main>
+        {% block inhoud %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

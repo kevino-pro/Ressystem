@@ -18,6 +18,7 @@ from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
+from app.huisstijl import laad_huisstijl
 
 MIN_WACHTWOORD_LENGTE = 12
 
@@ -26,7 +27,7 @@ def create_app(config_class=Config):
     # basicConfig is een no-op als er al handlers staan, dus dubbel aanroepen is onschadelijk.
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-    app = Flask(__name__, template_folder='../templates')
+    app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.config.from_object(config_class)
     if not app.config.get('SECRET_KEY'):
         raise RuntimeError("Configureer SECRET_KEY via de omgeving voordat de app start.")
@@ -45,6 +46,7 @@ def create_app(config_class=Config):
     app.config['PRIVACY'] = laad_privacy(regels_pad)  # None als het bestand geen [privacy] heeft
     if app.config.get('APP_ENV') == 'production' and app.config['PRIVACY'] is None:
         raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
+    app.config['HUISSTIJL'] = laad_huisstijl(regels_pad, app.static_folder)
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)
@@ -52,6 +54,7 @@ def create_app(config_class=Config):
     if app.config.get('TRUSTED_PROXY_COUNT'):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=app.config['TRUSTED_PROXY_COUNT'])
     app.jinja_env.globals['csrf_token'] = csrf_token
+    app.context_processor(lambda: {'huisstijl': app.config['HUISSTIJL']})
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp

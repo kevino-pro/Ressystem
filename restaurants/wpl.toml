@@ -85,3 +85,9 @@ verwerkers = [
     { naam = "n8n", doel = "doorsturen van reserveringen die als bericht binnenkomen", locatie = "Europese Unie" },
     { naam = "Anthropic", doel = "omzetten van een bericht naar een reservering (alleen bij reserveren via een bericht)", locatie = "Verenigde Staten" },
 ]
+
+# Huisstijl van de website. De achtergrondfoto zet je in static/restaurants/wpl/ en noem je hier,
+# bijvoorbeeld achtergrond = "restaurants/wpl/achtergrond.webp". Zonder foto: een warme donkere gloed.
+[huisstijl]
+accentkleur = "#d9a441"
+ondertitel = "Schoolstraat 35, Den Haag"
