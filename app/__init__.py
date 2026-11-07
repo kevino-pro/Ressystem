@@ -19,6 +19,7 @@ from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
 from app.huisstijl import laad_huisstijl
+from app import weergave
 
 MIN_WACHTWOORD_LENGTE = 12
 
@@ -55,6 +56,7 @@ def create_app(config_class=Config):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=app.config['TRUSTED_PROXY_COUNT'])
     app.jinja_env.globals['csrf_token'] = csrf_token
     app.context_processor(lambda: {'huisstijl': app.config['HUISSTIJL']})
+    weergave.registreer(app)
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp

@@ -1,19 +1,25 @@
-{% extends "base.html" %}
-{% block content %}
-<main class="max-w-lg mx-auto px-4 py-12 w-full flex-grow flex items-center justify-center">
-    <div class="bg-white p-8 rounded-xl shadow-md border border-slate-100 text-center w-full">
-        <h2 class="text-2xl font-bold text-slate-900 mb-2">Reservering annuleren?</h2>
-        <p class="text-sm text-slate-600 mb-6">
-            {{ reservering.datum }} om {{ reservering.tijd }} &middot; {{ reservering.aantal }} personen
-        </p>
-        <form method="POST" class="space-y-3">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit"
-                class="w-full py-3 px-4 bg-red-600 text-white font-medium text-sm rounded-lg shadow hover:opacity-90">
-                Ja, annuleer mijn reservering
-            </button>
-            <a href="/" class="block text-xs text-slate-500 underline">Nee, terug</a>
-        </form>
+{% extends "basis.html" %}
+{% block titel %}Reservering annuleren · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="kaart">
+    <h2>Reservering annuleren?</h2>
+    <p class="sub">Jammer dat je niet kunt komen. Is dit de reservering die je wilt annuleren?</p>
+
+    <div class="details">
+        {% if reservering.naam | voornaam %}<div class="rij"><span>Naam</span><b>{{ reservering.naam | voornaam }}</b></div>{% endif %}
+        <div class="rij"><span>Datum</span><b>{{ reservering.datum | nl_datum | capitalize }}</b></div>
+        <div class="rij"><span>Tijd</span><b>{{ reservering.tijd }}</b></div>
+        <div class="rij"><span>Personen</span><b>{{ reservering.aantal }}</b></div>
     </div>
-</main>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="knop rood">Ja, annuleer mijn reservering</button>
+    </form>
+    <a class="knop rand" href="/" style="margin-top: 10px">Nee, ik kom gewoon</a>
+    <p class="klein" style="margin-top: 16px">
+        Liever een andere tijd? Annuleer en maak een nieuwe reservering, of bel
+        <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
+    </p>
+</div>
 {% endblock %}
