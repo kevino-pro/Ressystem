@@ -118,6 +118,16 @@ def piekbezetting(bestaande, start, zitduur):
         for moment in momenten
     )
 
+def bezetting_op(conn, datum):
+    """Lijst (begin_in_minuten, aantal) van alle reserveringen op deze dag, voor piekbezetting()."""
+    with conn.begin():
+        return [
+            (minuten_van(rij.tijd), rij.aantal)
+            for rij in conn.execute(
+                select(reserveringen.c.tijd, reserveringen.c.aantal).where(reserveringen.c.datum == datum)
+            )
+        ]
+
 class OnbekendeTafelFout(Exception):
     """Een tafelnummer staat niet op de plattegrond."""
     def __init__(self, tafels):

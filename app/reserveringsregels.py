@@ -48,6 +48,15 @@ class ReserveringsRegels(BaseModel):
     max_dagen_vooruit: int = Field(default=90, ge=1)
     openingstijden: dict[str, tuple[Openingsblok, ...]]
     sluitingsdagen: tuple[date, ...] = ()
+    # Hoe vaak het formulier een tijdknop toont (bijv. 30 = 12:00, 12:30, ...). Leeg = slot_minuten.
+    knop_minuten: int | None = None
+    # Vanaf deze tijd staan de knoppen onder "Diner" in plaats van "Lunch". Leeg = geen kopjes.
+    diner_vanaf: time | None = None
+
+    @field_validator("diner_vanaf", mode="before")
+    @classmethod
+    def _lees_diner_vanaf(cls, waarde):
+        return None if waarde is None else _naar_tijd(waarde)
 
     @field_validator("tijdzone")
     @classmethod
@@ -87,6 +96,14 @@ class ReserveringsRegels(BaseModel):
         return blokken
 
     @model_validator(mode="after")
+    def _knoppen_op_slotgrens(self):
+        if self.knop_minuten is not None and (
+                self.knop_minuten not in TOEGESTANE_SLOTLENGTES or self.knop_minuten % self.slot_minuten):
+            raise ValueError(f"knop_minuten moet een veelvoud van slot_minuten ({self.slot_minuten}) zijn "
+                             f"en een van {TOEGESTANE_SLOTLENGTES}")
+        return self
+
+    @model_validator(mode="after")
     def _blokken_op_slotgrens(self):
         for dag, blokken in self.openingstijden.items():
             for blok in blokken:
@@ -105,6 +122,18 @@ class ReserveringsRegels(BaseModel):
 
     def blokken_op(self, dag: date):
         return self.openingstijden.get(WEEKDAGEN[dag.weekday()], ())
+
+    def knoptijden_op(self, dag: date):
+        """Begintijden die het formulier als knop toont, per knop_minuten binnen de openingstijden."""
+        stap = self.knop_minuten or self.slot_minuten
+        tijden = []
+        for blok in self.blokken_op(dag):
+            minuut = blok.van.hour * 60 + blok.van.minute
+            einde = blok.tot.hour * 60 + blok.tot.minute
+            while minuut <= einde:
+                tijden.append(time(minuut // 60, minuut % 60))
+                minuut += stap
+        return tijden
 
     def controleer(self, dag: date, tijdstip: time, aantal: int, nu: datetime | None = None):
         """Gooit RegelFout als dit verzoek niet mag; anders None."""

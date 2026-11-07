@@ -8,7 +8,7 @@ from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
 from app.database import (
-    get_db, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
+    bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
@@ -221,6 +221,48 @@ def tafels_toewijzen():
         current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
         return jsonify({"status": "fout", "bericht": "Het lukte niet om op te slaan. Probeer het opnieuw."}), 503
     return jsonify({"status": "succes", "bericht": "Opgeslagen.", "waarschuwing": waarschuwing}), 200
+
+@web_bp.route('/beschikbaarheid')
+@rate_limit('beschikbaarheid', 120, 600, json_response=True)
+def beschikbaarheid():
+    """
+    Welke tijden op een dag nog kunnen voor een groep: GET /beschikbaarheid?datum=2026-11-07&aantal=2.
+    Alleen een hulp voor het formulier; bij het versturen controleert /reservering alles opnieuw.
+    """
+    regels = current_app.config['REGELS']
+    try:
+        dag = date.fromisoformat(request.args.get('datum', ''))
+        aantal = int(request.args.get('aantal', ''))
+    except ValueError:
+        return jsonify({"status": "fout", "bericht": "Geef een datum (JJJJ-MM-DD) en een aantal personen."}), 400
+    if not 1 <= aantal <= regels.max_personen_per_boeking:
+        return jsonify({"status": "fout", "bericht": (
+            f"Online reserveren kan voor 1 tot {regels.max_personen_per_boeking} personen. "
+            "Neem voor grotere groepen contact met ons op.")}), 400
+
+    bestaande = bezetting_op(get_db(), dag.isoformat())
+    nu = regels.nu()
+    tijden, eerste_fout = [], None
+    for tijdstip in regels.knoptijden_op(dag):
+        try:
+            regels.controleer(dag, tijdstip, aantal, nu=nu)
+        except RegelFout as fout:
+            eerste_fout = eerste_fout or fout.bericht
+            continue  # te vroeg, te ver vooruit of een sluitingsdag: geen knop
+        vrij = regels.max_gasten_tegelijk - piekbezetting(
+            bestaande, minuten_van(f"{tijdstip:%H:%M}"), regels.zitduur_minuten)
+        tijden.append({"tijd": f"{tijdstip:%H:%M}", "vrij": max(vrij, 0), "beschikbaar": vrij >= aantal})
+
+    if not tijden:
+        if eerste_fout is None:  # geen openingstijden op deze dag
+            try:
+                regels.controleer(dag, time(12, 0), aantal, nu=nu)
+            except RegelFout as fout:
+                eerste_fout = fout.bericht
+        return jsonify({"status": "succes", "open": False, "tijden": [],
+                        "bericht": eerste_fout or "Op deze dag kun je niet online reserveren."}), 200
+    return jsonify({"status": "succes", "open": True, "tijden": tijden,
+                    "diner_vanaf": f"{regels.diner_vanaf:%H:%M}" if regels.diner_vanaf else None}), 200
 
 @web_bp.route('/reservering', methods=['POST'])
 @rate_limit('reservering', 10, 600, json_response=True)
