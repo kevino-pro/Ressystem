@@ -21,10 +21,9 @@ class Config:
     # 1. BRANDING & RESTAURANT GEGEVENS
     # ==========================================
     RESTAURANT_NAAM = os.getenv('RESTAURANT_NAAM', 'Mijn Restaurant')
-    RESTAURANT_TAGLINE = os.getenv('RESTAURANT_TAGLINE', 'Authentiek & Vers')
     RESTAURANT_EMAIL = os.getenv('RESTAURANT_EMAIL', 'info@restaurant.nl')
     RESTAURANT_TELEFOON = os.getenv('RESTAURANT_TELEFOON', '0612345678')
-    PRIMARY_COLOR = os.getenv('PRIMARY_COLOR', '#d97706') # Tailwind Amber-600 default
+    # Kleur, achtergrondfoto en ondertitel staan in [huisstijl] van het restaurantbestand (app/huisstijl.py).
     APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://127.0.0.1:5000') # Voor links in e-mails (annuleren)
 
     # ==========================================

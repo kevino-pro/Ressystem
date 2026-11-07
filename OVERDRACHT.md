@@ -63,7 +63,7 @@ Build/migratie: MIGRATION_DATABASE_URL (direct, nooit -pooler), ALLOW_PROD_MIGRA
 AI: ANTHROPIC_API_KEY, optioneel ANTHROPIC_MODEL.
 Mail: RESEND_API_KEY, VERZENDER_EMAIL; SMTP als fallback zonder Resend: SMTP_SERVER, SMTP_PORT, VERZENDER_WACHTWOORD.
 Opschonen: BEHEER_API_KEY (min. 32 tekens; zelfde waarde als het GitHub-secret).
-Restaurant en weergave: APP_BASE_URL (https), RESTAURANT_NAAM, RESTAURANT_EMAIL, RESTAURANT_TELEFOON, RESTAURANT_TAGLINE, PRIMARY_COLOR.
+Restaurant en weergave: APP_BASE_URL (https), RESTAURANT_NAAM, RESTAURANT_EMAIL, RESTAURANT_TELEFOON. Kleur, foto en ondertitel staan in [huisstijl] van het restaurantbestand.
 Optioneel/default: RETENTIE_DAGEN_AVG (60), TRUSTED_PROXY_COUNT (1), SESSION_COOKIE_SECURE (aan).
 Alleen lokaal: ADMIN_INITIAL_PASSWORD (init-db), FLASK_DEBUG, ALLOW_PROD_DB_LOCAL (run.py).
 GitHub (Settings → Secrets and variables → Actions):
@@ -73,7 +73,7 @@ Secrets: RENDER_API_KEY, BEHEER_API_KEY.
 Let op: DATABASE_URL valt stil terug op SQLite als hij ontbreekt — controleer de host vóór create-admin of een ander productiecommando.
 
 6. Roadmap
-Config per restaurant afmaken (volgende): logo, kleuren en mailteksten naar het restaurantbestand. Nu staan naam, tagline, e-mail, telefoon en PRIMARY_COLOR nog als Render-variabelen en de mailtekst in de code. De template-kit en Amsterdam leunen hierop.
+Config per restaurant afmaken (volgende): kleur, foto en ondertitel staan sinds de nieuwe huisstijl in [huisstijl]; naam, e-mail en telefoon staan nog als Render-variabelen en de mailtekst in de code. De template-kit en Amsterdam leunen hierop.
 Template-kit: render.yaml, export van de n8n-workflow, onboardingchecklist voor een nieuw restaurant (TOML invullen, Render + Neon aanmaken, variabelen, GitHub-variabelen/secrets, admin, mailtest).
 Installatie Amsterdam: restaurants/wpl-amsterdam.toml + eigen Render-service en Neon-database.
 Open vragen voor de gebruiker:
