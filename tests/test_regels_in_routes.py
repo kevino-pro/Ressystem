@@ -102,8 +102,8 @@ class RegelsInRoutesTests(unittest.TestCase):
 
     def test_formulier_toont_slot_en_maximum(self):
         html = self.client.get("/").get_data(as_text=True)
-        self.assertIn('step="900"', html)
-        self.assertIn('max="6"', html)
+        self.assertIn('data-aantal="6"', html)  # personen-knoppen 1 t/m max_personen_per_boeking
+        self.assertNotIn('data-aantal="7"', html)
 
 
 if __name__ == "__main__":

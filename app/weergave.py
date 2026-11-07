@@ -25,7 +25,19 @@ def voornaam(naam):
     return delen[0] if delen else ""
 
 
+def dag_kort(dag):
+    """date -> 'za'."""
+    return DAGEN[dag.weekday()][:2]
+
+
+def maand_kort(dag):
+    """date -> 'nov'."""
+    return MAANDEN[dag.month - 1][:3]
+
+
 def registreer(app):
     app.jinja_env.filters["nl_datum"] = nl_datum
     app.jinja_env.filters["eindtijd"] = eindtijd
     app.jinja_env.filters["voornaam"] = voornaam
+    app.jinja_env.filters["dag_kort"] = dag_kort
+    app.jinja_env.filters["maand_kort"] = maand_kort
