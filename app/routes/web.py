@@ -1,9 +1,9 @@
 import re
-from datetime import date, time
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from flask import Blueprint, abort, render_template, request, jsonify, redirect, url_for, session, current_app
+from flask import Blueprint, Response, abort, render_template, request, jsonify, redirect, url_for, session, current_app
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
@@ -62,9 +62,45 @@ def health():
 def privacy():
     return render_template('privacy.html')
 
+def _laatste_reservering():
+    """De reservering die deze bezoeker net heeft gemaakt (id staat in de sessiecookie), of None."""
+    reservering_id = session.get('laatste_reservering')
+    return haal_reservering_op(get_db(), reservering_id) if reservering_id else None
+
 @web_bp.route('/bevestiging')
 def bevestiging():
-    return render_template('bevestiging.html')
+    return render_template('bevestiging.html', reservering=_laatste_reservering(),
+                           zitduur=current_app.config['REGELS'].zitduur_minuten)
+
+@web_bp.route('/bevestiging/agenda.ics')
+def bevestiging_agenda():
+    """Agenda-afspraak voor de reservering van deze bezoeker. Tijden in de tijdzone van het restaurant."""
+    reservering = _laatste_reservering()
+    if not reservering:
+        abort(404)
+    regels = current_app.config['REGELS']
+    begin = datetime.combine(date.fromisoformat(reservering['datum']), time.fromisoformat(reservering['tijd']))
+    eind = begin + timedelta(minutes=regels.zitduur_minuten)
+    privacy = current_app.config.get('PRIVACY')
+    naam = _ics_tekst(current_app.config['RESTAURANT_NAAM'])
+    regels_ics = [
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Reserveringen//NL", "BEGIN:VEVENT",
+        f"UID:{reservering['id']}@reserveringen",
+        f"DTSTAMP:{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}",
+        f"DTSTART;TZID={regels.tijdzone}:{begin:%Y%m%dT%H%M%S}",
+        f"DTEND;TZID={regels.tijdzone}:{eind:%Y%m%dT%H%M%S}",
+        f"SUMMARY:Tafel bij {naam} ({reservering['aantal']} p.)",
+    ]
+    if privacy:
+        regels_ics.append(f"LOCATION:{_ics_tekst(privacy.adres)}")
+    regels_ics += ["END:VEVENT", "END:VCALENDAR"]
+    return Response("\r\n".join(regels_ics) + "\r\n", mimetype="text/calendar",
+                    headers={"Content-Disposition": "attachment; filename=reservering.ics"})
+
+def _ics_tekst(tekst):
+    """Tekst veilig in een ICS-regel: geen regeleinden, en komma's en puntkomma's ge-escaped."""
+    return (tekst.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+            .replace("\r", " ").replace("\n", " "))
 
 @web_bp.route('/login', methods=['GET', 'POST'])
 @rate_limit('login', 10, 300)
@@ -234,6 +270,7 @@ def nieuwe_reservering():
     except OperationalError:
         return jsonify({"status": "fout", "bericht": "Database is momenteel druk, probeer het opnieuw."}), 503
 
+    session['laatste_reservering'] = unieke_id  # voor de bevestigingspagina
     stuur_bevestigingsmail_async(
         ontvanger_email=valid_data.email,
         naam=valid_data.naam,

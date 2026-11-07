@@ -1,34 +1,47 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "basis.html" %}
+{% block titel %}Privacyverklaring · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block kop_rechts %}<a class="pil" href="/">← Reserveren</a>{% endblock %}
+{% block inhoud %}
 {% set p = config.PRIVACY %}
-<main class="max-w-2xl mx-auto px-4 py-10 w-full space-y-8">
-<div class="border-b border-slate-100 pb-4">
-    <h2 class="text-2xl font-bold text-slate-900">Privacyverklaring</h2>
-    <p class="text-xs text-slate-500 mt-1">
+<div class="kaart tekst">
+<div>
+    <h2>Privacyverklaring</h2>
+    <p class="sub">
         {{ config.RESTAURANT_NAAM }}{% if p %} · laatst bijgewerkt op {{ p.bijgewerkt.strftime('%d-%m-%Y') }}{% endif %}
     </p>
 </div>
 
+{% if p %}
+<div class="details goud">
+    <p><strong>In het kort</strong></p>
+    <ul>
+        <li>We gebruiken je gegevens alleen voor je reservering.</li>
+        <li>Geen reclame, en we verkopen niets door.</li>
+        <li>Na {{ config.RETENTIE_DAGEN_AVG }} dagen wordt alles automatisch gewist.</li>
+    </ul>
+</div>
+{% endif %}
+
 {% if not p %}
-<p class="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3">
+<p class="melding fout">
     Deze installatie heeft nog geen sectie [privacy] in het restaurantbestand. Vul die in voordat de site live gaat.
 </p>
 {% endif %}
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">1. Wie is verantwoordelijk?</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
-        {% if p %}<strong class="text-slate-900">{{ p.verantwoordelijke }}</strong>, {{ p.adres }}{% if p.kvk %} (KvK {{ p.kvk }}){% endif %},
-        {% else %}<strong class="text-slate-900">{{ config.RESTAURANT_NAAM }}</strong>{% endif %}
+<section>
+    <h3>1. Wie is verantwoordelijk?</h3>
+    <p>
+        {% if p %}<strong>{{ p.verantwoordelijke }}</strong>, {{ p.adres }}{% if p.kvk %} (KvK {{ p.kvk }}){% endif %},
+        {% else %}<strong>{{ config.RESTAURANT_NAAM }}</strong>{% endif %}
         is verantwoordelijk voor de gegevens die je via deze website achterlaat. Vragen? Mail naar
-        <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline">{{ config.RESTAURANT_EMAIL }}</a>
-        of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}" class="text-brand font-medium underline">{{ config.RESTAURANT_TELEFOON }}</a>.
+        <a href="mailto:{{ config.RESTAURANT_EMAIL }}">{{ config.RESTAURANT_EMAIL }}</a>
+        of bel <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
     </p>
 </section>
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">2. Welke gegevens gebruiken wij?</h3>
-    <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 pl-2">
+<section>
+    <h3>2. Welke gegevens gebruiken wij?</h3>
+    <ul>
         <li>Je naam, e-mailadres en telefoonnummer.</li>
         <li>De datum, het tijdstip en het aantal personen van je reservering.</li>
         <li>Reserveer je via een bericht, dan ook de tekst van dat bericht.</li>
@@ -36,79 +49,65 @@
     </ul>
 </section>
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">3. Waarvoor?</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
+<section>
+    <h3>3. Waarvoor?</h3>
+    <p>
         Alleen om je reservering vast te leggen, je een bevestiging met annuleerlink te sturen en contact op te nemen
         als er iets verandert. Dat is nodig om de reservering uit te voeren (artikel 6 lid 1 onder b AVG).
         Wij gebruiken je gegevens niet voor reclame en verkopen ze niet.
     </p>
 </section>
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">4. Hoe lang bewaren wij ze?</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
-        Tot <strong class="text-slate-900">{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> na de datum van je reservering.
+<section>
+    <h3>4. Hoe lang bewaren wij ze?</h3>
+    <p>
+        Tot <strong>{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> na de datum van je reservering.
         Daarna worden ze elke nacht automatisch en definitief verwijderd. Annuleer je, dan verwijderen wij je reservering direct.
     </p>
 </section>
 
 {% if p %}
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">5. Wie helpen ons daarbij?</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
+<section>
+    <h3>5. Wie helpen ons daarbij?</h3>
+    <p>
         Deze partijen verwerken gegevens in onze opdracht, alleen voor het genoemde doel:
     </p>
-    <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-600 border-collapse">
-            <thead>
-                <tr class="border-b border-slate-200 text-slate-900">
-                    <th class="py-2 pr-4 font-semibold">Partij</th>
-                    <th class="py-2 pr-4 font-semibold">Waarvoor</th>
-                    <th class="py-2 font-semibold">Waar</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                {% for v in p.verwerkers %}
-                <tr>
-                    <td class="py-2 pr-4 font-medium text-slate-900">{{ v.naam }}</td>
-                    <td class="py-2 pr-4">{{ v.doel }}</td>
-                    <td class="py-2">{{ v.locatie }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <p class="text-sm text-slate-600 leading-relaxed">
+    <table class="verwerkers">
+        <thead>
+            <tr><th>Partij</th><th>Waarvoor</th><th>Waar</th></tr>
+        </thead>
+        <tbody>
+            {% for v in p.verwerkers %}
+            <tr><td><strong>{{ v.naam }}</strong></td><td>{{ v.doel }}</td><td>{{ v.locatie }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p>
         Gaan gegevens naar een land buiten de Europese Unie, dan gebeurt dat alleen met de waarborgen die de AVG
         daarvoor vraagt, zoals de standaardcontractbepalingen van de Europese Commissie.
     </p>
 </section>
 {% endif %}
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">{{ 6 if p else 5 }}. Cookies</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
+<section>
+    <h3>{{ 6 if p else 5 }}. Cookies</h3>
+    <p>
         Wij gebruiken één functionele cookie die nodig is om het formulier veilig te versturen (en om personeel
         ingelogd te houden). Geen tracking- of advertentiecookies. De opmaak van de site wordt geladen via
         cdn.tailwindcss.com; daarbij ziet die dienst je IP-adres.
     </p>
 </section>
 
-<section class="space-y-2">
-    <h3 class="text-base font-semibold text-slate-900">{{ 7 if p else 6 }}. Jouw rechten</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">
+<section>
+    <h3>{{ 7 if p else 6 }}. Jouw rechten</h3>
+    <p>
         Je mag je gegevens inzien, laten verbeteren of laten verwijderen, en bezwaar maken tegen het gebruik ervan.
-        Mail daarvoor naar <a href="mailto:{{ config.RESTAURANT_EMAIL }}" class="text-brand font-medium underline">{{ config.RESTAURANT_EMAIL }}</a>.
+        Mail daarvoor naar <a href="mailto:{{ config.RESTAURANT_EMAIL }}">{{ config.RESTAURANT_EMAIL }}</a>.
         Wij reageren binnen een maand. Ben je het niet eens met hoe wij met je gegevens omgaan, dan kun je een klacht
-        indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" class="text-brand font-medium underline" rel="noopener">Autoriteit Persoonsgegevens</a>.
+        indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" rel="noopener">Autoriteit Persoonsgegevens</a>.
     </p>
 </section>
 
-<div class="pt-6 border-t border-slate-100">
-    <a href="/" class="inline-flex items-center text-xs font-semibold text-slate-700 hover:text-slate-900 transition">
-        ← Terug naar het reserveringsformulier
-    </a>
+<p style="margin-top: 28px"><a href="/">← Terug naar het reserveringsformulier</a></p>
 </div>
-</main>
 {% endblock %}
