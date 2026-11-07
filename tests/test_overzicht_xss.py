@@ -37,7 +37,7 @@ class OverzichtXssTests(unittest.TestCase):
             sessie["ingelogd"] = True
 
     def test_naam_staat_niet_in_javascript(self):
-        html = self.client.get("/overzicht").get_data(as_text=True)
+        html = self.client.get("/overzicht?datum=2030-01-01").get_data(as_text=True)
         handlers = re.findall(r'onsubmit="([^"]*)"', html)
         self.assertTrue(handlers)
         for handler in handlers:

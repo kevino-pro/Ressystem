@@ -151,12 +151,43 @@ def overzicht():
     if not session.get('ingelogd'):
         return redirect(url_for('web.login'))
 
+    regels = current_app.config['REGELS']
+    vandaag = regels.nu().date()
+    try:
+        dag = date.fromisoformat(request.args['datum']) if request.args.get('datum') else vandaag
+    except ValueError:
+        return "Ongeldige datum.", 400
+    datum = dag.isoformat()
+
     conn = get_db()
-    gekozen_datum = request.args.get('datum')
-    reserveringen = haal_reserveringen_op(conn, gekozen_datum)
-    toewijzingen = haal_toewijzingen_op(conn, gekozen_datum) if current_app.config.get('PLATTEGROND') else {}
-    return render_template('overzicht.html', reserveringen=reserveringen, gekozen_datum=gekozen_datum,
-                           toewijzingen=toewijzingen)
+    lijst = haal_reserveringen_op(conn, datum)
+    plattegrond_aan = current_app.config.get('PLATTEGROND') is not None
+    toewijzingen = haal_toewijzingen_op(conn, datum) if plattegrond_aan else {}
+
+    # Per begintijd groeperen; de lijst is al op tijd gesorteerd.
+    groepen = {}
+    for r in lijst:
+        groepen.setdefault(r['tijd'], []).append(r)
+
+    # Drukste moment: de bezetting kan alleen stijgen op het begin van een reservering.
+    bestaande = [(minuten_van(r['tijd']), r['aantal']) for r in lijst]
+    piek, piek_tijd = 0, None
+    for tijd in groepen:
+        moment = minuten_van(tijd)
+        gasten = sum(aantal for begin, aantal in bestaande if begin <= moment < begin + regels.zitduur_minuten)
+        if gasten > piek:
+            piek, piek_tijd = gasten, tijd
+    tellers = {
+        'reserveringen': len(lijst),
+        'gasten': sum(r['aantal'] for r in lijst),
+        'piek': piek, 'piek_tijd': piek_tijd, 'max': regels.max_gasten_tegelijk,
+        'zonder_tafel': sum(1 for r in lijst if not toewijzingen.get(r['id'])),
+    }
+    return render_template(
+        'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
+        vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
+        groepen=groepen, toewijzingen=toewijzingen, tellers=tellers, plattegrond_aan=plattegrond_aan,
+    )
 
 def _kies_moment(regels, datum_tekst, tijd_tekst):
     """

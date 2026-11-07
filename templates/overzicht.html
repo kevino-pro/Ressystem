@@ -1,112 +1,70 @@
-{% extends "base.html" %}
-{% block content %}
-<!-- HEADER BAR WITH BACK BUTTON -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-    <div>
-        <h2 class="text-xl font-bold text-slate-900">Reserveringen Overzicht</h2>
-        <p class="text-xs text-slate-500 mt-0.5">Bekijk, filter en beheer alle binnengekomen reserveringen.</p>
-    </div>
-    <div class="flex items-center gap-4">
-        {% if config.PLATTEGROND %}
-        <a href="/plattegrond{{ '?datum=' ~ gekozen_datum if gekozen_datum else '' }}" class="inline-flex items-center text-xs font-semibold text-slate-900 hover:underline">
-            Plattegrond
-        </a>
-        {% endif %}
-        <a href="/" class="inline-flex items-center text-xs font-medium text-slate-600 hover:text-slate-900 transition">
-            ← Terug naar reserveringsformulier
-        </a>
-        <form action="/logout" method="POST" class="inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="text-xs font-medium text-red-600 hover:text-red-800 transition">Uitloggen</button>
-        </form>
-    </div>
-</div>
-
-<!-- FILTER BAR -->
-<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
-    <form action="/overzicht" method="GET" class="flex flex-wrap items-center gap-3 text-xs">
-        <label for="datum" class="font-semibold text-slate-700 uppercase tracking-wider">Filter op datum:</label>
-        <input type="date" id="datum" name="datum" value="{{ gekozen_datum if gekozen_datum else '' }}"
-            class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400">
-        <button type="submit"
-            class="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg shadow-sm transition">
-            Filteren
-        </button>
-        {% if gekozen_datum %}
-        <a href="/overzicht" class="text-xs text-red-600 hover:underline font-medium ml-2">
-            Wis filter
-        </a>
-        {% endif %}
+{% extends "personeel.html" %}
+{% block titel %}Reserveringen · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="dagnav">
+    <h2>{{ dag | nl_datum(met_jaar=dag.year != vandaag.year) | capitalize }}</h2>
+    <a class="pil" href="/overzicht?datum={{ vorige }}">‹ Vorige dag</a>
+    <a class="pil {{ 'aan' if dag == vandaag }}" href="/overzicht">Vandaag</a>
+    <a class="pil" href="/overzicht?datum={{ volgende }}">Volgende dag ›</a>
+    <form action="/overzicht" method="GET">
+        <label for="datum" class="verborgen">Kies datum</label>
+        <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
+        <noscript><button type="submit" class="pil">Tonen</button></noscript>
     </form>
 </div>
 
-<!-- RESERVATION TABLE -->
-<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-            <thead>
-                <tr
-                    class="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
-                    <th class="py-3 px-4">Datum</th>
-                    <th class="py-3 px-4">Tijd</th>
-                    <th class="py-3 px-4">Naam</th>
-                    <th class="py-3 px-4">E-mail</th>
-                    <th class="py-3 px-4">Telefoon</th>
-                    <th class="py-3 px-4 text-center">Aantal</th>
-                    {% if config.PLATTEGROND %}<th class="py-3 px-4">Tafel</th>{% endif %}
-                    <th class="py-3 px-4 text-right">Acties</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
-                {% for r in reserveringen %}
-                <tr class="hover:bg-slate-50/80 transition duration-150">
-                    <td class="py-3 px-4 font-medium text-slate-900 whitespace-nowrap">{{ r.datum }}</td>
-                    <td class="py-3 px-4 whitespace-nowrap">{{ r.tijd }}</td>
-                    <td class="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">{{ r.naam }}</td>
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        <a href="mailto:{{ r.email }}" class="hover:underline text-slate-600">{{ r.email }}</a>
-                    </td>
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        <a href="tel:{{ r.telefoon }}" class="hover:underline text-slate-600">{{ r.telefoon }}</a>
-                    </td>
-                    <td class="py-3 px-4 text-center whitespace-nowrap">
-                        <span
-                            class="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-900 border border-slate-200">
-                            {{ r.aantal }}
-                        </span>
-                    </td>
-                    {% if config.PLATTEGROND %}
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        {% if toewijzingen.get(r.id) %}{{ toewijzingen[r.id] | join(' + ') }}{% else %}<span class="text-amber-700">geen</span>{% endif %}
-                    </td>
-                    {% endif %}
-
-                    <td class="py-3 px-4 text-right whitespace-nowrap">
-                        <form action="/verwijder/{{ r.id }}" method="POST"
-                            data-bericht="Weet je zeker dat je deze reservering van {{ r.naam }} wilt verwijderen?"
-                            onsubmit="return confirm(this.dataset.bericht);"
-                            class="inline">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit"
-                                class="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition duration-150">
-                                Verwijderen
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="{{ 8 if config.PLATTEGROND else 7 }}" class="py-8 text-center text-slate-400 italic">
-                        {% if gekozen_datum %}
-                        Geen reserveringen gevonden voor <strong>{{ gekozen_datum }}</strong>.
-                        {% else %}
-                        Er zijn nog geen reserveringen aanwezig in de database.
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="tellers">
+    <div class="teller"><small>Reserveringen</small><b>{{ tellers.reserveringen }}</b></div>
+    <div class="teller"><small>Gasten</small><b>{{ tellers.gasten }}</b></div>
+    <div class="teller">
+        <small>Drukste moment{% if tellers.piek_tijd %} ({{ tellers.piek_tijd }}){% endif %}</small>
+        <b>{{ tellers.piek }} / {{ tellers.max }}</b>
+        <div class="balk"><i style="width: {{ [100, (tellers.piek * 100 / tellers.max) | round | int] | min }}%"></i></div>
     </div>
+    {% if plattegrond_aan %}
+    <div class="teller {{ 'let' if tellers.zonder_tafel }}"><small>Nog zonder tafel</small><b>{{ tellers.zonder_tafel }}</b></div>
+    {% endif %}
+</div>
+
+<div class="lijst">
+    {% for tijd, rijen in groepen.items() %}
+    <div class="tijdkop">
+        <b>{{ tijd }}</b>
+        <span>{{ rijen | length }} reservering{{ 'en' if rijen | length != 1 }} · {{ rijen | sum(attribute='aantal') }} gasten</span>
+    </div>
+    {% for r in rijen %}
+    <div class="res">
+        <div class="aantal" title="{{ r.aantal }} personen">{{ r.aantal }}</div>
+        <div class="wie">
+            <b>{{ r.naam }}</b>
+            <small><a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a> · <a href="mailto:{{ r.email }}">{{ r.email }}</a></small>
+        </div>
+        {% if plattegrond_aan %}
+            {% if toewijzingen.get(r.id) %}
+            <span class="tafel">Tafel {{ toewijzingen[r.id] | join(' + ') }}</span>
+            {% else %}
+            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ Tafel kiezen</a>
+            {% endif %}
+        {% else %}<span></span>{% endif %}
+        <div class="acties">
+            <a href="tel:{{ r.telefoon }}">Bel</a>
+            <a href="mailto:{{ r.email }}">Mail</a>
+            <details>
+                <summary aria-label="Meer acties">⋯</summary>
+                <div class="menu">
+                    <form action="/verwijder/{{ r.id }}" method="POST"
+                          data-bericht="Weet je zeker dat je deze reservering van {{ r.naam }} wilt verwijderen?"
+                          onsubmit="return confirm(this.dataset.bericht);">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit">Reservering verwijderen</button>
+                    </form>
+                </div>
+            </details>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="leeg" style="padding: 24px 0; text-align: center">Geen reserveringen op deze dag.</p>
+    {% endfor %}
 </div>
 {% endblock %}
