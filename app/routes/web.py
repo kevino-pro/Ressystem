@@ -23,6 +23,7 @@ web_bp.before_request(valideer_csrf)
 
 TIJD_PATROON = re.compile(r'\d{2}:\d{2}')
 HOKJE = 48  # pixels per hokje op de plattegrond
+STRAKS_MINUTEN = 30  # zo ver vooruit kijkt de plattegrond naar tafels die bijna bezet zijn
 
 DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
 
@@ -232,12 +233,32 @@ def plattegrond():
     zitduur = regels.zitduur_minuten
     aan_tafel = [r for r in lijst if minuten_van(r['tijd']) <= start < minuten_van(r['tijd']) + zitduur]
     bezet = {tafel: r for r in aan_tafel for tafel in toewijzingen.get(r['id'], [])}
+    # Tafels die binnen een half uur na dit moment gereserveerd zijn: niet meer weggeven.
+    binnenkort = [r for r in lijst if start < minuten_van(r['tijd']) <= start + STRAKS_MINUTEN]
+    straks = {tafel: r for r in binnenkort for tafel in toewijzingen.get(r['id'], []) if tafel not in bezet}
 
+    dag = date.fromisoformat(datum)
     return render_template(
-        'plattegrond.html', indeling=indeling, datum=datum, tijd=tijd, zitduur=zitduur,
-        reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet,
-        aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE,
+        'plattegrond.html', actief='plattegrond', indeling=indeling, datum=datum, dag=dag, tijd=tijd,
+        zitduur=zitduur, reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet, straks=straks,
+        aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE, vandaag=regels.nu().date(),
+        tijdknoppen=_tijdknoppen(regels, dag), vorige=(dag - timedelta(days=1)).isoformat(),
+        volgende=(dag + timedelta(days=1)).isoformat(),
     )
+
+def _tijdknoppen(regels, dag):
+    """Tijden om de bezetting te bekijken: van de eerste begintijd tot de laatste gast weg is."""
+    blokken = regels.blokken_op(dag)
+    if not blokken:
+        return []
+    stap = regels.knop_minuten or 30
+    minuut = minuten_van(f"{blokken[0].van:%H:%M}")
+    einde = min(minuten_van(f"{blokken[-1].tot:%H:%M}") + regels.zitduur_minuten - stap, 24 * 60 - stap)
+    tijden = []
+    while minuut <= einde:
+        tijden.append(f"{minuut // 60:02d}:{minuut % 60:02d}")
+        minuut += stap
+    return tijden
 
 @web_bp.route('/plattegrond/toewijzen', methods=['POST'])
 def tafels_toewijzen():

@@ -194,7 +194,7 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .reservering.nu-aan-tafel { background: rgba(217, 164, 65, .08); }
 .reservering.actief { border-color: var(--groen); background: rgba(123, 196, 127, .08); }
 .reservering.zonder-tafel small { color: var(--accent); }
-#reserveringen { padding: 0; }
+#reserveringen { padding: 0; list-style: none; }
 
 @media (max-width: 700px) {
     .tellers { grid-template-columns: 1fr 1fr; }
