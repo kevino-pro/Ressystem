@@ -1,12 +1,13 @@
-Overdracht WPL — template (bijgewerkt 6 nov 2026)
+Overdracht WPL — template (bijgewerkt 8 nov 2026)
 Voor Claude (mentor), Cline (uitvoerder via de DeepSeek-API), Opus in VS Code (controleur) en GitHub Copilot Chat (beperkt). Lokale, niet-gecommitte werkkopie. HYPOTHESE = niet bewezen; BEWIJS = door de gebruiker of de code bevestigd. Alleen namen/hashes/statussen — geen geheimen.
 
-1. Stand (6 nov 2026)
+1. Stand (8 nov 2026)
 Draait: WPL Den Haag op Render + Neon, /health 200. Reserveren via het formulier en via n8n (AI). Mail via Resend vanaf reserveringen@waroengpadang.nl.
-Laatst afgerond: privacy en automatisch opschonen (6 nov). De workflow "Dagelijks opschonen (AVG)" draait groen.
+Laatst afgerond: nieuwe huisstijl, fase 1–7 (PR #22–#28, gemerged 7 nov). Door de gebruiker op de telefoon gecontroleerd: alles ziet er goed uit. Tailwind is weg; de workflow "Dagelijks opschonen (AVG)" draait groen.
+Uitgesteld: achtergrondfoto (fase 8 punt 2–4 van het huisstijlplan) — zie §6. Tot die tijd toont de site een warme donkere gloed; dat is de bedoelde standaard, geen fout.
 Volgende punt: config per restaurant afmaken (logo, kleuren, mailteksten) — zie §6.
 Wacht op de gebruiker: bevestiging van de tafelcombinaties en van 68 stoelen tegenover max_gasten_tegelijk = 69 (stap 4).
-Tests: python -m unittest discover -s tests → 198 tests, OK (skipped=6). De 6 overgeslagen tests zijn Postgres-tests; die draaien in CI (postgres-tests) of lokaal met TEST_POSTGRES_URL.
+Tests: python -m unittest discover -s tests → 253 tests, OK (skipped=6). De 6 overgeslagen tests zijn Postgres-tests; die draaien in CI (postgres-tests) of lokaal met TEST_POSTGRES_URL.
 2. Rollen en werkafspraken
 Gebruiker: software developer in opleiding, basiskennis, bouwt een eigen AI Agency. Nederlands, Windows, VS Code, Git Bash als standaardterminal.
 Claude = mentor in code, architectuur en prompts. Legt uit waarom, benoemt afwegingen, is eerlijk over onduidelijk/onveilig/waarschijnlijk fout, controleert claims van tools, scheidt HYPOTHESE van BEWIJS, verzint geen commando's/instellingen/menunamen (verwijst naar documentatie), stelt max. één vraag per keer, antwoordt in het Nederlands, erkent eigen fouten direct.
@@ -27,11 +28,13 @@ Restaurantbestand: restaurants/<naam>.toml, gekozen met RESTAURANT_CONFIG; in pr
 [reserveringen]: tijdzone, slot_minuten, zitduur_minuten, max_gasten_tegelijk, max_personen_per_boeking, min_minuten_vooraf, max_dagen_vooruit, sluitingsdagen, [reserveringen.openingstijden] (laatste starttijd per dag).
 [plattegrond]: raster (kolommen × rijen), tafels, combinaties, elementen.
 [privacy]: verantwoordelijke, adres, optioneel kvk, bijgewerkt, verwerkers (naam, doel, locatie). Verplicht in productie.
+[huisstijl]: accentkleur (#rrggbb, standaard #d9a441), ondertitel (max. 80 tekens), optioneel achtergrond (pad onder static/, jpg/jpeg/png/webp). Een opgegeven foto die niet bestaat laat de app niet starten.
+In [reserveringen] sinds de huisstijl ook: knop_minuten (30; veelvoud van slot_minuten) en diner_vanaf ("16:00", grens tussen de kopjes Lunch en Diner).
 restaurants/voorbeeld.toml is het sjabloon voor een nieuw restaurant.
 Vestigingen WPL:
 Den Haag = restaurants/wpl.toml: Schoolstraat 35, 2511 AW; ma dicht, di–zo 12:00–21:00 (laatste reservering 19:30); zitduur 90 min; 69 gasten tegelijk; max 8 per online boeking; 22 tafels, raster 19×10.
 Amsterdam: later als restaurants/wpl-amsterdam.toml met een eigen installatie; gegevens volgen.
-Routes: /, /reservering, /bevestiging, /annuleren/<id>, /privacy, /health, /login, /logout, /overzicht, /verwijder/<id>, /plattegrond, /plattegrond/toewijzen (personeel), POST /api/v1/ai-reservering (n8n, header X-API-Key), POST /beheer/opschonen (GitHub Actions, header X-Beheer-Key; 404 zonder geldige BEHEER_API_KEY).
+Routes: /, /reservering, /beschikbaarheid (vrije tijden per dag, rate limit 120/10 min), /bevestiging, /bevestiging/agenda.ics, /annuleren/<id>, /privacy, /health, /login, /logout, /overzicht, /verwijder/<id>, /plattegrond, /plattegrond/toewijzen (personeel), POST /api/v1/ai-reservering (n8n, header X-API-Key), POST /beheer/opschonen (GitHub Actions, header X-Beheer-Key; 404 zonder geldige BEHEER_API_KEY).
 Reserveringsregels (server-side): openingstijden, slots, capaciteit = max gasten tegelijk over de zitduur, max groepsgrootte. Dubbele boeking (zelfde datum+tijd én zelfde e-mail, telefoon of naam, genormaliseerd) → 409. Telefoon: 9–15 cijfers; cijfers, spaties, streepjes en een voorloop-+.
 Database (Alembic): baseline ba7cbc14b3a2, daarna c3f1a7d2e9b4 (tabel tafeltoewijzingen). Migraties draaien in het Render-build-command (alembic upgrade head), init-db erbuiten.
 Beheercommando's (allemaal met --productie-guard behalve init-db): flask create-admin, flask purge-retention, flask dubbele-reserveringen (alleen lezen), flask resend-mail <id>, flask init-db (lokaal hulpmiddel).
@@ -53,6 +56,8 @@ Fasenplan voor Cline: Fasdubbele boekingen en telefoonnummers
 Fasenplan voor Cline: stap 4 plattegrond voor personeel
 6 nov	Privacy + automatisch opschonen	/beheer/opschonen, opschonen.yml, [privacy] in TOML, nieuwe privacyverklaring	
 Fasenplan voor Cline: privacy en automatisch opschonen
+7 nov	Nieuwe huisstijl	[huisstijl] in TOML, eigen huisstijl.css, layouts basis.html en personeel.html, /beschikbaarheid, formulier met tijdknoppen, bevestiging met agenda, overzicht per dag, plattegrond in nieuwe stijl, Tailwind weg (PR #22–#28)	
+Fasenplan voor Cline: nieuwe huisstijl
 De open punten van 31 okt (afzender in de testmail, oude stash, in de chat gebruikte testadressen/keys vervangen) zijn afgerond (bevestigd door de gebruiker, 6 nov).
 
 5. Instellingen (alleen NAMEN)
@@ -74,6 +79,11 @@ Let op: DATABASE_URL valt stil terug op SQLite als hij ontbreekt — controleer 
 
 6. Roadmap
 Config per restaurant afmaken (volgende): kleur, foto en ondertitel staan sinds de nieuwe huisstijl in [huisstijl]; naam, e-mail en telefoon staan nog als Render-variabelen en de mailtekst in de code. De template-kit en Amsterdam leunen hierop.
+Achtergrondfoto (uitgesteld, fase 8 punt 2–4 van het huisstijlplan):
+Kies een sfeerfoto van het restaurant waarvan WPL de rechten heeft (geen afbeelding van internet), liggend, ongeveer 1600 pixels breed, WebP of JPG onder 300 KB (bijv. via squoosh.app).
+Zet hem in static/restaurants/wpl/achtergrond.webp (map bestaat nog niet; zelf aanmaken).
+Zet in restaurants/wpl.toml onder [huisstijl]: achtergrond = "restaurants/wpl/achtergrond.webp".
+Branch feat/achtergrondfoto, tests draaien (test_restaurantbestanden_zijn_geldig controleert dat de foto bestaat), commit, PR, merge; daarna op de telefoon kijken.
 Template-kit: render.yaml, export van de n8n-workflow, onboardingchecklist voor een nieuw restaurant (TOML invullen, Render + Neon aanmaken, variabelen, GitHub-variabelen/secrets, admin, mailtest).
 Installatie Amsterdam: restaurants/wpl-amsterdam.toml + eigen Render-service en Neon-database.
 Open vragen voor de gebruiker:
