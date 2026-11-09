@@ -28,7 +28,7 @@ STRAKS_MINUTEN = 30  # zo ver vooruit kijkt de plattegrond naar tafels die bijna
 DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
 
 def _zitduur_tekst(minuten):
-    """90 -> '1,5 uur', 120 -> '2 uur', 75 -> '75 minuten'."""
+    """60 -> '1 uur', 90 -> '1,5 uur', 75 -> '75 minuten'."""
     if minuten % 30:
         return f"{minuten} minuten"
     uren = minuten / 60

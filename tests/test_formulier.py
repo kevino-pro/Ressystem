@@ -13,7 +13,7 @@ class TestConfig(Config):
     DATABASE_URL = "sqlite:///:memory:"
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
-    RESTAURANT_CONFIG = "restaurants/wpl.toml"
+    RESTAURANT_CONFIG = "tests/restaurant_vast.toml"
 
 
 class FormulierTests(unittest.TestCase):

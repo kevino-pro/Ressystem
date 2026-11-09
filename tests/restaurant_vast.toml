@@ -1,0 +1,98 @@
+# Vast restaurantbestand voor de tests: de waarden van Den Haag zoals ze waren op 6 nov 2026
+# (90 minuten, max 8, laatste begintijd 19:30). Zo breekt een test niet als restaurants/wpl.toml
+# verandert. De echte waarden van wpl.toml test tests/test_wpl_regels.py.
+# Waroeng Padang Lapek, vestiging Den Haag (Schoolstraat 35).
+# Render: RESTAURANT_CONFIG=restaurants/wpl.toml
+
+[reserveringen]
+tijdzone = "Europe/Amsterdam"
+slot_minuten = 15              # gasten kiezen een tijd per 15 minuten
+zitduur_minuten = 90           # anderhalf uur per reservering
+max_gasten_tegelijk = 69       # zitplaatsen in Den Haag
+max_personen_per_boeking = 8   # grotere groepen bellen het restaurant
+min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
+max_dagen_vooruit = 90
+sluitingsdagen = []            # nog geen vaste sluitingsdagen
+knop_minuten = 30              # het formulier toont knoppen per half uur (12:00, 12:30, ...)
+diner_vanaf = "16:00"          # knoppen vanaf 16:00 staan onder "Diner"
+
+# Open di t/m zo 12:00-21:00. Met 90 minuten zitduur is 19:30 de laatste begintijd.
+[reserveringen.openingstijden]
+maandag = []
+dinsdag = [["12:00", "19:30"]]
+woensdag = [["12:00", "19:30"]]
+donderdag = [["12:00", "19:30"]]
+vrijdag = [["12:00", "19:30"]]
+zaterdag = [["12:00", "19:30"]]
+zondag = [["12:00", "19:30"]]
+
+# Plattegrond voor het personeel (alleen zichtbaar na inloggen). Raster van 19 kolommen bij
+# 10 rijen; kolom en rij tellen vanaf 0 linksboven. Breedte en hoogte zijn in hokjes.
+[plattegrond]
+kolommen = 19
+rijen = 10
+# Tafels die vaak aan elkaar geschoven worden.
+combinaties = [
+    ["1a", "1b", "1c", "1d", "1e"],
+    ["3a", "3b"],
+    ["5a", "5b"],
+    ["6a", "6b"],
+    ["7a", "7b"],
+    ["10a", "10b"],
+]
+tafels = [
+    # Bankje langs de achterwand
+    { nummer = "1a", stoelen = 4, kolom = 0, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "1b", stoelen = 4, kolom = 2, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "1c", stoelen = 4, kolom = 4, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "1d", stoelen = 4, kolom = 6, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "1e", stoelen = 4, kolom = 8, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "2", stoelen = 6, kolom = 11, rij = 0, breedte = 3, hoogte = 2, vorm = "rond" },
+    { nummer = "3a", stoelen = 4, kolom = 15, rij = 0, breedte = 2, hoogte = 2 },
+    { nummer = "3b", stoelen = 4, kolom = 17, rij = 0, breedte = 2, hoogte = 2 },
+    # Middenrij, tussen de palen
+    { nummer = "8", stoelen = 2, kolom = 3, rij = 3 },
+    { nummer = "7b", stoelen = 2, kolom = 5, rij = 3 },
+    { nummer = "7a", stoelen = 2, kolom = 6, rij = 3 },
+    { nummer = "6b", stoelen = 2, kolom = 9, rij = 3 },
+    { nummer = "6a", stoelen = 2, kolom = 10, rij = 3 },
+    { nummer = "5b", stoelen = 2, kolom = 13, rij = 3 },
+    { nummer = "5a", stoelen = 2, kolom = 14, rij = 3 },
+    { nummer = "4", stoelen = 4, kolom = 16, rij = 3, breedte = 2 },
+    # Bij de ingang
+    { nummer = "9", stoelen = 4, kolom = 0, rij = 5, breedte = 2, hoogte = 2 },
+    { nummer = "10a", stoelen = 3, kolom = 2, rij = 5, breedte = 2, hoogte = 2 },
+    { nummer = "10b", stoelen = 3, kolom = 4, rij = 5, breedte = 2, hoogte = 2 },
+    # Voor de bar
+    { nummer = "11", stoelen = 2, kolom = 8, rij = 6, breedte = 2 },
+    { nummer = "12", stoelen = 2, kolom = 12, rij = 6, breedte = 2 },
+    { nummer = "13", stoelen = 2, kolom = 15, rij = 6, breedte = 2 },
+]
+elementen = [
+    { naam = "Meterkast", kolom = 0, rij = 3, breedte = 3 },
+    { naam = "Paal", kolom = 8, rij = 3 },
+    { naam = "Paal", kolom = 12, rij = 3 },
+    { naam = "Paal", kolom = 15, rij = 3 },
+    { naam = "Bar", kolom = 7, rij = 8, breedte = 12, hoogte = 2 },
+    { naam = "Ingang", kolom = 0, rij = 8, hoogte = 2 },
+]
+
+# Gegevens voor de privacyverklaring (/privacy). Controleer de locaties in de dashboards van
+# Render, Neon en n8n voordat je dit merget; de verklaring is een belofte aan je gasten.
+[privacy]
+verantwoordelijke = "Waroeng Padang Lapek"
+adres = "Schoolstraat 35, 2511 AW Den Haag"
+bijgewerkt = 2026-11-06
+verwerkers = [
+    { naam = "Render", doel = "hosting van de reserveringswebsite", locatie = "Europese Unie" },
+    { naam = "Neon", doel = "opslag van de reserveringen (database)", locatie = "Europese Unie" },
+    { naam = "Resend", doel = "versturen van de bevestigingsmail", locatie = "Verenigde Staten" },
+    { naam = "n8n", doel = "doorsturen van reserveringen die als bericht binnenkomen", locatie = "Europese Unie" },
+    { naam = "Anthropic", doel = "omzetten van een bericht naar een reservering (alleen bij reserveren via een bericht)", locatie = "Verenigde Staten" },
+]
+
+# Huisstijl van de website. De achtergrondfoto zet je in static/restaurants/wpl/ en noem je hier,
+# bijvoorbeeld achtergrond = "restaurants/wpl/achtergrond.webp". Zonder foto: een warme donkere gloed.
+[huisstijl]
+accentkleur = "#d9a441"
+ondertitel = "Schoolstraat 35, Den Haag"

@@ -20,7 +20,7 @@ class TestConfig(Config):
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
     CSRF_ENABLED = False
-    RESTAURANT_CONFIG = "restaurants/wpl.toml"
+    RESTAURANT_CONFIG = "tests/restaurant_vast.toml"
 
 
 class ZonderPlattegrondConfig(TestConfig):

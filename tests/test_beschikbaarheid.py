@@ -25,7 +25,7 @@ class TestConfig(Config):
     DATABASE_URL = "sqlite:///:memory:"
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
-    RESTAURANT_CONFIG = "restaurants/wpl.toml"  # 69 gasten tegelijk, 90 minuten, knoppen per 30 minuten
+    RESTAURANT_CONFIG = "tests/restaurant_vast.toml"  # 69 gasten tegelijk, 90 minuten, knoppen per 30 minuten
 
 
 class KnoptijdenTests(unittest.TestCase):

@@ -26,7 +26,7 @@ class TestConfig(Config):
     DATABASE_URL = "sqlite:///:memory:"
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
-    RESTAURANT_CONFIG = "restaurants/wpl.toml"
+    RESTAURANT_CONFIG = "tests/restaurant_vast.toml"
     RESTAURANT_NAAM = "Waroeng Test"
     RESTAURANT_TELEFOON = "070 123 4567"
 
