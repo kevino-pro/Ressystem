@@ -4,24 +4,24 @@
 [reserveringen]
 tijdzone = "Europe/Amsterdam"
 slot_minuten = 15              # gasten kiezen een tijd per 15 minuten
-zitduur_minuten = 90           # anderhalf uur per reservering
+zitduur_minuten = 60           # elke groep heeft een uur
 max_gasten_tegelijk = 69       # zitplaatsen in Den Haag
-max_personen_per_boeking = 8   # grotere groepen bellen het restaurant
+max_personen_per_boeking = 15  # grotere groepen bellen en bestellen vooraf
 min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
 max_dagen_vooruit = 90
 sluitingsdagen = []            # nog geen vaste sluitingsdagen
 knop_minuten = 30              # het formulier toont knoppen per half uur (12:00, 12:30, ...)
 diner_vanaf = "16:00"          # knoppen vanaf 16:00 staan onder "Diner"
 
-# Open di t/m zo 12:00-21:00. Met 90 minuten zitduur is 19:30 de laatste begintijd.
+# Open di t/m zo 12:00-21:00. Met 60 minuten zitduur is 20:00 de laatste begintijd.
 [reserveringen.openingstijden]
 maandag = []
-dinsdag = [["12:00", "19:30"]]
-woensdag = [["12:00", "19:30"]]
-donderdag = [["12:00", "19:30"]]
-vrijdag = [["12:00", "19:30"]]
-zaterdag = [["12:00", "19:30"]]
-zondag = [["12:00", "19:30"]]
+dinsdag = [["12:00", "20:00"]]
+woensdag = [["12:00", "20:00"]]
+donderdag = [["12:00", "20:00"]]
+vrijdag = [["12:00", "20:00"]]
+zaterdag = [["12:00", "20:00"]]
+zondag = [["12:00", "20:00"]]
 
 # Plattegrond voor het personeel (alleen zichtbaar na inloggen). Raster van 19 kolommen bij
 # 10 rijen; kolom en rij tellen vanaf 0 linksboven. Breedte en hoogte zijn in hokjes.
