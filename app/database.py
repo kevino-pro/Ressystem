@@ -493,6 +493,40 @@ def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal
             select(reserveringen).where(reserveringen.c.id == reservering_id)
         ).mappings().first()
 
+def tellingen_per_dag(conn, van, tot):
+    """
+    Per datum ('YYYY-MM-DD', van t/m tot) en bron: {'reserveringen', 'gasten', 'no_shows'}, voor de cijfers.
+    Telt de reserveringen die er nog zijn en de dagtellingen van verwijderde reserveringen bij elkaar op;
+    een reservering staat altijd maar in een van de twee. Gasten zonder no-shows. Geeft {(datum, bron): {...}}.
+    """
+    tellingen = {}
+    with conn.begin():
+        for rij in conn.execute(
+            select(reserveringen.c.datum, reserveringen.c.bron, reserveringen.c.aantal, reserveringen.c.status)
+            .where(reserveringen.c.datum >= van, reserveringen.c.datum <= tot)
+        ):
+            telling = tellingen.setdefault((rij.datum, rij.bron), {'reserveringen': 0, 'gasten': 0, 'no_shows': 0})
+            telling['reserveringen'] += 1
+            if rij.status == NIET_GEKOMEN:
+                telling['no_shows'] += 1
+            else:
+                telling['gasten'] += rij.aantal
+        for rij in conn.execute(
+            select(dagtellingen).where(dagtellingen.c.datum >= van, dagtellingen.c.datum <= tot)
+        ).mappings():
+            telling = tellingen.setdefault((rij['datum'], rij['bron']), {'reserveringen': 0, 'gasten': 0, 'no_shows': 0})
+            for kolom in ('reserveringen', 'gasten', 'no_shows'):
+                telling[kolom] += rij[kolom]
+    return tellingen
+
+def bezoeken_tussen(conn, van, tot):
+    """(datum, tijd, aantal) van de reserveringen van van t/m tot, zonder no-shows: voor de drukste tijden."""
+    with conn.begin():
+        return [tuple(rij) for rij in conn.execute(
+            select(reserveringen.c.datum, reserveringen.c.tijd, reserveringen.c.aantal).where(
+                reserveringen.c.datum >= van, reserveringen.c.datum <= tot, reserveringen.c.status != NIET_GEKOMEN)
+        )]
+
 def zoek_dubbele_reserveringen(conn, vanaf):
     """
     Alleen lezen: groepen reserveringen vanaf `vanaf` ('YYYY-MM-DD') die bij dezelfde gast op

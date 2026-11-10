@@ -232,6 +232,23 @@ textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical;
 
 /* Personeel: accounts */
 .paneel-smal { max-width: 460px; }
+/* Cijfers (alleen beheerder) */
+.indeling.cijfers { grid-template-columns: 1fr 360px; }
+.cijfertabel { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 8px; }
+.cijfertabel th { text-align: right; font-weight: 500; color: var(--zacht); font-size: 12px; padding: 6px 4px; }
+.cijfertabel td { text-align: right; padding: 8px 4px; border-top: 1px solid var(--lijn); }
+.cijfertabel th:first-child, .cijfertabel td:first-child { text-align: left; }
+.cijfertabel tr.later td { color: var(--zacht); }
+.cijfertabel tr.vandaag td:first-child a { color: var(--accent); }
+.cijfertabel tfoot td { font-weight: 600; }
+.tussenkop { margin-top: 22px; }
+.staven { list-style: none; padding: 0; margin: 10px 0 0; }
+.staven li { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; font-size: 12.5px; padding: 3px 0; }
+.staven.smal li { grid-template-columns: 82px 1fr 36px; }
+.staven li span { color: var(--zacht); }
+.staven li.aan span { color: var(--accent); }
+.staven li b { text-align: right; font-weight: 600; }
+.staven .balk { margin-top: 0; }
 .accountlijst { list-style: none; padding: 0; margin-top: 12px; }
 .account { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
 .account:last-child { border-bottom: 0; }
@@ -250,7 +267,7 @@ textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical;
     .dagnav h2 { width: 100%; }
     .dagnav form.zoek { margin-left: 0; width: 100%; }
     .dagnav input[type=search] { flex: 1; width: auto; min-width: 0; }
-    .indeling { grid-template-columns: 1fr; }
+    .indeling, .indeling.cijfers { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
     .kaart { padding: 18px; }
