@@ -50,6 +50,17 @@ tafeltoewijzingen = Table(
     Column('tafel', Text, primary_key=True),
 )
 
+# Per dag en per bron een telling zonder namen, zodat de cijfers blijven als de reserveringen
+# na de bewaartermijn zijn verwijderd. Wordt gevuld vlak voordat oude reserveringen weggaan.
+dagtellingen = Table(
+    'dagtellingen', metadata,
+    Column('datum', Text, primary_key=True),  # 'YYYY-MM-DD', zoals reserveringen.datum
+    Column('bron', Text, primary_key=True),  # zie BRONNEN
+    Column('reserveringen', Integer, nullable=False, server_default='0'),  # alle, ook no-shows
+    Column('gasten', Integer, nullable=False, server_default='0'),  # personen, zonder no-shows
+    Column('no_shows', Integer, nullable=False, server_default='0'),  # reserveringen met status no_show
+)
+
 personeel = Table(
     'personeel', metadata,
     Column('id', Integer, primary_key=True, autoincrement=True),
@@ -566,8 +577,39 @@ def _retentiegrens():
     retentie_dagen = int(current_app.config['RETENTIE_DAGEN_AVG'])
     return (date.today() - timedelta(days=retentie_dagen)).isoformat()
 
+def _bewaar_dagtellingen(conn, grens):
+    """
+    Telt per dag en bron de reserveringen met een datum voor `grens` en telt ze op bij dagtellingen.
+    Alleen aantallen, geen namen of andere gegevens van gasten. Draait in de transactie van de aanroeper,
+    vlak voor het verwijderen, zodat elke reservering precies een keer wordt meegeteld.
+    """
+    tellingen = {}
+    for rij in conn.execute(
+        select(reserveringen.c.datum, reserveringen.c.bron, reserveringen.c.aantal, reserveringen.c.status)
+        .where(reserveringen.c.datum < grens)
+    ):
+        telling = tellingen.setdefault((rij.datum, rij.bron), {'reserveringen': 0, 'gasten': 0, 'no_shows': 0})
+        telling['reserveringen'] += 1
+        if rij.status == NIET_GEKOMEN:
+            telling['no_shows'] += 1
+        else:
+            telling['gasten'] += rij.aantal
+    for (datum, bron), telling in sorted(tellingen.items()):
+        sleutel = (dagtellingen.c.datum == datum, dagtellingen.c.bron == bron)
+        bestaand = conn.execute(select(dagtellingen).where(*sleutel)).mappings().first()
+        if bestaand is None:
+            conn.execute(insert(dagtellingen).values(datum=datum, bron=bron, **telling))
+        else:  # bijvoorbeeld een late reservering voor een oude dag: optellen, niet vervangen
+            conn.execute(update(dagtellingen).where(*sleutel).values(
+                **{kolom: bestaand[kolom] + waarde for kolom, waarde in telling.items()}))
+    return len(tellingen)
+
 def _verwijder_ouder_dan(conn, grens):
-    """Verwijdert reserveringen (en hun tafeltoewijzingen) met een datum voor `grens`."""
+    """
+    Verwijdert reserveringen (en hun tafeltoewijzingen) met een datum voor `grens`.
+    Eerst gaan hun aantallen naar dagtellingen, zodat de cijfers blijven.
+    """
+    _bewaar_dagtellingen(conn, grens)
     oude_ids = select(reserveringen.c.id).where(reserveringen.c.datum < grens)
     conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id.in_(oude_ids)))
     conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
