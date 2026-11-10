@@ -24,7 +24,7 @@ from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEF
 
 TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of laat het veld leeg. "
                        "Je kunt het ook bij aankomst aan ons doorgeven.")
-from app.services.email_service import stuur_bevestigingsmail_async
+from app.services.email_service import stuur_bevestigingsmail_async, stuur_wijzigingsmail_async
 from app.security import constant_time_equals, rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
 from app.taal import DAGEN, MAANDEN, TAAL_COOKIE, huidige_taal, vertaal as t
@@ -651,7 +651,8 @@ def wijzigen_klant(reservering_id):
 
     try:
         nieuw = wijzig_reservering(conn, reservering_id, regels.max_gasten_tegelijk, keuze['datum'], tijd_tekst,
-                                   aantal, regels.zitduur_minuten, max_kinderstoelen=regels.kinderstoelen)
+                                   aantal, regels.zitduur_minuten, max_kinderstoelen=regels.kinderstoelen,
+                                   taal=huidige_taal())
     except NietMeerWijzigbaarFout:
         return t("Deze reservering kan niet meer online worden gewijzigd."), 409
     except DubbeleReserveringFout:
@@ -664,4 +665,5 @@ def wijzigen_klant(reservering_id):
     except OperationalError:
         return _wijzigpagina(reservering, t("Database is momenteel druk, probeer het opnieuw."), 503, keuze)
 
+    stuur_wijzigingsmail_async(nieuw)  # in de taal van deze pagina, net als bij reserveren
     return render_template('wijziging_opgeslagen.html', reservering=nieuw)

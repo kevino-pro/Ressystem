@@ -178,6 +178,7 @@ textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical;
 .notities { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .notitie { font-size: 11.5px; color: var(--tekst); background: rgba(217, 164, 65, .12); border: 1px solid rgba(217, 164, 65, .35); border-radius: 999px; padding: 2px 9px; }
 .notitie.allergie { background: rgba(224, 108, 92, .14); border-color: rgba(224, 108, 92, .5); }
+.notitie.gewijzigd { background: rgba(110, 168, 230, .14); border-color: rgba(110, 168, 230, .5); }
 .klein-akkoord { margin: 8px 0 0; font-size: 12px; }
 .notitie.tekst { border-radius: 8px; white-space: normal; overflow-wrap: anywhere; }
 .label { margin-left: 8px; font-size: 11px; color: var(--zacht); border: 1px solid var(--lijn); border-radius: 999px; padding: 2px 8px; }

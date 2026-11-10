@@ -60,6 +60,9 @@ class Basis(unittest.TestCase):
         patcher = mock.patch.object(ReserveringsRegels, "nu", lambda self: NU)
         patcher.start()
         self.addCleanup(patcher.stop)
+        mail = mock.patch("app.routes.web.stuur_wijzigingsmail_async")  # deel 9 fase 2: de wijzigingsmail
+        self.wijzigingsmail = mail.start()
+        self.addCleanup(mail.stop)
         self.app = create_app(self.config)
         with self.app.app_context():
             init_db()

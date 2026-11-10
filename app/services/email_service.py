@@ -135,9 +135,9 @@ def _bouw_herinneringsmail(app_config, reservering):
         regels.append("- " + vertaal("Adres: {adres}", taal=taal, adres=privacy.adres))
     regels += [
         "",
-        vertaal("Kun je toch niet komen? Annuleer dan via deze link, dan geven we je plek aan een andere gast:", taal=taal),
+        vertaal("Wil je iets wijzigen, of kun je toch niet komen? Dat regel je via deze link:", taal=taal),
         annuleer_url,
-        vertaal("Wil je iets wijzigen? Bel ons op {telefoon}.", taal=taal, telefoon=app_config['RESTAURANT_TELEFOON']),
+        vertaal("Liever bellen? Bel ons op {telefoon}.", taal=taal, telefoon=app_config['RESTAURANT_TELEFOON']),
         "",
         vertaal("Met vriendelijke groet,", taal=taal),
         vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
@@ -148,6 +148,46 @@ def _bouw_herinneringsmail(app_config, reservering):
         'subject': onderwerp,
         'tekst': "\n".join(regels) + "\n",
     }
+
+def _bouw_wijzigingsmail(app_config, reservering):
+    """Bevestiging van een wijziging door de gast, in de taal van de gast (kolom `taal`), met de nieuwe gegevens."""
+    taal = reservering['taal']
+    restaurant = app_config['RESTAURANT_NAAM']
+    wijzig_url = f"{app_config['APP_BASE_URL']}/annuleren/{reservering['id']}"
+    datum = hoofdletter(datum_tekst(reservering['datum'], met_jaar=True, taal=taal))
+    regels = [
+        vertaal("Beste {naam},", taal=taal, naam=reservering['naam']),
+        "",
+        vertaal("Je reservering bij {restaurant} is gewijzigd. Dit zijn de nieuwe gegevens:", taal=taal,
+                restaurant=restaurant),
+        "- " + vertaal("Datum: {datum}", taal=taal, datum=datum),
+        "- " + vertaal("Tijdstip: {tijd}", taal=taal, tijd=reservering['tijd']),
+        "- " + vertaal("Aantal personen: {aantal}", taal=taal, aantal=reservering['aantal']),
+        "",
+        vertaal("Wil je de reservering wijzigen of annuleren? Klik op deze link:", taal=taal),
+        wijzig_url,
+        "",
+        vertaal("Heb je dit niet zelf gedaan? Bel ons dan op {telefoon}.", taal=taal,
+                telefoon=app_config['RESTAURANT_TELEFOON']),
+        "",
+        vertaal("Met vriendelijke groet,", taal=taal),
+        vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
+    ]
+    return {
+        'from': app_config['VERZENDER_EMAIL'],
+        'to': reservering['email'],
+        'subject': vertaal("Je reservering is gewijzigd - {restaurant}", taal=taal, restaurant=restaurant),
+        'tekst': "\n".join(regels) + "\n",
+    }
+
+def stuur_wijzigingsmail_async(reservering):
+    """Verstuurt de wijzigingsmail op een losse thread, zoals de bevestiging. Zonder e-mailadres: niets."""
+    if not reservering['email']:
+        return
+    app_config = current_app.config.copy()
+    bericht = _bouw_wijzigingsmail(app_config, reservering)
+    threading.Thread(target=async_send_email, args=(app_config, bericht, reservering['email'], reservering['id']),
+                     daemon=True).start()
 
 def stuur_herinnering(app_config, reservering):
     """Verstuurt de herinnering meteen (geen losse thread). True als de mail is verstuurd."""

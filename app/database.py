@@ -426,7 +426,7 @@ class NietMeerWijzigbaarFout(Exception):
     """De reservering is intussen geannuleerd, of de gast is er al (of kwam niet)."""
 
 def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal, zitduur_minuten,
-                       max_kinderstoelen=None):
+                       max_kinderstoelen=None, taal=None):
     """
     Zet een bestaande reservering (status 'verwacht') op een nieuwe datum, tijd en/of aantal personen,
     met dezelfde controles als verwerk_reservering(): dubbele boeking, gasten tegelijk en kinderstoelen.
@@ -436,7 +436,8 @@ def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal
     - verliest de reservering haar tafels op de plattegrond (het personeel wijst opnieuw toe);
     - staat gewijzigd_op op nu, zodat het overzicht hem als gewijzigd toont;
     - is herinnering_verstuurd weer leeg als de datum is veranderd, zodat de gast voor de nieuwe dag
-      weer een herinnering kan krijgen.
+      weer een herinnering kan krijgen;
+    - gaan de mails in `taal` (de taal waarin de gast wijzigde), als die is meegegeven.
 
     Fouten: NietMeerWijzigbaarFout, DubbeleReserveringFout, CapaciteitVolFout of KinderstoelVolFout;
     bij een fout blijft alles zoals het was. Geeft de reservering na de wijziging terug.
@@ -473,6 +474,8 @@ def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal
         waarden = {'datum': datum, 'tijd': tijd, 'aantal': aantal, 'gewijzigd_op': func.current_timestamp()}
         if datum != oud['datum']:
             waarden['herinnering_verstuurd'] = None
+        if taal:
+            waarden['taal'] = taal
         conn.execute(update(reserveringen).where(reserveringen.c.id == reservering_id).values(**waarden))
         conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
         return conn.execute(

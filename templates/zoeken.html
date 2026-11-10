@@ -36,6 +36,8 @@
             <div class="notities">
                 {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% else %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
             </div>
+            {% elif r.gewijzigd_op %}
+            <div class="notities"><span class="notitie gewijzigd">{{ t("Gewijzigd door de gast") }}</span></div>
             {% endif %}
         </div>
     </div>
