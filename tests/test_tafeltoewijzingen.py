@@ -168,7 +168,7 @@ class MigratieTests(unittest.TestCase):
             alembic("upgrade", "head")
             engine = create_engine(url)
             self.assertIn("tafeltoewijzingen", inspect(engine).get_table_names())
-            alembic("downgrade", "-1")
+            alembic("downgrade", "ba7cbc14b3a2")  # terug tot voor de tafeltoewijzingen
             self.assertNotIn("tafeltoewijzingen", inspect(engine).get_table_names())
             self.assertIn("reserveringen", inspect(engine).get_table_names())
             engine.dispose()

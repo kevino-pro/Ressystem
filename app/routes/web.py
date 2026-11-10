@@ -9,11 +9,12 @@ from pydantic import ValidationError
 
 from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
+    KinderstoelVolFout,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
 )
-from app.schemas import NAAM_MELDING, TELEFOON_MELDING, ReserveringSchema
+from app.schemas import NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
@@ -350,13 +351,16 @@ def nieuwe_reservering():
             bericht = TELEFOON_MELDING
         elif "naam" in fields:
             bericht = NAAM_MELDING
+        elif "opmerking" in fields:
+            bericht = OPMERKING_MELDING
         return jsonify({"status": "fout", "bericht": bericht, "velden": fields}), 422
 
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
 
     try:
-        current_app.config['REGELS'].controleer(valid_data.datum, valid_data.tijd, valid_data.aantal)
+        current_app.config['REGELS'].controleer(valid_data.datum, valid_data.tijd, valid_data.aantal,
+                                                kinderstoelen=valid_data.kinderstoelen)
     except RegelFout as fout:
         return jsonify({"status": "fout", "bericht": fout.bericht}), 400
 
@@ -371,9 +375,13 @@ def nieuwe_reservering():
             naam=valid_data.naam, email=valid_data.email, telefoon=valid_data.telefoon,
             datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
             zitduur_minuten=regels.zitduur_minuten,
+            kinderstoelen=valid_data.kinderstoelen, max_kinderstoelen=regels.kinderstoelen,
+            opmerking=valid_data.opmerking,
         )
     except DubbeleReserveringFout as fout:
         return jsonify({"status": "fout", "bericht": fout.bericht}), 409
+    except KinderstoelVolFout as fout:
+        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
     except CapaciteitVolFout as e:
         return jsonify({
             "status": "fout",
