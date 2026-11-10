@@ -213,6 +213,9 @@
 "Tonen" = "Show"
 "Reservering" = "Booking"
 "Binnenloper" = "Walk-in"
+"Naam of telefoonnummer" = "Name or phone number"
+"Zoek op naam of telefoon" = "Search by name or phone"
+"Zoeken" = "Search"
 "Gasten" = "Guests"
 "Drukste moment" = "Busiest moment"
 "Nog niet binnen" = "Not yet arrived"
@@ -381,3 +384,10 @@
 # wpl.toml
 "doorsturen van reserveringen die als bericht binnenkomen" = "forwarding bookings that arrive as a message"
 "omzetten van een bericht naar een reservering (alleen bij reserveren via een bericht)" = "turning a message into a booking (only when booking by message)"
+
+# zoeken.html
+"Zoekt in de reserveringen van vandaag en later." = "Searches bookings from today onwards."
+"Typ minstens {aantal} tekens." = "Type at least {aantal} characters."
+"Meer dan {aantal} resultaten. Maak je zoekopdracht specifieker." = "More than {aantal} results. Please make your search more specific."
+"Naar deze dag" = "Go to this day"
+"Geen reserveringen gevonden." = "No bookings found."

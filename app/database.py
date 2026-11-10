@@ -455,6 +455,13 @@ def haal_reserveringen_op(conn, datum=None):
     with conn.begin():
         return conn.execute(query).mappings().all()
 
+def haal_reserveringen_vanaf(conn, vanaf):
+    """Alle reserveringen op of na `vanaf` ('YYYY-MM-DD'), op datum en tijd; voor het zoeken."""
+    query = (select(reserveringen).where(reserveringen.c.datum >= vanaf)
+             .order_by(reserveringen.c.datum.asc(), reserveringen.c.tijd.asc(), reserveringen.c.naam.asc()))
+    with conn.begin():
+        return conn.execute(query).mappings().all()
+
 def haal_reservering_op(conn, reservering_id):
     with conn.begin():
         return conn.execute(

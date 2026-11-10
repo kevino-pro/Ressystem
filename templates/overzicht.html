@@ -13,6 +13,11 @@
     </form>
     <a class="pil aan" href="/reservering/nieuw?datum={{ datum }}">+ {{ t("Reservering") }}</a>
     {% if dag == vandaag %}<a class="pil" href="/reservering/nieuw?bron=binnenloper">+ {{ t("Binnenloper") }}</a>{% endif %}
+    <form class="zoek" action="/zoeken" method="GET" role="search">
+        <label for="zoekterm" class="verborgen">{{ t("Naam of telefoonnummer") }}</label>
+        <input type="search" id="zoekterm" name="q" maxlength="100" placeholder="{{ t('Zoek op naam of telefoon') }}">
+        <button type="submit" class="pil">{{ t("Zoeken") }}</button>
+    </form>
 </div>
 
 {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
