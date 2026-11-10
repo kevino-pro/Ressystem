@@ -43,3 +43,8 @@ verwerkers = [
 accentkleur = "#d9a441"                 # kleur van knoppen en gekozen tijden, als #rrggbb
 ondertitel = "Voorbeeldstraat 1, Voorbeeldstad"
 # achtergrond = "restaurants/voorbeeld/achtergrond.webp"   # pad binnen static/
+
+# Herinneringsmail de dag voor het bezoek (optioneel). Zonder deze sectie gaan er geen herinneringen uit.
+# Een geplande taak roept /beheer/herinneringen aan; zie .github/workflows/herinneringen.yml.
+[herinnering]
+uur = 10                                # vanaf dit uur, in de tijdzone van het restaurant

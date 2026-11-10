@@ -53,20 +53,24 @@ def async_send_email(app_config, bericht, recipient_email, reservering_id):
     # kunnen doen is duidelijk loggen (met reservering_id) zodat personeel een gemiste
     # bevestigingsmail kan terugvinden (grep op MAIL_FAILED) en de klant zelf kan benaderen,
     # of `flask resend-mail <reservering_id>` kan draaien.
+    # Geeft True als de mail echt is verstuurd (de herinnering gebruikt dat); False bij een fout of simulatie.
     try:
         if app_config.get('RESEND_API_KEY'):
             _verstuur_via_resend(app_config, bericht)
         elif not app_config['VERZENDER_WACHTWOORD'] or app_config['VERZENDER_EMAIL'] == "jouw-restaurant@gmail.com":
             logger.info("[MAIL_SIMULATIE] reservering_id=%s", reservering_id)
-            return
+            return False
         else:
             _verstuur_via_smtp(app_config, bericht)
 
         logger.info("[MAIL_SENT] reservering_id=%s", reservering_id)
+        return True
     except urllib.error.HTTPError as error:
         logger.error("[MAIL_FAILED] reservering_id=%s error_type=%s status=%s", reservering_id, type(error).__name__, error.code)
+        return False
     except (smtplib.SMTPException, socket.error, OSError) as error:
         logger.error("[MAIL_FAILED] reservering_id=%s error_type=%s", reservering_id, type(error).__name__)
+        return False
 
 def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal=BRONTAAL):
     """De bevestigingsmail in de taal van de gast (`taal`: 'en', 'nl' of 'id')."""
@@ -108,3 +112,44 @@ def stuur_bevestigingsmail_sync(ontvanger_email, naam, datum, tijd, aantal, rese
     app_config = current_app.config.copy()
     bericht = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal)
     async_send_email(app_config, bericht, ontvanger_email, reservering_id)
+
+def _bouw_herinneringsmail(app_config, reservering):
+    """De herinnering de dag voor het bezoek, in de taal van de gast (kolom `taal`)."""
+    taal = reservering['taal']
+    restaurant = app_config['RESTAURANT_NAAM']
+    privacy = app_config.get('PRIVACY')
+    annuleer_url = f"{app_config['APP_BASE_URL']}/annuleren/{reservering['id']}"
+    onderwerp = vertaal("Herinnering: je reservering morgen om {tijd} - {restaurant}", taal=taal,
+                        tijd=reservering['tijd'], restaurant=restaurant)
+    datum = hoofdletter(datum_tekst(reservering['datum'], met_jaar=True, taal=taal))
+    regels = [
+        vertaal("Beste {naam},", taal=taal, naam=reservering['naam']),
+        "",
+        vertaal("Morgen ben je welkom bij {restaurant}. We kijken ernaar uit!", taal=taal, restaurant=restaurant),
+        "",
+        "- " + vertaal("Datum: {datum}", taal=taal, datum=datum),
+        "- " + vertaal("Tijdstip: {tijd}", taal=taal, tijd=reservering['tijd']),
+        "- " + vertaal("Aantal personen: {aantal}", taal=taal, aantal=reservering['aantal']),
+    ]
+    if privacy is not None:
+        regels.append("- " + vertaal("Adres: {adres}", taal=taal, adres=privacy.adres))
+    regels += [
+        "",
+        vertaal("Kun je toch niet komen? Annuleer dan via deze link, dan geven we je plek aan een andere gast:", taal=taal),
+        annuleer_url,
+        vertaal("Wil je iets wijzigen? Bel ons op {telefoon}.", taal=taal, telefoon=app_config['RESTAURANT_TELEFOON']),
+        "",
+        vertaal("Met vriendelijke groet,", taal=taal),
+        vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
+    ]
+    return {
+        'from': app_config['VERZENDER_EMAIL'],
+        'to': reservering['email'],
+        'subject': onderwerp,
+        'tekst': "\n".join(regels) + "\n",
+    }
+
+def stuur_herinnering(app_config, reservering):
+    """Verstuurt de herinnering meteen (geen losse thread). True als de mail is verstuurd."""
+    bericht = _bouw_herinneringsmail(app_config, reservering)
+    return async_send_email(app_config, bericht, reservering['email'], reservering['id']) is True

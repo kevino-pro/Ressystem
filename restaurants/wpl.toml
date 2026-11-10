@@ -100,3 +100,7 @@ ondertitel = "Schoolstraat 35, Den Haag"
 [talen]
 beschikbaar = ["en", "nl", "id"]
 standaard = "en"
+
+# Herinneringsmail de dag voor het bezoek, in de taal van de gast. Gaat uit vanaf dit uur (tijdzone hierboven).
+[herinnering]
+uur = 10
