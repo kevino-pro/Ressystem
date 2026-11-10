@@ -11,7 +11,12 @@
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
         <noscript><button type="submit" class="pil">Tonen</button></noscript>
     </form>
+    <a class="pil aan" href="/reservering/nieuw?datum={{ datum }}">+ Reservering</a>
 </div>
+
+{% for categorie, bericht in get_flashed_messages(with_categories=true) %}
+<div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
+{% endfor %}
 
 <div class="tellers">
     <div class="teller"><small>Reserveringen</small><b>{{ tellers.reserveringen }}</b></div>
@@ -37,9 +42,10 @@
         <div class="aantal" title="{{ r.aantal }} personen">{{ r.aantal }}</div>
         <div class="wie">
             <b>{{ r.naam }}</b>
-            <small><a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a> · <a href="mailto:{{ r.email }}">{{ r.email }}</a></small>
-            {% if r.kinderstoelen or r.opmerking or r.allergieen %}
+            <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
+            {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' %}
             <div class="notities">
+                {% if r.bron != 'online' %}<span class="notitie">{{ {'telefoon': 'Telefonisch', 'binnenloper': 'Binnenloper', 'ai': 'Via AI'}.get(r.bron, r.bron) }}{% if r.ingevoerd_door %} · {{ r.ingevoerd_door }}{% endif %}</span>{% endif %}
                 {% if r.kinderstoelen %}<span class="notitie">{{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}</span>{% endif %}
                 {% if r.allergieen %}<span class="notitie tekst allergie">Allergie: {{ r.allergieen }}</span>{% endif %}
                 {% if r.opmerking %}<span class="notitie tekst">{{ r.opmerking }}</span>{% endif %}
@@ -54,8 +60,8 @@
             {% endif %}
         {% else %}<span></span>{% endif %}
         <div class="acties">
-            <a href="tel:{{ r.telefoon }}">Bel</a>
-            <a href="mailto:{{ r.email }}">Mail</a>
+            {% if r.telefoon %}<a href="tel:{{ r.telefoon }}">Bel</a>{% endif %}
+            {% if r.email %}<a href="mailto:{{ r.email }}">Mail</a>{% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <details>
                 <summary aria-label="Meer acties">⋯</summary>
