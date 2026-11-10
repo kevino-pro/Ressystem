@@ -24,6 +24,10 @@ reserveringen = Table(
     Column('tijd', Text, nullable=False),
     Column('aantal', Integer, nullable=False),
     Column('aangemaakt_op', DateTime, server_default=func.current_timestamp()),
+    Column('opmerking', Text, nullable=True),
+    Column('kinderstoelen', Integer, nullable=False, server_default='0'),
+    # Gezondheidsgegevens: alleen met aparte toestemming, en de dag na het bezoek gewist.
+    Column('allergieen', Text, nullable=True),
 )
 
 # Welke tafel(s) bij een reservering horen. Een groep kan meerdere tafels krijgen.
@@ -47,6 +51,14 @@ class CapaciteitVolFout(Exception):
     def __init__(self, vrij):
         self.vrij = vrij
         super().__init__(f"Geen capaciteit: nog {vrij} plek(ken) vrij.")
+
+class KinderstoelVolFout(Exception):
+    """Alle kinderstoelen zijn tijdens (een deel van) de zitduur al gereserveerd."""
+    bericht = ("Op deze tijd zijn alle kinderstoelen al gereserveerd. "
+               "Kies een andere tijd, of bel ons, dan zoeken we samen een oplossing.")
+
+    def __init__(self):
+        super().__init__(self.bericht)
 
 MAANDEN = ("januari", "februari", "maart", "april", "mei", "juni", "juli",
            "augustus", "september", "oktober", "november", "december")
@@ -239,7 +251,8 @@ def _heeft_al_reservering(conn, gast, datum, tijd):
     ).mappings()
     return any(is_zelfde_gast(rij, gast) for rij in bestaande)
 
-def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None):
+def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
+                        kinderstoelen=0, max_kinderstoelen=None, opmerking=None, allergieen=None):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
     en api.py (AI-webhook) gebruikt zodat de capaciteitsregel maar op één plek staat.
@@ -247,6 +260,10 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     Met `zitduur_minuten` telt elke reservering zo lang mee: `max_capaciteit` is dan het
     maximale aantal gasten tegelijk aan tafel. Zonder zitduur (None) tellen alleen
     reserveringen op exact hetzelfde tijdstip mee (oud gedrag, nog gebruikt in tests).
+
+    Met `max_kinderstoelen` (het aantal in het restaurant) telt het systeem ook de kinderstoelen
+    over de zitduur. Passen ze niet meer, dan volgt KinderstoelVolFout. Zonder `max_kinderstoelen`
+    (None) wordt dat niet gecontroleerd.
 
     Heeft dezelfde gast al een reservering op deze datum en tijd, dan volgt DubbeleReserveringFout.
     Die controle draait binnen dezelfde lock als de capaciteit, zodat een herhaalde of gelijktijdige
@@ -293,11 +310,25 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
         if huidige_gasten + aantal > max_capaciteit:
             raise CapaciteitVolFout(max_capaciteit - huidige_gasten)
 
+        if kinderstoelen and max_kinderstoelen is not None:
+            stoelen = [
+                (minuten_van(rij.tijd), rij.kinderstoelen)
+                for rij in conn.execute(
+                    select(reserveringen.c.tijd, reserveringen.c.kinderstoelen).where(
+                        reserveringen.c.datum == datum, reserveringen.c.kinderstoelen > 0
+                    )
+                )
+            ]
+            in_gebruik = piekbezetting(stoelen, minuten_van(tijd), zitduur_minuten or 1) if stoelen else 0
+            if in_gebruik + kinderstoelen > max_kinderstoelen:
+                raise KinderstoelVolFout()
+
         unieke_id = secrets.token_urlsafe(16)
         conn.execute(
             insert(reserveringen).values(
                 id=unieke_id, naam=naam, email=email, telefoon=telefoon,
-                datum=datum, tijd=tijd, aantal=aantal
+                datum=datum, tijd=tijd, aantal=aantal,
+                kinderstoelen=kinderstoelen, opmerking=opmerking or None, allergieen=allergieen or None,
             )
         )
 

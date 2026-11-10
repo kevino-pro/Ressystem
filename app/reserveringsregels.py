@@ -52,6 +52,8 @@ class ReserveringsRegels(BaseModel):
     knop_minuten: int | None = None
     # Vanaf deze tijd staan de knoppen onder "Diner" in plaats van "Lunch". Leeg = geen kopjes.
     diner_vanaf: time | None = None
+    # Hoeveel kinderstoelen het restaurant heeft. 0 = het formulier vraagt er niet naar.
+    kinderstoelen: int = Field(default=0, ge=0, le=20)
 
     @field_validator("diner_vanaf", mode="before")
     @classmethod
@@ -135,9 +137,13 @@ class ReserveringsRegels(BaseModel):
                 minuut += stap
         return tijden
 
-    def controleer(self, dag: date, tijdstip: time, aantal: int, nu: datetime | None = None):
+    def controleer(self, dag: date, tijdstip: time, aantal: int, nu: datetime | None = None, kinderstoelen: int = 0):
         """Gooit RegelFout als dit verzoek niet mag; anders None."""
         nu = nu or self.nu()
+        if kinderstoelen > self.kinderstoelen:
+            if not self.kinderstoelen:
+                raise RegelFout("Je kunt online geen kinderstoel reserveren. Bel ons, dan regelen we het.")
+            raise RegelFout(f"Er zijn maximaal {self.kinderstoelen} kinderstoelen per reservering.")
         if aantal > self.max_personen_per_boeking:
             raise RegelFout(
                 f"Online reserveren kan voor maximaal {self.max_personen_per_boeking} personen. "

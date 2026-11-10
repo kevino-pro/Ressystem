@@ -62,6 +62,24 @@
                            title="Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.">
                 </div>
             </div>
+            <div class="extra">
+                <p class="extra-kop">Nog iets dat we moeten weten? <small>(niet verplicht)</small></p>
+                {% if regels.kinderstoelen %}
+                <div class="veld">
+                    <label for="kinderstoelen">Kinderstoelen</label>
+                    <select id="kinderstoelen">
+                        {% for n in range(0, regels.kinderstoelen + 1) %}
+                        <option value="{{ n }}">{{ 'Geen' if n == 0 else n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="veld">
+                    <label for="opmerking">Opmerking</label>
+                    <textarea id="opmerking" rows="2" maxlength="300"
+                              placeholder="Bijvoorbeeld: we vieren een verjaardag, of we bestellen graag vooraf"></textarea>
+                </div>
+            </div>
         </fieldset>
 
         <label class="akkoord">
@@ -242,6 +260,8 @@
         alertBox.hidden = false;
     }
 
+    const kinderstoelVeld = document.getElementById('kinderstoelen');  // ontbreekt als het restaurant er geen heeft
+
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         alertBox.hidden = true;
@@ -258,7 +278,9 @@
             tijd: keuze.tijd,
             aantal: keuze.aantal,  // Integer voor Pydantic
             website: document.getElementById('website').value,  // honeypot
-            privacy_akkoord: document.getElementById('privacy_akkoord').checked  // Boolean
+            privacy_akkoord: document.getElementById('privacy_akkoord').checked,  // Boolean
+            opmerking: document.getElementById('opmerking').value.trim(),
+            kinderstoelen: kinderstoelVeld ? parseInt(kinderstoelVeld.value, 10) : 0
         };
         try {
             const antwoord = await fetch('/reservering', {

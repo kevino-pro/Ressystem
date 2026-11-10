@@ -12,6 +12,7 @@ max_dagen_vooruit = 90
 sluitingsdagen = []            # nog geen vaste sluitingsdagen
 knop_minuten = 30              # het formulier toont knoppen per half uur (12:00, 12:30, ...)
 diner_vanaf = "16:00"          # knoppen vanaf 16:00 staan onder "Diner"
+kinderstoelen = 2              # zoveel kinderstoelen heeft het restaurant in totaal
 
 # Open di t/m zo 12:00-21:00. Met 60 minuten zitduur is 20:00 de laatste begintijd.
 [reserveringen.openingstijden]

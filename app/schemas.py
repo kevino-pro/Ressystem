@@ -12,6 +12,8 @@ MIN_TELEFOON_CIJFERS = 9
 MAX_TELEFOON_CIJFERS = 15
 TELEFOON_MELDING = "Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678."
 NAAM_MELDING = "Vul je naam in."
+MAX_OPMERKING = 300
+OPMERKING_MELDING = f"Je opmerking mag maximaal {MAX_OPMERKING} tekens zijn."
 
 
 def _validate_iso_date(value: object) -> object:
@@ -53,6 +55,18 @@ def _validate_naam(value: object) -> object:
     return value
 
 
+def _validate_vrije_tekst(value: object) -> object:
+    """Optioneel vrij veld: leeg wordt None; regeleinden en stuurtekens worden een spatie."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Ongeldige tekst.")
+    value = " ".join("".join(" " if unicodedata.category(t).startswith("C") else t for t in value).split())
+    if len(value) > MAX_OPMERKING:
+        raise ValueError(OPMERKING_MELDING)
+    return value or None
+
+
 ISODate = Annotated[date, BeforeValidator(_validate_iso_date)]
 ISOTime = Annotated[
     time,
@@ -61,6 +75,7 @@ ISOTime = Annotated[
 ]
 Telefoon = Annotated[str, BeforeValidator(_validate_telefoon), Field(max_length=20)]
 Naam = Annotated[str, BeforeValidator(_validate_naam), Field(min_length=2, max_length=100)]
+Opmerking = Annotated[Optional[str], BeforeValidator(_validate_vrije_tekst)]
 
 
 class DTO(BaseModel):
@@ -76,6 +91,8 @@ class ReserveringSchema(DTO):
     aantal: int = Field(..., ge=1, le=20, validation_alias=AliasChoices("aantal", "aantal_personen"))
     website: Optional[str] = None
     privacy_akkoord: Literal[True]
+    opmerking: Opmerking = None
+    kinderstoelen: int = Field(default=0, ge=0, le=20)
 
 
 class AIWebhookSchema(DTO):

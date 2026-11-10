@@ -12,6 +12,7 @@ max_dagen_vooruit = 90
 sluitingsdagen = [2026-12-25, 2027-01-01]
 knop_minuten = 30              # optioneel: knoppen per half uur in het formulier (standaard = slot_minuten)
 diner_vanaf = "17:00"          # optioneel: vanaf deze tijd staan de knoppen onder "Diner"
+kinderstoelen = 0              # optioneel: aantal kinderstoelen in het restaurant (0 = niet vragen)
 
 # Per weekdag de vensters waarin een reservering mag BEGINNEN. Lege lijst = gesloten.
 [reserveringen.openingstijden]
