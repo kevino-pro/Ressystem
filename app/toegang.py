@@ -20,6 +20,15 @@ MIN_WACHTWOORD_LENGTE = 12
 MAX_WACHTWOORD_LENGTE = 128
 
 
+def wachtwoord_fout(wachtwoord):
+    """Melding voor een onbruikbaar nieuw wachtwoord, of None als het goed is."""
+    if len(wachtwoord) < MIN_WACHTWOORD_LENGTE:
+        return f"Het wachtwoord moet minstens {MIN_WACHTWOORD_LENGTE} tekens hebben."
+    if len(wachtwoord) > MAX_WACHTWOORD_LENGTE:
+        return f"Het wachtwoord mag hoogstens {MAX_WACHTWOORD_LENGTE} tekens hebben."
+    return None
+
+
 def sessie_stempel(wachtwoord_hash):
     """Korte vingerafdruk van de wachtwoordhash; verandert het wachtwoord, dan vervalt de sessie."""
     return hashlib.sha256(wachtwoord_hash.encode('utf-8')).hexdigest()[:16]

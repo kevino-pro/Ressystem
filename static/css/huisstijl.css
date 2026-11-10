@@ -206,6 +206,18 @@ textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical;
 .reservering.zonder-tafel small { color: var(--accent); }
 #reserveringen { padding: 0; list-style: none; }
 
+/* Personeel: accounts */
+.accountlijst { list-style: none; padding: 0; margin-top: 12px; }
+.account { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.account:last-child { border-bottom: 0; }
+.account.uit .wie b { color: var(--zacht); text-decoration: line-through; }
+.account .wie small { display: block; color: var(--zacht); font-size: 12px; }
+.account form { margin: 0; }
+.account details { grid-column: 1 / -1; }
+.account summary { font-size: 12px; color: var(--zacht); cursor: pointer; }
+.account details form { display: flex; gap: 8px; margin-top: 8px; }
+.account details input { flex: 1; min-width: 0; }
+
 @media (max-width: 700px) {
     .tellers { grid-template-columns: 1fr 1fr; }
     .res { grid-template-columns: 40px 1fr; row-gap: 8px; }

@@ -460,6 +460,49 @@ def maak_gebruiker(conn, gebruikersnaam, wachtwoord, rol='medewerker'):
         )
     return True
 
+class LaatsteBeheerderFout(Exception):
+    """Dit account is de laatste actieve beheerder; uitzetten laat niemand over om accounts te beheren."""
+    bericht = "Er moet minstens één actieve beheerder overblijven."
+
+def haal_alle_personeel(conn):
+    with conn.begin():
+        return conn.execute(
+            select(personeel).order_by(func.lower(personeel.c.gebruikersnaam))
+        ).mappings().all()
+
+def haal_gebruiker_op_id(conn, gebruiker_id):
+    with conn.begin():
+        return conn.execute(select(personeel).where(personeel.c.id == gebruiker_id)).mappings().first()
+
+def zet_actief(conn, gebruiker_id, actief):
+    """
+    Zet een account aan of uit. Geeft False terug als het account niet bestaat.
+    Gooit LaatsteBeheerderFout als dit de enige actieve beheerder is en hij uit moet.
+    """
+    with conn.begin():
+        rij = conn.execute(select(personeel).where(personeel.c.id == gebruiker_id)).mappings().first()
+        if rij is None:
+            return False
+        if not actief and rij['rol'] == 'beheerder' and rij['actief']:
+            anderen = conn.execute(
+                select(func.count()).select_from(personeel).where(
+                    personeel.c.rol == 'beheerder', personeel.c.actief == true(), personeel.c.id != gebruiker_id
+                )
+            ).scalar()
+            if not anderen:
+                raise LaatsteBeheerderFout()
+        conn.execute(update(personeel).where(personeel.c.id == gebruiker_id).values(actief=bool(actief)))
+    return True
+
+def zet_wachtwoord(conn, gebruiker_id, wachtwoord):
+    """Vervangt het wachtwoord van een account. Geeft False terug als het account niet bestaat."""
+    with conn.begin():
+        resultaat = conn.execute(
+            update(personeel).where(personeel.c.id == gebruiker_id)
+            .values(wachtwoord_hash=generate_password_hash(wachtwoord))
+        )
+    return resultaat.rowcount > 0
+
 class ProductieVlagVereist(Exception):
     """Het commando richt zich op een niet-SQLite database en `--productie` ontbreekt."""
 
