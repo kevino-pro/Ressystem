@@ -55,6 +55,7 @@ personeel = Table(
     Column('wachtwoord_hash', Text, nullable=False),
     Column('rol', Text, nullable=False, server_default='medewerker'),
     Column('actief', Boolean, nullable=False, server_default=true()),
+    Column('taal', Text, nullable=False, server_default='nl'),  # taal van de personeelspagina's
 )
 
 ROLLEN = ('beheerder', 'medewerker')
@@ -188,16 +189,28 @@ def bezetting_op(conn, datum):
         ]
 
 class OnbekendeTafelFout(Exception):
-    """Een tafelnummer staat niet op de plattegrond."""
+    """Een tafelnummer staat niet op de plattegrond. vertaald() geeft de melding in de taal van het verzoek."""
+    SJABLOON = "Onbekende tafel: {tafels}."
+
     def __init__(self, tafels):
-        self.bericht = f"Onbekende tafel: {', '.join(tafels)}."
+        self.tafels = ', '.join(tafels)
+        self.bericht = self.SJABLOON.format(tafels=self.tafels)
         super().__init__(self.bericht)
+
+    def vertaald(self):
+        return vertaal(self.SJABLOON, tafels=self.tafels)
 
 class TafelBezetFout(Exception):
     """De tafel hoort al bij een andere reservering die in dezelfde zitduur valt."""
+    SJABLOON = "Tafel {tafel} is al toegewezen aan een reservering van {tijd}."
+
     def __init__(self, tafel, tijd):
-        self.bericht = f"Tafel {tafel} is al toegewezen aan een reservering van {tijd}."
+        self.tafel, self.tijd = tafel, tijd
+        self.bericht = self.SJABLOON.format(tafel=tafel, tijd=tijd)
         super().__init__(self.bericht)
+
+    def vertaald(self):
+        return vertaal(self.SJABLOON, tafel=self.tafel, tijd=self.tijd)
 
 class GeenReserveringFout(Exception):
     """De reservering bestaat niet (meer)."""
@@ -257,7 +270,7 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
 
     stoelen = sum(plattegrond.tafel(tafel).stoelen for tafel in tafels)
     if tafels and stoelen < reservering['aantal']:
-        return f"Let op: {stoelen} stoelen voor {reservering['aantal']} gasten."
+        return vertaal("Let op: {stoelen} stoelen voor {gasten} gasten.", stoelen=stoelen, gasten=reservering['aantal'])
     return None
 
 def haal_toewijzingen_op(conn, datum=None):
@@ -507,6 +520,11 @@ def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
         if uitvoeren and aantal:
             _verwijder_ouder_dan(conn, grens)
     return aantal
+
+def zet_taal(conn, gebruiker_id, taal):
+    """De taal van de personeelspagina's voor dit account."""
+    with conn.begin():
+        conn.execute(update(personeel).where(personeel.c.id == gebruiker_id).values(taal=taal))
 
 def maak_gebruiker(conn, gebruikersnaam, wachtwoord, rol='medewerker'):
     """

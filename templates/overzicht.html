@@ -1,18 +1,18 @@
 {% extends "personeel.html" %}
-{% block titel %}Reserveringen · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Reserveringen") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="dagnav">
-    <h2>{{ dag | nl_datum(met_jaar=dag.year != vandaag.year) | capitalize }}</h2>
-    <a class="pil" href="/overzicht?datum={{ vorige }}">‹ Vorige dag</a>
-    <a class="pil {{ 'aan' if dag == vandaag }}" href="/overzicht">Vandaag</a>
-    <a class="pil" href="/overzicht?datum={{ volgende }}">Volgende dag ›</a>
+    <h2>{{ dag | datum_tekst(met_jaar=dag.year != vandaag.year) | hoofdletter }}</h2>
+    <a class="pil" href="/overzicht?datum={{ vorige }}">‹ {{ t("Vorige dag") }}</a>
+    <a class="pil {{ 'aan' if dag == vandaag }}" href="/overzicht">{{ t("Vandaag") }}</a>
+    <a class="pil" href="/overzicht?datum={{ volgende }}">{{ t("Volgende dag") }} ›</a>
     <form action="/overzicht" method="GET">
-        <label for="datum" class="verborgen">Kies datum</label>
+        <label for="datum" class="verborgen">{{ t("Kies datum") }}</label>
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
-        <noscript><button type="submit" class="pil">Tonen</button></noscript>
+        <noscript><button type="submit" class="pil">{{ t("Tonen") }}</button></noscript>
     </form>
-    <a class="pil aan" href="/reservering/nieuw?datum={{ datum }}">+ Reservering</a>
-    {% if dag == vandaag %}<a class="pil" href="/reservering/nieuw?bron=binnenloper">+ Binnenloper</a>{% endif %}
+    <a class="pil aan" href="/reservering/nieuw?datum={{ datum }}">+ {{ t("Reservering") }}</a>
+    {% if dag == vandaag %}<a class="pil" href="/reservering/nieuw?bron=binnenloper">+ {{ t("Binnenloper") }}</a>{% endif %}
 </div>
 
 {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
@@ -20,18 +20,18 @@
 {% endfor %}
 
 <div class="tellers">
-    <div class="teller"><small>Reserveringen</small><b>{{ tellers.reserveringen }}</b></div>
-    <div class="teller"><small>Gasten</small><b>{{ tellers.gasten }}</b></div>
+    <div class="teller"><small>{{ t("Reserveringen") }}</small><b>{{ tellers.reserveringen }}</b></div>
+    <div class="teller"><small>{{ t("Gasten") }}</small><b>{{ tellers.gasten }}</b></div>
     <div class="teller">
-        <small>Drukste moment{% if tellers.piek_tijd %} ({{ tellers.piek_tijd }}){% endif %}</small>
+        <small>{{ t("Drukste moment") }}{% if tellers.piek_tijd %} ({{ tellers.piek_tijd }}){% endif %}</small>
         <b>{{ tellers.piek }} / {{ tellers.max }}</b>
         <div class="balk"><i style="width: {{ [100, (tellers.piek * 100 / tellers.max) | round | int] | min }}%"></i></div>
     </div>
     {% if dag == vandaag %}
-    <div class="teller"><small>Nog niet binnen</small><b>{{ tellers.verwacht }}</b></div>
+    <div class="teller"><small>{{ t("Nog niet binnen") }}</small><b>{{ tellers.verwacht }}</b></div>
     {% endif %}
     {% if plattegrond_aan %}
-    <div class="teller {{ 'let' if tellers.zonder_tafel }}"><small>Nog zonder tafel</small><b>{{ tellers.zonder_tafel }}</b></div>
+    <div class="teller {{ 'let' if tellers.zonder_tafel }}"><small>{{ t("Nog zonder tafel") }}</small><b>{{ tellers.zonder_tafel }}</b></div>
     {% endif %}
 </div>
 
@@ -39,29 +39,29 @@
     {% for tijd, rijen in groepen.items() %}
     <div class="tijdkop">
         <b>{{ tijd }}</b>
-        <span>{{ rijen | length }} reservering{{ 'en' if rijen | length != 1 }} · {{ rijen | sum(attribute='aantal') }} gasten</span>
+        <span>{{ t('{aantal} reservering', aantal=rijen | length) if rijen | length == 1 else t('{aantal} reserveringen', aantal=rijen | length) }} · {{ t('{aantal} gasten', aantal=rijen | sum(attribute='aantal')) }}</span>
     </div>
     {% for r in rijen %}
     <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}">
-        <div class="aantal" title="{{ r.aantal }} personen">{{ r.aantal }}</div>
+        <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
         <div class="wie">
             <b>{{ r.naam }}</b>
             <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
             {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' %}
             <div class="notities">
-                {% if r.status == 'gearriveerd' %}<span class="notitie">Is er</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">Niet gekomen</span>{% endif %}
-                {% if r.bron != 'online' %}<span class="notitie">{{ {'telefoon': 'Telefonisch', 'binnenloper': 'Binnenloper', 'ai': 'Via AI'}.get(r.bron, r.bron) }}{% if r.ingevoerd_door %} · {{ r.ingevoerd_door }}{% endif %}</span>{% endif %}
-                {% if r.kinderstoelen %}<span class="notitie">{{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}</span>{% endif %}
-                {% if r.allergieen %}<span class="notitie tekst allergie">Allergie: {{ r.allergieen }}</span>{% endif %}
+                {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
+                {% if r.bron != 'online' %}<span class="notitie">{{ {'telefoon': t('Telefonisch'), 'binnenloper': t('Binnenloper'), 'ai': t('Via AI')}.get(r.bron, r.bron) }}{% if r.ingevoerd_door %} · {{ r.ingevoerd_door }}{% endif %}</span>{% endif %}
+                {% if r.kinderstoelen %}<span class="notitie">{{ t('{aantal} kinderstoel', aantal=r.kinderstoelen) if r.kinderstoelen == 1 else t('{aantal} kinderstoelen', aantal=r.kinderstoelen) }}</span>{% endif %}
+                {% if r.allergieen %}<span class="notitie tekst allergie">{{ t("Allergie:") }} {{ r.allergieen }}</span>{% endif %}
                 {% if r.opmerking %}<span class="notitie tekst">{{ r.opmerking }}</span>{% endif %}
             </div>
             {% endif %}
         </div>
         {% if plattegrond_aan and r.status != 'no_show' %}
             {% if toewijzingen.get(r.id) %}
-            <span class="tafel">Tafel {{ toewijzingen[r.id] | join(' + ') }}</span>
+            <span class="tafel">{{ t('Tafel') }} {{ toewijzingen[r.id] | join(' + ') }}</span>
             {% else %}
-            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ Tafel kiezen</a>
+            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
             {% endif %}
         {% else %}<span></span>{% endif %}
         <div class="acties">
@@ -71,24 +71,24 @@
                 <input type="hidden" name="datum" value="{{ datum }}">
                 <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
                 {% if r.status == 'verwacht' %}
-                <button type="submit" name="status" value="gearriveerd">Is er</button>
-                {% if dag < vandaag or r.tijd <= nu_tijd %}<button type="submit" name="status" value="no_show">Niet gekomen</button>{% endif %}
+                <button type="submit" name="status" value="gearriveerd">{{ t("Is er") }}</button>
+                {% if dag < vandaag or r.tijd <= nu_tijd %}<button type="submit" name="status" value="no_show">{{ t("Niet gekomen") }}</button>{% endif %}
                 {% else %}
-                <button type="submit" name="status" value="verwacht">Ongedaan maken</button>
+                <button type="submit" name="status" value="verwacht">{{ t("Ongedaan maken") }}</button>
                 {% endif %}
             </form>
             {% endif %}
-            {% if r.telefoon %}<a href="tel:{{ r.telefoon }}">Bel</a>{% endif %}
-            {% if r.email %}<a href="mailto:{{ r.email }}">Mail</a>{% endif %}
+            {% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ t("Bel") }}</a>{% endif %}
+            {% if r.email %}<a href="mailto:{{ r.email }}">{{ t("Mail") }}</a>{% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <details>
-                <summary aria-label="Meer acties">⋯</summary>
+                <summary aria-label="{{ t('Meer acties') }}">⋯</summary>
                 <div class="menu">
                     <form action="/verwijder/{{ r.id }}" method="POST"
-                          data-bericht="Weet je zeker dat je deze reservering van {{ r.naam }} wilt verwijderen?"
+                          data-bericht="{{ t('Weet je zeker dat je deze reservering van {naam} wilt verwijderen?', naam=r.naam) }}"
                           onsubmit="return confirm(this.dataset.bericht);">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit">Reservering verwijderen</button>
+                        <button type="submit">{{ t("Reservering verwijderen") }}</button>
                     </form>
                 </div>
             </details>
@@ -97,7 +97,7 @@
     </div>
     {% endfor %}
     {% else %}
-    <p class="leeg" style="padding: 24px 0; text-align: center">Geen reserveringen op deze dag.</p>
+    <p class="leeg" style="padding: 24px 0; text-align: center">{{ t("Geen reserveringen op deze dag.") }}</p>
     {% endfor %}
 </div>
 {% endblock %}

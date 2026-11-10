@@ -6,21 +6,29 @@
     <nav class="staf">
         <a class="logo" href="/overzicht"><h1>{{ config.RESTAURANT_NAAM }}</h1></a>
         <div class="tabs">
-            <a class="pil {{ 'aan' if actief == 'overzicht' }}" href="/overzicht{{ '?datum=' ~ datum if datum }}">Reserveringen</a>
+            <a class="pil {{ 'aan' if actief == 'overzicht' }}" href="/overzicht{{ '?datum=' ~ datum if datum }}">{{ t("Reserveringen") }}</a>
             {% if config.PLATTEGROND %}
-            <a class="pil {{ 'aan' if actief == 'plattegrond' }}" href="/plattegrond{{ '?datum=' ~ datum if datum }}">Plattegrond</a>
+            <a class="pil {{ 'aan' if actief == 'plattegrond' }}" href="/plattegrond{{ '?datum=' ~ datum if datum }}">{{ t("Plattegrond") }}</a>
             {% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
-            <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">Medewerkers</a>
+            <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">{{ t("Medewerkers") }}</a>
             {% endif %}
-            <a class="pil" href="/">Reserveringsformulier</a>
+            <a class="pil" href="/">{{ t("Reserveringsformulier") }}</a>
             {% if gebruiker %}
             <a class="pil {{ 'aan' if actief == 'account' }}" href="/account">{{ gebruiker.gebruikersnaam }}</a>
             {% endif %}
             <form action="/logout" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="pil">Uitloggen</button>
+                <button type="submit" class="pil">{{ t("Uitloggen") }}</button>
             </form>
+            {% if talen | length > 1 %}
+            <nav class="talen" aria-label="{{ t('Taal') }}">
+                {% for code in talen %}
+                <a href="/taal/{{ code }}?terug={{ request.full_path.rstrip('?') | urlencode }}" lang="{{ code }}" hreflang="{{ code }}"
+                   class="{{ 'aan' if code == taal }}"{% if code == taal %} aria-current="true"{% endif %}>{{ code | upper }}</a>
+                {% endfor %}
+            </nav>
+            {% endif %}
         </div>
     </nav>
     <main>

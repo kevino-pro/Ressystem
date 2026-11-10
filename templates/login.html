@@ -1,11 +1,11 @@
 {% extends "basis.html" %}
-{% block titel %}Inloggen · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Inloggen") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block wrap_klasse %}smal{% endblock %}
-{% block kop_rechts %}<a class="pil" href="/">← Reserveren</a>{% endblock %}
+{% block kop_rechts %}<a class="pil" href="/">← {{ t("Reserveren") }}</a>{% endblock %}
 {% block inhoud %}
 <div class="kaart">
-    <h2>Inloggen</h2>
-    <p class="sub">Voor personeel: het reserveringsoverzicht en de plattegrond.</p>
+    <h2>{{ t("Inloggen") }}</h2>
+    <p class="sub">{{ t("Voor personeel: het reserveringsoverzicht en de plattegrond.") }}</p>
 
     {% if foutmelding %}
     <div class="melding fout" role="alert">{{ foutmelding }}</div>
@@ -14,18 +14,18 @@
     <form method="POST" action="/login" style="margin-top: 20px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="veld">
-            <label for="gebruikersnaam">Gebruikersnaam</label>
+            <label for="gebruikersnaam">{{ t("Gebruikersnaam") }}</label>
             <input type="text" id="gebruikersnaam" name="gebruikersnaam" required autocomplete="username"
                    autocapitalize="none" spellcheck="false" autofocus>
         </div>
         <div class="veld">
-            <label for="wachtwoord">Wachtwoord</label>
+            <label for="wachtwoord">{{ t("Wachtwoord") }}</label>
             <div class="wachtwoord">
                 <input type="password" id="wachtwoord" name="wachtwoord" required autocomplete="current-password">
-                <button type="button" id="toon" aria-controls="wachtwoord">Toon</button>
+                <button type="button" id="toon" aria-controls="wachtwoord">{{ t("Toon") }}</button>
             </div>
         </div>
-        <button type="submit" class="knop" style="margin-top: 20px">Inloggen</button>
+        <button type="submit" class="knop" style="margin-top: 20px">{{ t("Inloggen") }}</button>
     </form>
 </div>
 {% endblock %}
@@ -35,7 +35,7 @@
         const veld = document.getElementById('wachtwoord');
         const zichtbaar = veld.type === 'text';
         veld.type = zichtbaar ? 'password' : 'text';
-        this.textContent = zichtbaar ? 'Toon' : 'Verberg';
+        this.textContent = zichtbaar ? {{ t('Toon') | tojson }} : {{ t('Verberg') | tojson }};
     });
 </script>
 {% endblock %}

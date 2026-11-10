@@ -81,7 +81,8 @@ class ToegangTestBasis(unittest.TestCase):
 
 class LoginTests(ToegangTestBasis):
     def inloggen(self, naam, wachtwoord=WACHTWOORD):
-        return self.client.post("/login", data={"gebruikersnaam": naam, "wachtwoord": wachtwoord})
+        return self.client.post("/login", data={"gebruikersnaam": naam, "wachtwoord": wachtwoord},
+                                headers={"Accept-Language": "nl"})  # de inlogpagina volgt de browser
 
     def test_medewerker_kan_inloggen(self):
         zet_gebruiker(self.app, "anna", rol="medewerker")

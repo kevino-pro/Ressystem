@@ -16,7 +16,7 @@ from app.database import DubbeleReserveringFout, drukte_bij, get_db, verwerk_res
 from app.schemas import MAX_PERSONEN_PERSONEEL, PersoneelReserveringSchema
 from app.security import rate_limit, valideer_csrf
 from app.services.email_service import stuur_bevestigingsmail_async
-from app.taal import TAALNAMEN, huidige_taal
+from app.taal import TAALNAMEN, huidige_taal, vertaal as t
 from app.toegang import huidige_gebruiker, login_vereist
 
 invoeren_bp = Blueprint('invoeren', __name__, url_prefix='/reservering')
@@ -24,7 +24,7 @@ invoeren_bp = Blueprint('invoeren', __name__, url_prefix='/reservering')
 BINNENLOPER_NAAM = "Binnenloper"
 invoeren_bp.before_request(valideer_csrf)
 
-VELDNAMEN = {
+VELDNAMEN = {  # Nederlands; vertaald bij het tonen
     'naam': "de naam", 'telefoon': "het telefoonnummer", 'email': "het e-mailadres", 'datum': "de datum",
     'tijd': "de tijd", 'aantal': f"het aantal personen (1 tot {MAX_PERSONEN_PERSONEEL})",
     'opmerking': "de opmerking (maximaal 300 tekens)", 'kinderstoelen': "het aantal kinderstoelen",
@@ -47,13 +47,13 @@ def _waarschuwingen(regels, gegevens):
     gasten, stoelen = drukte_bij(get_db(), datum, tijd, regels.zitduur_minuten)
     lijst = []
     if gegevens.datum in regels.sluitingsdagen or not regels.blokken_op(gegevens.datum):
-        lijst.append("Het restaurant is op deze dag gesloten.")
+        lijst.append(t("Het restaurant is op deze dag gesloten."))
     if gasten + gegevens.aantal > regels.max_gasten_tegelijk:
-        lijst.append(f"Rond {tijd} zitten er dan {gasten + gegevens.aantal} gasten tegelijk; "
-                     f"het maximum is {regels.max_gasten_tegelijk}.")
+        lijst.append(t("Rond {tijd} zitten er dan {gasten} gasten tegelijk; het maximum is {maximum}.",
+                       tijd=tijd, gasten=gasten + gegevens.aantal, maximum=regels.max_gasten_tegelijk))
     if gegevens.kinderstoelen and stoelen + gegevens.kinderstoelen > regels.kinderstoelen:
-        lijst.append(f"Er zijn dan {stoelen + gegevens.kinderstoelen} kinderstoelen nodig; "
-                     f"het restaurant heeft er {regels.kinderstoelen}.")
+        lijst.append(t("Er zijn dan {nodig} kinderstoelen nodig; het restaurant heeft er {aantal}.",
+                       nodig=stoelen + gegevens.kinderstoelen, aantal=regels.kinderstoelen))
     return lijst
 
 
@@ -89,17 +89,17 @@ def opslaan():
         g = PersoneelReserveringSchema(**gegevens)
     except ValidationError as fout:
         velden = [str(issue['loc'][0]) for issue in fout.errors() if issue.get('loc')]
-        namen = [VELDNAMEN.get(v, v) for v in dict.fromkeys(velden)]
-        return _formulier(waarden, 400, "Controleer " + ", ".join(namen) + ".")
+        namen = [t(VELDNAMEN[v]) if v in VELDNAMEN else v for v in dict.fromkeys(velden)]
+        return _formulier(waarden, 400, t("Controleer {velden}.", velden=", ".join(namen)))
 
     if g.datum < regels.nu().date():
-        return _formulier(waarden, 400, "Deze datum ligt in het verleden.")
+        return _formulier(waarden, 400, t("Deze datum ligt in het verleden."))
     if g.bron == 'telefoon' and not g.telefoon:
-        return _formulier(waarden, 400, "Vul het telefoonnummer in; dat is nodig als we de gast moeten bellen.")
+        return _formulier(waarden, 400, t("Vul het telefoonnummer in; dat is nodig als we de gast moeten bellen."))
     allergieen = g.allergieen if regels.vraag_allergieen else None
     if allergieen and not g.allergie_toestemming:
-        return _formulier(waarden, 400, "Vraag de gast of we de allergieën mogen bewaren en vink dat aan, "
-                                       "of laat het veld leeg.")
+        return _formulier(waarden, 400, t("Vraag de gast of we de allergieën mogen bewaren en vink dat aan, "
+                                         "of laat het veld leeg."))
 
     if not g.bevestigd:
         waarschuwingen = _waarschuwingen(regels, g)
@@ -117,15 +117,15 @@ def opslaan():
             bron=g.bron, ingevoerd_door=huidige_gebruiker()['gebruikersnaam'], taal=taal,
         )
     except DubbeleReserveringFout:
-        return _formulier(waarden, 409, "Deze gast heeft op deze dag en tijd al een reservering.")
+        return _formulier(waarden, 409, t("Deze gast heeft op deze dag en tijd al een reservering."))
     except OperationalError:
-        return _formulier(waarden, 503, "Het lukte niet om op te slaan. Probeer het opnieuw.")
+        return _formulier(waarden, 503, t("Het lukte niet om op te slaan. Probeer het opnieuw."))
 
-    bericht = f"Reservering voor {g.naam} om {tijd} ({g.aantal} p.) is opgeslagen."
+    bericht = t("Reservering voor {naam} om {tijd} ({aantal} p.) is opgeslagen.", naam=g.naam, tijd=tijd, aantal=g.aantal)
     if g.email:
         stuur_bevestigingsmail_async(ontvanger_email=g.email, naam=g.naam, datum=datum, tijd=tijd,
                                      aantal=g.aantal, reservering_id=reservering_id, taal=taal)
-        bericht += " De gast krijgt een bevestigingsmail."
+        bericht += " " + t("De gast krijgt een bevestigingsmail.")
     flash(bericht, 'ok')
     if g.bron == 'binnenloper' and current_app.config.get('PLATTEGROND') is not None:
         # Aan de deur is de volgende stap een tafel kiezen: meteen naar de plattegrond op dat moment.

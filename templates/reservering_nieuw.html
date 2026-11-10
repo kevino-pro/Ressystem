@@ -1,9 +1,9 @@
 {% extends "personeel.html" %}
-{% block titel %}Nieuwe reservering · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Nieuwe reservering") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="dagnav">
-    <h2>{{ 'Binnenloper' if w.bron == 'binnenloper' else 'Nieuwe reservering' }}</h2>
-    <a class="pil" href="/overzicht?datum={{ w.datum }}">‹ Terug naar het overzicht</a>
+    <h2>{{ t('Binnenloper') if w.bron == 'binnenloper' else t('Nieuwe reservering') }}</h2>
+    <a class="pil" href="/overzicht?datum={{ w.datum }}">‹ {{ t("Terug naar het overzicht") }}</a>
 </div>
 
 {% if fout %}<div class="melding fout" role="alert">{{ fout }}</div>{% endif %}
@@ -15,42 +15,42 @@
 
         <div class="veld">
             {% if w.bron == 'binnenloper' %}
-            <label for="naam">Naam (niet verplicht)</label>
+            <label for="naam">{{ t("Naam") }} ({{ t("niet verplicht") }})</label>
             <input type="text" id="naam" name="naam" value="{{ w.naam }}" maxlength="100" autocomplete="off"
-                   placeholder="Binnenloper">
+                   placeholder="{{ t('Binnenloper') }}">
             {% else %}
-            <label for="naam">Naam</label>
+            <label for="naam">{{ t("Naam") }}</label>
             <input type="text" id="naam" name="naam" value="{{ w.naam }}" required maxlength="100" autocomplete="off">
             {% endif %}
         </div>
         <div class="twee">
             <div class="veld">
-                <label for="telefoon">Telefoon{{ ' (niet verplicht)' if w.bron == 'binnenloper' }}</label>
+                <label for="telefoon">{{ t("Telefoon") }}{{ ' (' ~ t('niet verplicht') ~ ')' if w.bron == 'binnenloper' }}</label>
                 <input type="tel" id="telefoon" name="telefoon" value="{{ w.telefoon }}" maxlength="20" autocomplete="off"
                        {{ 'required' if (w.bron or 'telefoon') == 'telefoon' }}>
             </div>
             <div class="veld">
-                <label for="aantal">Personen</label>
+                <label for="aantal">{{ t("Personen") }}</label>
                 <input type="number" id="aantal" name="aantal" value="{{ w.aantal }}" required min="1" max="{{ max_personen }}">
             </div>
         </div>
         <div class="twee">
             <div class="veld">
-                <label for="datum">Datum</label>
+                <label for="datum">{{ t("Datum") }}</label>
                 <input type="date" id="datum" name="datum" value="{{ w.datum }}" required min="{{ vandaag.isoformat() }}">
             </div>
             <div class="veld">
-                <label for="tijd">Tijd</label>
+                <label for="tijd">{{ t("Tijd") }}</label>
                 <input type="time" id="tijd" name="tijd" value="{{ w.tijd }}" required step="300">
             </div>
         </div>
         <div class="veld">
-            <label for="email">E-mail (niet verplicht; dan krijgt de gast een bevestigingsmail)</label>
+            <label for="email">{{ t("E-mail (niet verplicht; dan krijgt de gast een bevestigingsmail)") }}</label>
             <input type="email" id="email" name="email" value="{{ w.email }}" maxlength="254" autocomplete="off">
         </div>
         {% if talen | length > 1 %}
         <div class="veld">
-            <label for="taal">Taal van de gast (voor de mail)</label>
+            <label for="taal">{{ t("Taal van de gast (voor de mail)") }}</label>
             <select id="taal" name="taal">
                 {% for code in talen %}
                 <option value="{{ code }}" {{ 'selected' if w.taal == code }}>{{ taalnamen[code] }}</option>
@@ -60,7 +60,7 @@
         {% endif %}
         <div class="twee">
             <div class="veld">
-                <label for="kinderstoelen">Kinderstoelen</label>
+                <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
                 <select id="kinderstoelen" name="kinderstoelen">
                     {% for n in range(0, 6) %}
                     <option value="{{ n }}" {{ 'selected' if (w.kinderstoelen or '0') == n | string }}>{{ n }}</option>
@@ -70,28 +70,28 @@
         </div>
         {% if regels.vraag_allergieen %}
         <div class="veld">
-            <label for="allergieen">Allergieën (niet verplicht)</label>
+            <label for="allergieen">{{ t("Allergieën") }} ({{ t("niet verplicht") }})</label>
             <input type="text" id="allergieen" name="allergieen" value="{{ w.allergieen }}" maxlength="200" autocomplete="off">
             <label class="klein-akkoord"><input type="checkbox" name="allergie_toestemming" value="1"
                    {{ 'checked' if w.allergie_toestemming == '1' }}>
-                De gast geeft toestemming om de allergieën te bewaren (ze worden de nacht na het bezoek gewist).</label>
+                {{ t("De gast geeft toestemming om de allergieën te bewaren (ze worden de nacht na het bezoek gewist).") }}</label>
         </div>
         {% endif %}
         <div class="veld">
-            <label for="opmerking">Opmerking (niet verplicht)</label>
+            <label for="opmerking">{{ t("Opmerking") }} ({{ t("niet verplicht") }})</label>
             <textarea id="opmerking" name="opmerking" rows="2" maxlength="300">{{ w.opmerking }}</textarea>
         </div>
 
         {% if waarschuwingen %}
         <div class="melding fout" role="alert">
-            <b>Let op:</b>
+            <b>{{ t("Let op:") }}</b>
             <ul>{% for tekst in waarschuwingen %}<li>{{ tekst }}</li>{% endfor %}</ul>
-            Klopt het toch? Kies dan "Toch opslaan".
+            {{ t('Klopt het toch? Kies dan "Toch opslaan".') }}
         </div>
         <input type="hidden" name="bevestigd" value="1" id="bevestigd">
-        <button type="submit" class="knop klein" id="opslaan">Toch opslaan</button>
+        <button type="submit" class="knop klein" id="opslaan">{{ t("Toch opslaan") }}</button>
         {% else %}
-        <button type="submit" class="knop klein">Reservering opslaan</button>
+        <button type="submit" class="knop klein">{{ t("Reservering opslaan") }}</button>
         {% endif %}
     </form>
 </div>
@@ -102,7 +102,7 @@
     if (!vlag) return;
     document.getElementById('invoeren').addEventListener('input', function () {
         vlag.remove();
-        document.getElementById('opslaan').textContent = 'Reservering opslaan';
+        document.getElementById('opslaan').textContent = {{ t('Reservering opslaan') | tojson }};
     }, { once: true });
 })();
 </script>

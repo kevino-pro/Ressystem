@@ -16,7 +16,7 @@ from app.database import (
     KinderstoelVolFout, NIET_GEKOMEN, STATUSSEN, zet_status,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
-    minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
+    minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
 )
 from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
 
@@ -26,7 +26,7 @@ from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import constant_time_equals, rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
 from app.taal import DAGEN, MAANDEN, TAAL_COOKIE, huidige_taal, vertaal as t
-from app.toegang import beheerder_vereist, login_vereist, start_sessie
+from app.toegang import beheerder_vereist, huidige_gebruiker, login_vereist, start_sessie
 
 web_bp = Blueprint('web', __name__)
 web_bp.before_request(valideer_csrf)
@@ -62,6 +62,9 @@ def kies_taal(code):
         terug = '/'
     antwoord = redirect(terug)
     if code in current_app.config['TALEN'].beschikbaar:
+        gebruiker = huidige_gebruiker()
+        if gebruiker is not None:
+            zet_taal(get_db(), gebruiker['id'], code)  # personeel: de keuze hoort bij het account
         antwoord.set_cookie(
             TAAL_COOKIE, code, max_age=TAAL_COOKIE_DAGEN * 24 * 3600, samesite='Lax',
             secure=current_app.config.get('SESSION_COOKIE_SECURE', True), httponly=True,
@@ -173,7 +176,7 @@ def login():
             start_sessie(user)
             return redirect(url_for('web.overzicht'))
         else:
-            foutmelding = "Ongeldige gebruikersnaam of wachtwoord!"
+            foutmelding = t("Ongeldige gebruikersnaam of wachtwoord!")
 
     return render_template('login.html', foutmelding=foutmelding)
 
@@ -190,7 +193,7 @@ def overzicht():
     try:
         dag = date.fromisoformat(request.args['datum']) if request.args.get('datum') else vandaag
     except ValueError:
-        return "Ongeldige datum.", 400
+        return t("Ongeldige datum."), 400
     datum = dag.isoformat()
 
     conn = get_db()
@@ -267,7 +270,7 @@ def plattegrond():
     regels = current_app.config['REGELS']
     moment = _kies_moment(regels, request.args.get('datum'), request.args.get('tijd'))
     if moment is None:
-        return "Ongeldige datum of tijd.", 400
+        return t("Ongeldige datum of tijd."), 400
     datum, tijd = moment
 
     conn = get_db()
@@ -325,28 +328,28 @@ def tafels_toewijzen():
         datum = None
     if (datum is None or not isinstance(kenmerk, str) or not isinstance(tafels, list)
             or len(tafels) > len(indeling.tafels) or not all(isinstance(t, str) for t in tafels)):
-        return jsonify({"status": "fout", "bericht": "Ongeldig verzoek."}), 400
+        return jsonify({"status": "fout", "bericht": t("Ongeldig verzoek.")}), 400
 
     # De plattegrond kent alleen het kenmerk, niet het id (zie _kenmerk); zoek het id op die dag op.
     reservering_id = next((r['id'] for r in haal_reserveringen_op(get_db(), datum)
                            if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
     if reservering_id is None:
-        return jsonify({"status": "fout", "bericht": GeenReserveringFout.bericht}), 404
+        return jsonify({"status": "fout", "bericht": t(GeenReserveringFout.bericht)}), 404
 
     try:
         waarschuwing = wijs_tafels_toe(
             get_db(), reservering_id, tafels, indeling, current_app.config['REGELS'].zitduur_minuten
         )
     except OnbekendeTafelFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
+        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 400
     except GeenReserveringFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 404
+        return jsonify({"status": "fout", "bericht": t(fout.bericht)}), 404
     except TafelBezetFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 409
+        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 409
     except OperationalError:
         current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
-        return jsonify({"status": "fout", "bericht": "Het lukte niet om op te slaan. Probeer het opnieuw."}), 503
-    return jsonify({"status": "succes", "bericht": "Opgeslagen.", "waarschuwing": waarschuwing}), 200
+        return jsonify({"status": "fout", "bericht": t("Het lukte niet om op te slaan. Probeer het opnieuw.")}), 503
+    return jsonify({"status": "succes", "bericht": t("Opgeslagen."), "waarschuwing": waarschuwing}), 200
 
 STATUS_BERICHTEN = {
     'gearriveerd': "{naam} is er.",
@@ -369,13 +372,13 @@ def aankomst():
     except ValueError:
         dag = None
     if dag is None or status not in STATUSSEN or not kenmerk:
-        return "Ongeldig verzoek.", 400
+        return t("Ongeldig verzoek."), 400
 
     datum = dag.isoformat()
     reservering = next((r for r in haal_reserveringen_op(get_db(), datum)
                         if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
     if reservering is None:
-        return GeenReserveringFout.bericht, 404
+        return t(GeenReserveringFout.bericht), 404
 
     if request.form.get('terug') == 'plattegrond' and current_app.config.get('PLATTEGROND') is not None:
         terug = url_for('web.plattegrond', datum=datum, tijd=reservering['tijd'])
@@ -384,14 +387,14 @@ def aankomst():
 
     nu = regels.nu()
     if status != 'verwacht' and dag > nu.date():
-        flash("Dat kan pas op de dag van de reservering.", 'fout')
+        flash(t("Dat kan pas op de dag van de reservering."), 'fout')
         return redirect(terug)
     if status == NIET_GEKOMEN and dag == nu.date() and f"{nu:%H:%M}" < reservering['tijd']:
-        flash(f"Een no-show kan pas na de begintijd ({reservering['tijd']}).", 'fout')
+        flash(t("Een no-show kan pas na de begintijd ({tijd}).", tijd=reservering['tijd']), 'fout')
         return redirect(terug)
 
     zet_status(get_db(), reservering['id'], status)
-    flash(STATUS_BERICHTEN[status].format(naam=reservering['naam']), 'ok')
+    flash(t(STATUS_BERICHTEN[status], naam=reservering['naam']), 'ok')
     return redirect(terug)
 
 @web_bp.route('/beschikbaarheid')
