@@ -47,9 +47,10 @@
         <div class="wie">
             <b>{{ r.naam }}</b>
             <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
-            {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' %}
+            {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' or r.herinnering_verstuurd %}
             <div class="notities">
                 {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
+                {% if r.herinnering_verstuurd and r.status == 'verwacht' %}<span class="notitie">{{ t("Herinnering verstuurd") }}</span>{% endif %}
                 {% if r.bron != 'online' %}<span class="notitie">{{ {'telefoon': t('Telefonisch'), 'binnenloper': t('Binnenloper'), 'ai': t('Via AI')}.get(r.bron, r.bron) }}{% if r.ingevoerd_door %} · {{ r.ingevoerd_door }}{% endif %}</span>{% endif %}
                 {% if r.kinderstoelen %}<span class="notitie">{{ t('{aantal} kinderstoel', aantal=r.kinderstoelen) if r.kinderstoelen == 1 else t('{aantal} kinderstoelen', aantal=r.kinderstoelen) }}</span>{% endif %}
                 {% if r.allergieen %}<span class="notitie tekst allergie">{{ t("Allergie:") }} {{ r.allergieen }}</span>{% endif %}
