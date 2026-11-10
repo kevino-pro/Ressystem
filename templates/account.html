@@ -1,0 +1,35 @@
+{% extends "personeel.html" %}
+{% block titel %}Mijn account · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="dagnav"><h2>Mijn account</h2></div>
+
+{% for categorie, bericht in get_flashed_messages(with_categories=true) %}
+<div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
+{% endfor %}
+
+<div class="paneel paneel-smal">
+    <div class="details">
+        <div class="rij"><span>Gebruikersnaam</span><b>{{ ik.gebruikersnaam }}</b></div>
+        <div class="rij"><span>Rol</span><b>{{ 'Beheerder' if ik.rol == 'beheerder' else 'Medewerker' }}</b></div>
+    </div>
+
+    <h3>Wachtwoord wijzigen</h3>
+    <form action="/account/wachtwoord" method="POST" style="margin-top: 12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="veld">
+            <label for="huidig">Huidig wachtwoord</label>
+            <input type="password" id="huidig" name="huidig" required autocomplete="current-password">
+        </div>
+        <div class="veld">
+            <label for="nieuw">Nieuw wachtwoord</label>
+            <input type="password" id="nieuw" name="nieuw" required minlength="{{ min_lengte }}" autocomplete="new-password"
+                   placeholder="Minstens {{ min_lengte }} tekens">
+        </div>
+        <div class="veld">
+            <label for="herhaal">Nieuw wachtwoord nogmaals</label>
+            <input type="password" id="herhaal" name="herhaal" required minlength="{{ min_lengte }}" autocomplete="new-password">
+        </div>
+        <button type="submit" class="knop klein">Wachtwoord opslaan</button>
+    </form>
+</div>
+{% endblock %}

@@ -14,6 +14,9 @@
             <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">Medewerkers</a>
             {% endif %}
             <a class="pil" href="/">Reserveringsformulier</a>
+            {% if gebruiker %}
+            <a class="pil {{ 'aan' if actief == 'account' }}" href="/account">{{ gebruiker.gebruikersnaam }}</a>
+            {% endif %}
             <form action="/logout" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="pil">Uitloggen</button>
