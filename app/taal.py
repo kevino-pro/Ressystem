@@ -21,6 +21,8 @@ TAAL_COOKIE = "taal"
 VERTALINGEN_MAP = Path(__file__).resolve().parent.parent / "vertalingen"
 
 Taalcode = Literal["en", "nl", "id"]
+# Zo heet elke taal in die taal zelf; voor keuzelijsten.
+TAALNAMEN = {"en": "English", "nl": "Nederlands", "id": "Bahasa Indonesia"}
 
 # Voor datums: maandag is 0, net als date.weekday().
 DAGEN = {

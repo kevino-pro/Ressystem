@@ -16,6 +16,7 @@ from app.database import DubbeleReserveringFout, drukte_bij, get_db, verwerk_res
 from app.schemas import MAX_PERSONEN_PERSONEEL, PersoneelReserveringSchema
 from app.security import rate_limit, valideer_csrf
 from app.services.email_service import stuur_bevestigingsmail_async
+from app.taal import TAALNAMEN, huidige_taal
 from app.toegang import huidige_gebruiker, login_vereist
 
 invoeren_bp = Blueprint('invoeren', __name__, url_prefix='/reservering')
@@ -28,6 +29,7 @@ VELDNAMEN = {
     'tijd': "de tijd", 'aantal': f"het aantal personen (1 tot {MAX_PERSONEN_PERSONEEL})",
     'opmerking': "de opmerking (maximaal 300 tekens)", 'kinderstoelen': "het aantal kinderstoelen",
     'allergieen': "de allergieën (maximaal 200 tekens)", 'bron': "de soort reservering",
+    'taal': "de taal van de gast",
 }
 
 
@@ -35,7 +37,7 @@ def _formulier(waarden, status=200, fout=None, waarschuwingen=None):
     regels = current_app.config['REGELS']
     return render_template(
         'reservering_nieuw.html', actief='overzicht', w=waarden, fout=fout, waarschuwingen=waarschuwingen or [],
-        regels=regels, vandaag=regels.nu().date(), max_personen=MAX_PERSONEN_PERSONEEL,
+        regels=regels, vandaag=regels.nu().date(), max_personen=MAX_PERSONEN_PERSONEEL, taalnamen=TAALNAMEN,
     ), status
 
 
@@ -67,6 +69,7 @@ def nieuw():
     else:
         waarden = {'bron': 'telefoon', 'datum': request.args.get('datum') or regels.nu().date().isoformat(),
                    'aantal': '2'}
+    waarden['taal'] = huidige_taal()  # de taal waarin het personeel de site nu ziet; aan te passen per gast
     return _formulier(waarden)
 
 
@@ -104,12 +107,14 @@ def opslaan():
             return _formulier(waarden, 200, waarschuwingen=waarschuwingen)
 
     datum, tijd = g.datum.isoformat(), g.tijd.strftime("%H:%M")
+    talen = current_app.config['TALEN']
+    taal = g.taal if g.taal in talen.beschikbaar else talen.standaard  # zonder keuze: de standaard
     try:
         reservering_id = verwerk_reservering(
             get_db(), None, naam=g.naam, email=g.email or '', telefoon=g.telefoon or '',
             datum=datum, tijd=tijd, aantal=g.aantal, zitduur_minuten=regels.zitduur_minuten,
             kinderstoelen=g.kinderstoelen, opmerking=g.opmerking, allergieen=allergieen,
-            bron=g.bron, ingevoerd_door=huidige_gebruiker()['gebruikersnaam'],
+            bron=g.bron, ingevoerd_door=huidige_gebruiker()['gebruikersnaam'], taal=taal,
         )
     except DubbeleReserveringFout:
         return _formulier(waarden, 409, "Deze gast heeft op deze dag en tijd al een reservering.")
@@ -119,7 +124,7 @@ def opslaan():
     bericht = f"Reservering voor {g.naam} om {tijd} ({g.aantal} p.) is opgeslagen."
     if g.email:
         stuur_bevestigingsmail_async(ontvanger_email=g.email, naam=g.naam, datum=datum, tijd=tijd,
-                                     aantal=g.aantal, reservering_id=reservering_id)
+                                     aantal=g.aantal, reservering_id=reservering_id, taal=taal)
         bericht += " De gast krijgt een bevestigingsmail."
     flash(bericht, 'ok')
     if g.bron == 'binnenloper' and current_app.config.get('PLATTEGROND') is not None:

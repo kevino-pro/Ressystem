@@ -9,6 +9,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import current_app
 
+from app.taal import BRONTAAL, datum_tekst, hoofdletter, vertaal
+
 logger = logging.getLogger(__name__)
 
 RESEND_URL = "https://api.resend.com/emails"
@@ -66,25 +68,29 @@ def async_send_email(app_config, bericht, recipient_email, reservering_id):
     except (smtplib.SMTPException, socket.error, OSError) as error:
         logger.error("[MAIL_FAILED] reservering_id=%s error_type=%s", reservering_id, type(error).__name__)
 
-def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id):
+def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal=BRONTAAL):
+    """De bevestigingsmail in de taal van de gast (`taal`: 'en', 'nl' of 'id')."""
     annuleer_url = f"{app_config['APP_BASE_URL']}/annuleren/{reservering_id}"
-    onderwerp = f"Bevestiging van je reservering - {app_config['RESTAURANT_NAAM']}"
+    restaurant = app_config['RESTAURANT_NAAM']
+    onderwerp = vertaal("Bevestiging van je reservering - {restaurant}", taal=taal, restaurant=restaurant)
 
-    bericht_inhoud = f"""Beste {naam},
-
-Bedankt voor je reservering bij {app_config['RESTAURANT_NAAM']}!
-
-Hier zijn de gegevens van je reservering:
-- Datum: {datum}
-- Tijdstip: {tijd}
-- Aantal personen: {aantal}
-
-Wil je de reservering wijzigen of annuleren? Klik op deze link:
-{annuleer_url}
-
-Met vriendelijke groet,
-Het team van {app_config['RESTAURANT_NAAM']}
-"""
+    regels = [
+        vertaal("Beste {naam},", taal=taal, naam=naam),
+        "",
+        vertaal("Bedankt voor je reservering bij {restaurant}!", taal=taal, restaurant=restaurant),
+        "",
+        vertaal("Hier zijn de gegevens van je reservering:", taal=taal),
+        "- " + vertaal("Datum: {datum}", taal=taal, datum=hoofdletter(datum_tekst(datum, met_jaar=True, taal=taal))),
+        "- " + vertaal("Tijdstip: {tijd}", taal=taal, tijd=tijd),
+        "- " + vertaal("Aantal personen: {aantal}", taal=taal, aantal=aantal),
+        "",
+        vertaal("Wil je de reservering wijzigen of annuleren? Klik op deze link:", taal=taal),
+        annuleer_url,
+        "",
+        vertaal("Met vriendelijke groet,", taal=taal),
+        vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
+    ]
+    bericht_inhoud = "\n".join(regels) + "\n"
     return {
         'from': app_config['VERZENDER_EMAIL'],
         'to': ontvanger_email,
@@ -92,13 +98,13 @@ Het team van {app_config['RESTAURANT_NAAM']}
         'tekst': bericht_inhoud,
     }
 
-def stuur_bevestigingsmail_async(ontvanger_email, naam, datum, tijd, aantal, reservering_id):
+def stuur_bevestigingsmail_async(ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal=BRONTAAL):
     app_config = current_app.config.copy()
-    bericht = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id)
+    bericht = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal)
     threading.Thread(target=async_send_email, args=(app_config, bericht, ontvanger_email, reservering_id), daemon=True).start()
 
-def stuur_bevestigingsmail_sync(ontvanger_email, naam, datum, tijd, aantal, reservering_id):
+def stuur_bevestigingsmail_sync(ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal=BRONTAAL):
     """Blokkerende variant van stuur_bevestigingsmail_async, voor de `flask resend-mail` CLI."""
     app_config = current_app.config.copy()
-    bericht = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id)
+    bericht = _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal)
     async_send_email(app_config, bericht, ontvanger_email, reservering_id)
