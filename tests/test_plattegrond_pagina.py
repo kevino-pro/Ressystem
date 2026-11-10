@@ -6,6 +6,7 @@ from sqlalchemy import insert
 from app import create_app
 from app.config import Config
 from app.database import get_db, init_db, reserveringen, tafeltoewijzingen, wijs_tafels_toe
+from tests.hulp import log_in
 
 KWAADAARDIGE_NAAM = "<script>window.GEHACKT=1</script>"
 
@@ -31,8 +32,7 @@ def maak_client(config, ingelogd=True):
     app = create_app(config)
     client = app.test_client()
     if ingelogd:
-        with client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(app, client)
     return app, client
 
 

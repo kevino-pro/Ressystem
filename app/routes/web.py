@@ -21,6 +21,7 @@ TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
+from app.toegang import beheerder_vereist, login_vereist, start_sessie
 
 web_bp = Blueprint('web', __name__)
 web_bp.before_request(valideer_csrf)
@@ -136,10 +137,9 @@ def login():
         conn = get_db()
         user = haal_personeel_op(conn, gebruikersnaam)
 
-        if user and check_password_hash(user['wachtwoord_hash'], wachtwoord):
-            session.clear()
-            session['ingelogd'] = True
-            session['gebruiker'] = user['gebruikersnaam']
+        # Een uitgezet account krijgt dezelfde melding als een fout wachtwoord.
+        if user and check_password_hash(user['wachtwoord_hash'], wachtwoord) and user['actief']:
+            start_sessie(user)
             return redirect(url_for('web.overzicht'))
         else:
             foutmelding = "Ongeldige gebruikersnaam of wachtwoord!"
@@ -152,10 +152,8 @@ def logout():
     return redirect(url_for('web.login'))
 
 @web_bp.route('/overzicht')
+@login_vereist
 def overzicht():
-    if not session.get('ingelogd'):
-        return redirect(url_for('web.login'))
-
     regels = current_app.config['REGELS']
     vandaag = regels.nu().date()
     try:
@@ -217,9 +215,8 @@ def _kies_moment(regels, datum_tekst, tijd_tekst):
     return dag.isoformat(), f"{tijdstip:%H:%M}"
 
 @web_bp.route('/plattegrond')
+@login_vereist
 def plattegrond():
-    if not session.get('ingelogd'):
-        return redirect(url_for('web.login'))
     indeling = current_app.config.get('PLATTEGROND')
     if indeling is None:
         abort(404)
@@ -265,9 +262,8 @@ def _tijdknoppen(regels, dag):
     return tijden
 
 @web_bp.route('/plattegrond/toewijzen', methods=['POST'])
+@login_vereist(json_response=True)
 def tafels_toewijzen():
-    if not session.get('ingelogd'):
-        return jsonify({"status": "fout", "bericht": "Je bent uitgelogd. Log opnieuw in."}), 401
     indeling = current_app.config.get('PLATTEGROND')
     if indeling is None:
         abort(404)
@@ -414,10 +410,9 @@ def nieuwe_reservering():
     return jsonify({"status": "succes", "bericht": "Reservering opgeslagen!", "id": unieke_id}), 200
 
 @web_bp.route('/verwijder/<reservering_id>', methods=['POST'])
+@beheerder_vereist
 def verwijder_reservering(reservering_id):
-    if not session.get('ingelogd'):
-        return redirect(url_for('web.login'))
-
+    # Alleen een beheerder: een medewerker mag reserveringen bekijken, maar niet verwijderen.
     conn = get_db()
     db_verwijder_reservering(conn, reservering_id)
 

@@ -10,6 +10,7 @@ from app import create_app
 from app.database import get_db, reserveringen, wis_allergieen_voor
 from app.schemas import ReserveringSchema
 from tests.test_extra_wensen import Basis, TestConfig
+from tests.hulp import log_in
 
 SLEUTEL = "s" * 40
 
@@ -71,8 +72,7 @@ class OpslaanTests(Basis):
         bevestiging = self.client.get("/bevestiging").get_data(as_text=True)
         self.assertIn("Doorgegeven aan de keuken", bevestiging)
         self.assertNotIn("pinda", bevestiging)
-        with self.client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(self.app, self.client)
         overzicht = self.client.get(f"/overzicht?datum={self.dinsdag}").get_data(as_text=True)
         self.assertIn("Allergie: &lt;b&gt;pinda&lt;/b&gt;", overzicht)
         plattegrond = self.client.get(f"/plattegrond?datum={self.dinsdag}&tijd=18:00").get_data(as_text=True)

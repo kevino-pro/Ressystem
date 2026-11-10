@@ -19,6 +19,7 @@ from app.database import (
 from app.reserveringsregels import RegelFout, ReserveringsRegels
 from app.schemas import ReserveringSchema
 from app.security import reset_rate_limits
+from tests.hulp import log_in
 
 PROJECTMAP = Path(__file__).resolve().parent.parent
 
@@ -119,8 +120,7 @@ class OpslaanTests(Basis):
 
     def test_opmerking_wordt_ge_escaped(self):
         self.boek(opmerking="<script>alert(1)</script>", kinderstoelen=1)
-        with self.client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(self.app, self.client)
         html = self.client.get(f"/overzicht?datum={self.dinsdag}").get_data(as_text=True)
         self.assertNotIn("<script>alert(1)</script>", html)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)

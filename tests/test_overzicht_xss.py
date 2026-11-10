@@ -5,6 +5,7 @@ from app import create_app
 from app.config import Config
 from app.database import get_db, metadata, reserveringen, verwerk_reservering
 from app.security import reset_rate_limits
+from tests.hulp import log_in
 
 KWAADAARDIGE_NAAM = "x'+(window.GEHACKT=1)+'"
 
@@ -33,8 +34,7 @@ class OverzichtXssTests(unittest.TestCase):
             verwerk_reservering(conn, 10, KWAADAARDIGE_NAAM, "a@example.com", "0612345678",
                                 "2030-01-01", "19:00", 2)
         self.client = self.app.test_client()
-        with self.client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(self.app, self.client)
 
     def test_naam_staat_niet_in_javascript(self):
         html = self.client.get("/overzicht?datum=2030-01-01").get_data(as_text=True)

@@ -93,8 +93,9 @@ De app kent vijf handmatige beheercommando's, aan te roepen via `flask <naam>`. 
 
 Maakt een personeelsaccount aan.
 
-- **Aanroep:** `flask create-admin [--gebruikersnaam <naam>] [--productie]`
+- **Aanroep:** `flask create-admin [--gebruikersnaam <naam>] [--rol beheerder|medewerker] [--productie]`
 - **`--gebruikersnaam`:** naam van het aan te maken account (standaard `admin`).
+- **`--rol`:** `beheerder` (standaard) mag alles; `medewerker` mag reserveringen en de plattegrond bekijken en tafels toewijzen, maar geen reserveringen verwijderen of accounts beheren.
 - **`--productie`:** bevestigt bewust een niet-SQLite database; zonder deze vlag weigert het commando op elke andere backend.
 - **Wachtwoord:** het accountwachtwoord wordt alleen interactief opgevraagd, met verborgen invoer en bevestiging (minimaal 12 tekens). Geef het nooit mee als argument of via een omgevingsvariabele.
 - **Gedrag:** bestaat de gebruikersnaam al, dan verandert er niets en stopt het commando met "bestaat al" (exitcode 1); een bestaand account wordt nooit overschreven.
