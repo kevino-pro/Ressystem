@@ -12,13 +12,14 @@ from app.database import (
     zet_actief, zet_wachtwoord,
 )
 from app.security import rate_limit, valideer_csrf
+from app.taal import vertaal as t
 from app.toegang import MIN_WACHTWOORD_LENGTE, beheerder_vereist, huidige_gebruiker, wachtwoord_fout
 
 accounts_bp = Blueprint('accounts', __name__, url_prefix='/accounts')
 accounts_bp.before_request(valideer_csrf)
 
 GEBRUIKERSNAAM_PATROON = re.compile(r'[a-z0-9._-]{3,30}')
-DATABASE_DRUK = "Het lukte niet om op te slaan. Probeer het opnieuw."
+DATABASE_DRUK = "Het lukte niet om op te slaan. Probeer het opnieuw."  # vertaald bij het tonen
 
 
 def _terug():
@@ -42,21 +43,21 @@ def nieuw():
     wachtwoord = request.form.get('wachtwoord', '')
     rol = request.form.get('rol', 'medewerker')
     if not GEBRUIKERSNAAM_PATROON.fullmatch(naam):
-        flash("De gebruikersnaam mag 3 tot 30 tekens hebben: kleine letters, cijfers, punt, streepje en underscore.", 'fout')
+        flash(t("De gebruikersnaam mag 3 tot 30 tekens hebben: kleine letters, cijfers, punt, streepje en underscore."), 'fout')
     elif rol not in ROLLEN:
-        flash("Kies een rol.", 'fout')
+        flash(t("Kies een rol."), 'fout')
     elif (fout := wachtwoord_fout(wachtwoord)) is not None:
         flash(fout, 'fout')
     else:
         try:
             aangemaakt = maak_gebruiker(get_db(), naam, wachtwoord, rol)
         except OperationalError:
-            flash(DATABASE_DRUK, 'fout')
+            flash(t(DATABASE_DRUK), 'fout')
         else:
             if aangemaakt:
-                flash(f"Account {naam} is aangemaakt. Geef de gebruikersnaam en het wachtwoord zelf door.", 'ok')
+                flash(t("Account {naam} is aangemaakt. Geef de gebruikersnaam en het wachtwoord zelf door.", naam=naam), 'ok')
             else:
-                flash(f"De gebruikersnaam {naam} bestaat al.", 'fout')
+                flash(t("De gebruikersnaam {naam} bestaat al.", naam=naam), 'fout')
     return _terug()
 
 
@@ -67,18 +68,19 @@ def actief(gebruiker_id):
     conn = get_db()
     doel = haal_gebruiker_op_id(conn, gebruiker_id)
     if doel is None:
-        flash("Dit account bestaat niet.", 'fout')
+        flash(t("Dit account bestaat niet."), 'fout')
     elif doel['id'] == huidige_gebruiker()['id'] and not aan:
-        flash("Je kunt je eigen account niet uitzetten.", 'fout')
+        flash(t("Je kunt je eigen account niet uitzetten."), 'fout')
     else:
         try:
             zet_actief(conn, gebruiker_id, aan)
         except LaatsteBeheerderFout as fout:
-            flash(fout.bericht, 'fout')
+            flash(t(fout.bericht), 'fout')
         except OperationalError:
-            flash(DATABASE_DRUK, 'fout')
+            flash(t(DATABASE_DRUK), 'fout')
         else:
-            flash(f"Account {doel['gebruikersnaam']} staat nu {'aan' if aan else 'uit'}.", 'ok')
+            flash(t("Account {naam} staat nu aan.", naam=doel['gebruikersnaam']) if aan
+                  else t("Account {naam} staat nu uit.", naam=doel['gebruikersnaam']), 'ok')
     return _terug()
 
 
@@ -90,17 +92,17 @@ def wachtwoord(gebruiker_id):
     conn = get_db()
     doel = haal_gebruiker_op_id(conn, gebruiker_id)
     if doel is None:
-        flash("Dit account bestaat niet.", 'fout')
+        flash(t("Dit account bestaat niet."), 'fout')
     elif doel['id'] == huidige_gebruiker()['id']:
-        flash("Wijzig je eigen wachtwoord via je eigen account.", 'fout')
+        flash(t("Wijzig je eigen wachtwoord via je eigen account."), 'fout')
     elif (fout := wachtwoord_fout(nieuw_wachtwoord)) is not None:
         flash(fout, 'fout')
     else:
         try:
             zet_wachtwoord(conn, gebruiker_id, nieuw_wachtwoord)
         except OperationalError:
-            flash(DATABASE_DRUK, 'fout')
+            flash(t(DATABASE_DRUK), 'fout')
         else:
-            flash(f"Nieuw wachtwoord voor {doel['gebruikersnaam']} is ingesteld. Alle apparaten van "
-                  f"{doel['gebruikersnaam']} zijn uitgelogd. Geef het wachtwoord zelf door.", 'ok')
+            flash(t("Nieuw wachtwoord voor {naam} is ingesteld. Alle apparaten van {naam} zijn uitgelogd. "
+                    "Geef het wachtwoord zelf door.", naam=doel['gebruikersnaam']), 'ok')
     return _terug()

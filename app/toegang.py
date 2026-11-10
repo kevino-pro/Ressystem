@@ -15,6 +15,7 @@ from functools import wraps
 from flask import g, jsonify, redirect, session, url_for
 
 from app.database import get_db, haal_personeel_op
+from app.taal import vertaal as t
 
 MIN_WACHTWOORD_LENGTE = 12
 MAX_WACHTWOORD_LENGTE = 128
@@ -23,9 +24,9 @@ MAX_WACHTWOORD_LENGTE = 128
 def wachtwoord_fout(wachtwoord):
     """Melding voor een onbruikbaar nieuw wachtwoord, of None als het goed is."""
     if len(wachtwoord) < MIN_WACHTWOORD_LENGTE:
-        return f"Het wachtwoord moet minstens {MIN_WACHTWOORD_LENGTE} tekens hebben."
+        return t("Het wachtwoord moet minstens {aantal} tekens hebben.", aantal=MIN_WACHTWOORD_LENGTE)
     if len(wachtwoord) > MAX_WACHTWOORD_LENGTE:
-        return f"Het wachtwoord mag hoogstens {MAX_WACHTWOORD_LENGTE} tekens hebben."
+        return t("Het wachtwoord mag hoogstens {aantal} tekens hebben.", aantal=MAX_WACHTWOORD_LENGTE)
     return None
 
 
@@ -65,7 +66,7 @@ def huidige_gebruiker():
 def _niet_ingelogd(json_response):
     session.clear()
     if json_response:
-        return jsonify({"status": "fout", "bericht": "Je bent uitgelogd. Log opnieuw in."}), 401
+        return jsonify({"status": "fout", "bericht": t("Je bent uitgelogd. Log opnieuw in.")}), 401
     return redirect(url_for('web.login'))
 
 
@@ -89,6 +90,6 @@ def beheerder_vereist(view):
         if gebruiker is None:
             return _niet_ingelogd(False)
         if gebruiker['rol'] != 'beheerder':
-            return "Geen toegang.", 403
+            return t("Geen toegang."), 403
         return view(*args, **kwargs)
     return wrapper

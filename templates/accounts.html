@@ -1,7 +1,7 @@
 {% extends "personeel.html" %}
-{% block titel %}Medewerkers · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Medewerkers") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
-<div class="dagnav"><h2>Medewerkers</h2></div>
+<div class="dagnav"><h2>{{ t("Medewerkers") }}</h2></div>
 
 {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
 <div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
@@ -9,30 +9,30 @@
 
 <div class="indeling">
     <div class="paneel">
-        <h3>Accounts</h3>
-        <p class="klein">Een beheerder mag alles. Een medewerker kan reserveringen en de plattegrond bekijken en tafels toewijzen, maar niets verwijderen.
-            Een uitgezet account kan niet meer inloggen; ook niet op een telefoon die nog ingelogd is.</p>
+        <h3>{{ t("Accounts") }}</h3>
+        <p class="klein">{{ t("Een beheerder mag alles. Een medewerker kan reserveringen en de plattegrond bekijken en tafels toewijzen, maar niets verwijderen.") }}
+            {{ t("Een uitgezet account kan niet meer inloggen; ook niet op een telefoon die nog ingelogd is.") }}</p>
         <ul class="accountlijst">
             {% for a in accounts %}
             <li class="account {{ 'uit' if not a.actief }}">
                 <div class="wie">
-                    <b>{{ a.gebruikersnaam }}</b>{% if a.id == ik.id %}<span class="label">jij</span>{% endif %}
-                    <small>{{ 'Beheerder' if a.rol == 'beheerder' else 'Medewerker' }} · {{ 'actief' if a.actief else 'uitgezet' }}</small>
+                    <b>{{ a.gebruikersnaam }}</b>{% if a.id == ik.id %}<span class="label">{{ t("jij") }}</span>{% endif %}
+                    <small>{{ t('Beheerder') if a.rol == 'beheerder' else t('Medewerker') }} · {{ t('actief') if a.actief else t('uitgezet') }}</small>
                 </div>
                 {% if a.id != ik.id %}
                 <form action="/accounts/{{ a.id }}/actief" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="actief" value="{{ '0' if a.actief else '1' }}">
-                    <button type="submit" class="pil">{{ 'Uitzetten' if a.actief else 'Aanzetten' }}</button>
+                    <button type="submit" class="pil">{{ t('Uitzetten') if a.actief else t('Aanzetten') }}</button>
                 </form>
                 <details>
-                    <summary>Nieuw wachtwoord instellen</summary>
+                    <summary>{{ t("Nieuw wachtwoord instellen") }}</summary>
                     <form action="/accounts/{{ a.id }}/wachtwoord" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="password" id="wachtwoord-{{ a.id }}" name="wachtwoord" required minlength="{{ min_lengte }}"
-                               aria-label="Nieuw wachtwoord voor {{ a.gebruikersnaam }}"
-                               autocomplete="new-password" placeholder="Minstens {{ min_lengte }} tekens">
-                        <button type="submit" class="pil">Opslaan</button>
+                               aria-label="{{ t('Nieuw wachtwoord voor {naam}', naam=a.gebruikersnaam) }}"
+                               autocomplete="new-password" placeholder="{{ t('Minstens {aantal} tekens', aantal=min_lengte) }}">
+                        <button type="submit" class="pil">{{ t("Opslaan") }}</button>
                     </form>
                 </details>
                 {% endif %}
@@ -42,28 +42,28 @@
     </div>
 
     <div class="paneel">
-        <h3>Nieuw account</h3>
+        <h3>{{ t("Nieuw account") }}</h3>
         <form action="/accounts/nieuw" method="POST" style="margin-top: 12px">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="veld">
-                <label for="gebruikersnaam">Gebruikersnaam</label>
+                <label for="gebruikersnaam">{{ t("Gebruikersnaam") }}</label>
                 <input type="text" id="gebruikersnaam" name="gebruikersnaam" required minlength="3" maxlength="30"
                        pattern="[a-zA-Z0-9._\-]+" autocomplete="off" autocapitalize="none" spellcheck="false">
             </div>
             <div class="veld">
-                <label for="nieuw-wachtwoord">Wachtwoord</label>
+                <label for="nieuw-wachtwoord">{{ t("Wachtwoord") }}</label>
                 <input type="password" id="nieuw-wachtwoord" name="wachtwoord" required minlength="{{ min_lengte }}"
-                       autocomplete="new-password" placeholder="Minstens {{ min_lengte }} tekens">
+                       autocomplete="new-password" placeholder="{{ t('Minstens {aantal} tekens', aantal=min_lengte) }}">
             </div>
             <div class="veld">
-                <label for="rol">Rol</label>
+                <label for="rol">{{ t("Rol") }}</label>
                 <select id="rol" name="rol">
-                    <option value="medewerker" selected>Medewerker</option>
-                    <option value="beheerder">Beheerder</option>
+                    <option value="medewerker" selected>{{ t("Medewerker") }}</option>
+                    <option value="beheerder">{{ t("Beheerder") }}</option>
                 </select>
             </div>
-            <button type="submit" class="knop klein">Account aanmaken</button>
-            <p class="klein" style="margin-top: 10px">Geef de gebruikersnaam en het wachtwoord zelf door, niet per mail.</p>
+            <button type="submit" class="knop klein">{{ t("Account aanmaken") }}</button>
+            <p class="klein" style="margin-top: 10px">{{ t("Geef de gebruikersnaam en het wachtwoord zelf door, niet per mail.") }}</p>
         </form>
     </div>
 </div>

@@ -1,26 +1,28 @@
 {% extends "personeel.html" %}
-{% block titel %}Plattegrond · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Plattegrond") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 {% set accent = huisstijl.accentkleur %}
+{% set _t = t %}{# in de lus over de tafels hieronder is t een tafel; _t is dan de vertaalfunctie #}
+{% macro kenmerken_tekst(r) %}{% if r.status == 'gearriveerd' %} · {{ t("is er") }}{% elif dag == vandaag and r.tijd <= nu_tijd %} · {{ t("nog niet binnen") }}{% endif %}{% if r.bron == 'binnenloper' %} · {{ t("binnenloper") }}{% elif r.bron == 'telefoon' %} · {{ t("telefonisch") }}{% endif %}{% if r.allergieen %} · {{ t("allergie") }}{% endif %}{% if r.kinderstoelen %} · {{ t('{aantal} kinderstoel', aantal=r.kinderstoelen) if r.kinderstoelen == 1 else t('{aantal} kinderstoelen', aantal=r.kinderstoelen) }}{% endif %}{% if r.opmerking %} · {{ t("opmerking") }}{% endif %}{% endmacro %}
 <div class="dagnav">
-    <h2>{{ dag | nl_datum(met_jaar=dag.year != vandaag.year) | capitalize }}</h2>
-    <a class="pil" href="/plattegrond?datum={{ vorige }}">‹ Vorige dag</a>
-    <a class="pil {{ 'aan' if dag == vandaag }}" href="/plattegrond">Vandaag</a>
-    <a class="pil" href="/plattegrond?datum={{ volgende }}">Volgende dag ›</a>
+    <h2>{{ dag | datum_tekst(met_jaar=dag.year != vandaag.year) | hoofdletter }}</h2>
+    <a class="pil" href="/plattegrond?datum={{ vorige }}">‹ {{ t("Vorige dag") }}</a>
+    <a class="pil {{ 'aan' if dag == vandaag }}" href="/plattegrond">{{ t("Vandaag") }}</a>
+    <a class="pil" href="/plattegrond?datum={{ volgende }}">{{ t("Volgende dag") }} ›</a>
     <form action="/plattegrond" method="GET">
-        <label for="datum" class="verborgen">Kies datum</label>
+        <label for="datum" class="verborgen">{{ t("Kies datum") }}</label>
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
-        <noscript><button type="submit" class="pil">Tonen</button></noscript>
+        <noscript><button type="submit" class="pil">{{ t("Tonen") }}</button></noscript>
     </form>
-    {% if dag == vandaag %}<a class="pil aan" href="/reservering/nieuw?bron=binnenloper">+ Binnenloper</a>{% endif %}
+    {% if dag == vandaag %}<a class="pil aan" href="/reservering/nieuw?bron=binnenloper">+ {{ t("Binnenloper") }}</a>{% endif %}
 </div>
 
 {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
 <div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
 {% endfor %}
 <div class="tijdbalk">
-    <small>Bezetting om</small>
-    {% if dag == vandaag %}<a class="pil nu" href="/plattegrond">Nu</a>{% endif %}
+    <small>{{ t("Bezetting om") }}</small>
+    {% if dag == vandaag %}<a class="pil nu" href="/plattegrond">{{ t("Nu") }}</a>{% endif %}
     {% for t in tijdknoppen %}
     <a class="pil {{ 'aan' if t == tijd }}" href="/plattegrond?datum={{ datum }}&amp;tijd={{ t }}">{{ t }}</a>
     {% endfor %}
@@ -31,7 +33,7 @@
     <div class="paneel">
         <div class="vloer">
         <svg id="plattegrond" viewBox="0 0 {{ indeling.kolommen * hokje }} {{ indeling.rijen * hokje }}"
-             role="img" aria-label="Plattegrond van het restaurant">
+             role="img" aria-label="{{ t('Plattegrond van het restaurant') }}">
             <defs>
                 <pattern id="arcering" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                     <rect width="8" height="8" fill="#1b1611"></rect><rect width="4" height="8" fill="#231d17"></rect>
@@ -53,7 +55,7 @@
             {% set vulling = accent ~ '38' if gast else 'rgba(255,255,255,.06)' %}
             {% set rand = accent if gast or later else 'rgba(255,255,255,.28)' %}
             <g class="tafel" data-tafel="{{ t.nummer }}" data-stoelen="{{ t.stoelen }}">
-                <title>Tafel {{ t.nummer }}, {{ t.stoelen }} stoelen{% if gast %}, {{ gast.naam }} ({{ gast.aantal }} p., {{ gast.tijd }}){% elif later %}, vanaf {{ later.tijd }} {{ later.naam }}{% endif %}</title>
+                <title>{{ _t('Tafel {nummer}, {stoelen} stoelen', nummer=t.nummer, stoelen=t.stoelen) }}{% if gast %}, {{ gast.naam }} ({{ gast.aantal }} p., {{ gast.tijd }}){% elif later %}, {{ _t('vanaf {tijd}', tijd=later.tijd) }} {{ later.naam }}{% endif %}</title>
                 {% if t.vorm == "rond" %}
                 <ellipse cx="{{ x + b / 2 }}" cy="{{ y + h / 2 }}" rx="{{ b / 2 }}" ry="{{ h / 2 }}"
                          fill="{{ vulling }}" stroke="{{ rand }}" stroke-width="2"{% if later %} stroke-dasharray="5 4"{% endif %}></ellipse>
@@ -63,59 +65,59 @@
                 {% endif %}
                 <text x="{{ x + b / 2 }}" y="{{ y + h / 2 - (4 if t.hoogte > 1 else 2) }}" text-anchor="middle" font-size="13" font-weight="bold" fill="#f4ede2">{{ t.nummer }}</text>
                 <text x="{{ x + b / 2 }}" y="{{ y + h / 2 + (12 if t.hoogte > 1 else 10) }}" text-anchor="middle" font-size="9"
-                      fill="{{ accent if later and not gast else '#c9bba6' }}">{% if gast %}{{ gast.naam | truncate(12 if t.breedte > 1 else 6, True, '…') }}{% elif later %}vanaf {{ later.tijd }}{% else %}{{ t.stoelen }} st.{% endif %}</text>
+                      fill="{{ accent if later and not gast else '#c9bba6' }}">{% if gast %}{{ gast.naam | truncate(12 if t.breedte > 1 else 6, True, '…') }}{% elif later %}{{ _t('vanaf {tijd}', tijd=later.tijd) }}{% else %}{{ _t('{stoelen} st.', stoelen=t.stoelen) }}{% endif %}</text>
                 {% if gast and gast.status == 'verwacht' and dag == vandaag %}<circle class="nog-niet" cx="{{ x + b - 8 }}" cy="{{ y + 8 }}" r="4" fill="{{ accent }}"></circle>{% endif %}
             </g>
             {% endfor %}
         </svg>
         </div>
         <div class="legenda">
-            <span><i></i>vrij</span>
-            <span><i class="bezet"></i>bezet om {{ tijd }}</span>
-            <span><i class="straks"></i>komt binnen 30 min</span>
-            {% if dag == vandaag %}<span><i class="nog-niet"></i>nog niet binnen</span>{% endif %}
-            <span><i class="keuze-kleur"></i>jouw keuze</span>
-            <span>{{ indeling.tafels | length }} tafels · {{ indeling.totaal_stoelen }} stoelen · {{ indeling.tafels | length - bezet | length }} vrij</span>
+            <span><i></i>{{ t("vrij") }}</span>
+            <span><i class="bezet"></i>{{ t("bezet om {tijd}", tijd=tijd) }}</span>
+            <span><i class="straks"></i>{{ t("komt binnen 30 min") }}</span>
+            {% if dag == vandaag %}<span><i class="nog-niet"></i>{{ t("nog niet binnen") }}</span>{% endif %}
+            <span><i class="keuze-kleur"></i>{{ t("jouw keuze") }}</span>
+            <span>{{ t("{tafels} tafels · {stoelen} stoelen · {vrij} vrij", tafels=indeling.tafels | length, stoelen=indeling.totaal_stoelen, vrij=indeling.tafels | length - bezet | length) }}</span>
         </div>
     </div>
 
     <div class="paneel">
-        <h3>Reserveringen</h3>
-        <p class="klein">Kies een reservering en tik daarna op de tafels. Een tafel zit {{ zitduur }} minuten bezet.</p>
+        <h3>{{ t("Reserveringen") }}</h3>
+        <p class="klein">{{ t("Kies een reservering en tik daarna op de tafels. Een tafel zit {minuten} minuten bezet.", minuten=zitduur) }}</p>
         {% set zonder = reserveringen | rejectattr('id', 'in', toewijzingen) | list %}
         <ul id="reserveringen">
-            {% if zonder %}<li class="kop" aria-hidden="true">Nog zonder tafel · {{ zonder | length }}</li>{% endif %}
+            {% if zonder %}<li class="kop" aria-hidden="true">{{ t("Nog zonder tafel") }} · {{ zonder | length }}</li>{% endif %}
             {% for r in zonder %}
             <li class="reservering zonder-tafel {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Nog geen tafel{% if r.status == 'gearriveerd' %} · is er{% elif dag == vandaag and r.tijd <= nu_tijd %} · nog niet binnen{% endif %}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>{{ t("Nog geen tafel") }}{{ kenmerken_tekst(r) }}</small>
             </li>
             {% endfor %}
             {% set met = reserveringen | selectattr('id', 'in', toewijzingen) | list %}
-            {% if met %}<li class="kop" aria-hidden="true">Met tafel</li>{% endif %}
+            {% if met %}<li class="kop" aria-hidden="true">{{ t("Met tafel") }}</li>{% endif %}
             {% for r in met %}
             {% set tafels = toewijzingen.get(r.id, []) %}
             <li class="reservering {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="{{ tafels | join(' ') }}" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Tafel {{ tafels | join(' + ') }}{% if r.status == 'gearriveerd' %} · is er{% elif dag == vandaag and r.tijd <= nu_tijd %} · nog niet binnen{% endif %}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>{{ t("Tafel") }} {{ tafels | join(' + ') }}{{ kenmerken_tekst(r) }}</small>
             </li>
             {% endfor %}
-            {% if niet_gekomen %}<li class="kop" aria-hidden="true">Niet gekomen · {{ niet_gekomen | length }}</li>{% endif %}
+            {% if niet_gekomen %}<li class="kop" aria-hidden="true">{{ t("Niet gekomen") }} · {{ niet_gekomen | length }}</li>{% endif %}
             {% for r in niet_gekomen %}
-            <li class="niet-gekomen"><b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span><small>Niet gekomen · de plaatsen zijn weer vrij</small></li>
+            <li class="niet-gekomen"><b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span><small>{{ t("Niet gekomen · de plaatsen zijn weer vrij") }}</small></li>
             {% endfor %}
-            {% if not reserveringen and not niet_gekomen %}<li class="leeg">Geen reserveringen op deze dag.</li>{% endif %}
+            {% if not reserveringen and not niet_gekomen %}<li class="leeg">{{ t("Geen reserveringen op deze dag.") }}</li>{% endif %}
         </ul>
         <div id="toewijzen" hidden style="margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px">
             <p><b id="toewijzen-titel"></b></p>
-            <p class="klein">Tik op tafels om ze aan of uit te zetten.</p>
+            <p class="klein">{{ t("Tik op tafels om ze aan of uit te zetten.") }}</p>
             <p id="toewijzen-keuze" style="margin-top: 4px; font-size: 13px"></p>
             <p id="toewijzen-melding" role="alert" style="color: var(--rood); margin-top: 4px; font-size: 13px"></p>
             <div class="knoppen" style="margin-top: 10px">
-                <button type="button" id="toewijzen-opslaan" class="knop klein">Tafels opslaan</button>
-                <button type="button" id="toewijzen-annuleren" class="knop klein rand">Annuleren</button>
+                <button type="button" id="toewijzen-opslaan" class="knop klein">{{ t("Tafels opslaan") }}</button>
+                <button type="button" id="toewijzen-annuleren" class="knop klein rand">{{ t("Annuleren") }}</button>
             </div>
         </div>
     </div>
@@ -128,6 +130,13 @@
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const DATUM = {{ datum | tojson }};
     const KEUZE = '#7bc47f';  // groen: jouw keuze
+    const T = {{ {
+        'keuze': t('Tafel {tafels}: {stoelen} stoelen voor {gasten} gasten'),
+        'te_weinig': t('(te weinig stoelen)'),
+        'geen_tafel': t('Geen tafel gekozen. Opslaan maakt de reservering los van haar tafel.'),
+        'mislukt': t('Opslaan is mislukt.'),
+        'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'),
+    } | tojson }};
     const paneel = document.getElementById('toewijzen');
     const titel = document.getElementById('toewijzen-titel');
     const keuze = document.getElementById('toewijzen-keuze');
@@ -156,9 +165,9 @@
         const lijst = Array.from(gekozen);
         const genoeg = stoelen >= Number(actief.dataset.aantal);
         keuze.textContent = lijst.length
-            ? 'Tafel ' + lijst.join(' + ') + ': ' + stoelen + ' stoelen voor ' + actief.dataset.aantal + ' gasten '
-              + (genoeg ? '✓' : '(te weinig stoelen)')
-            : 'Geen tafel gekozen. Opslaan maakt de reservering los van haar tafel.';
+            ? T.keuze.replace('{tafels}', lijst.join(' + ')).replace('{stoelen}', stoelen)
+                .replace('{gasten}', actief.dataset.aantal) + ' ' + (genoeg ? '✓' : T.te_weinig)
+            : T.geen_tafel;
         keuze.style.color = lijst.length && !genoeg ? 'var(--rood)' : 'var(--groen)';
     }
 
@@ -205,13 +214,13 @@
             });
             const data = await antwoord.json();
             if (!antwoord.ok) {
-                melding.textContent = data.bericht || 'Opslaan is mislukt.';
+                melding.textContent = data.bericht || T.mislukt;
                 return;
             }
             if (data.waarschuwing) { window.alert(data.waarschuwing); }
             window.location.reload();
         } catch (fout) {
-            melding.textContent = 'Geen verbinding. Probeer het opnieuw.';
+            melding.textContent = T.geen_verbinding;
         } finally {
             opslaan.disabled = false;
         }

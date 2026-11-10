@@ -99,15 +99,20 @@ def plaatshouders(tekst):
 
 def huidige_taal():
     """
-    De taal voor dit verzoek: de keuze in de cookie, anders de beste taal uit de browser,
-    anders de standaard van het restaurant. Buiten een verzoek: de brontaal.
+    De taal voor dit verzoek: voor ingelogd personeel de taal van het account; anders de keuze
+    in de cookie, de beste taal uit de browser of de standaard van het restaurant.
+    Buiten een verzoek: de brontaal.
     """
     if not has_request_context():
         return BRONTAAL
     if "taal" in g:
         return g.taal
+    from app.toegang import huidige_gebruiker  # hier, want app.toegang gebruikt deze module ook
     talen = current_app.config["TALEN"]
-    keuze = request.cookies.get(TAAL_COOKIE)
+    gebruiker = huidige_gebruiker()
+    keuze = gebruiker["taal"] if gebruiker is not None else request.cookies.get(TAAL_COOKIE)
+    if keuze not in talen.beschikbaar:
+        keuze = request.cookies.get(TAAL_COOKIE)
     if keuze not in talen.beschikbaar:
         keuze = request.accept_languages.best_match(talen.beschikbaar) or talen.standaard
     g.taal = keuze

@@ -10,8 +10,9 @@ from pathlib import Path
 from app.taal import ALLE_TALEN, BRONTAAL, laad_vertalingen, plaatshouders
 
 PROJECTMAP = Path(__file__).resolve().parent.parent
-# t("...") of t('...') in een template; de zin zelf mag geen eigen aanhalingsteken van dat soort bevatten.
-T_IN_TEMPLATE = re.compile(r"""\bt\(\s*(["'])((?:(?!\1).)*?)\1""", re.S)
+# t("...") of t('...') in een template (of _t(...) waar t een andere betekenis heeft);
+# de zin zelf mag geen eigen aanhalingsteken van dat soort bevatten.
+T_IN_TEMPLATE = re.compile(r"""\b_?t\(\s*(["'])((?:(?!\1).)*?)\1""", re.S)
 VERTAAL_FUNCTIES = {"t", "vertaal", "RegelFout"}
 
 
@@ -41,12 +42,17 @@ def zinnen_in_code():
 def zinnen_via_constanten():
     """Zinnen die als constante of variabele bij t() aankomen."""
     from app import schemas
-    from app.database import DubbeleReserveringFout, KinderstoelVolFout
-    from app.routes import web
+    from app.database import (
+        DubbeleReserveringFout, GeenReserveringFout, KinderstoelVolFout, LaatsteBeheerderFout, OnbekendeTafelFout,
+        TafelBezetFout,
+    )
+    from app.routes import accounts, invoeren, web
     return {zin: "constante" for zin in (
         schemas.TELEFOON_MELDING, schemas.NAAM_MELDING, schemas.OPMERKING_MELDING, schemas.ALLERGIE_MELDING,
         web.TOESTEMMING_MELDING, "Datavalidatie mislukt",
         DubbeleReserveringFout.SJABLOON, KinderstoelVolFout.bericht,
+        GeenReserveringFout.bericht, LaatsteBeheerderFout.bericht, OnbekendeTafelFout.SJABLOON, TafelBezetFout.SJABLOON,
+        accounts.DATABASE_DRUK, *web.STATUS_BERICHTEN.values(), *invoeren.VELDNAMEN.values(),
     )}
 
 
