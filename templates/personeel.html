@@ -10,6 +10,9 @@
             {% if config.PLATTEGROND %}
             <a class="pil {{ 'aan' if actief == 'plattegrond' }}" href="/plattegrond{{ '?datum=' ~ datum if datum }}">Plattegrond</a>
             {% endif %}
+            {% if gebruiker and gebruiker.rol == 'beheerder' %}
+            <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">Medewerkers</a>
+            {% endif %}
             <a class="pil" href="/">Reserveringsformulier</a>
             <form action="/logout" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
