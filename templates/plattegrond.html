@@ -12,7 +12,12 @@
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
         <noscript><button type="submit" class="pil">Tonen</button></noscript>
     </form>
+    {% if dag == vandaag %}<a class="pil aan" href="/reservering/nieuw?bron=binnenloper">+ Binnenloper</a>{% endif %}
 </div>
+
+{% for categorie, bericht in get_flashed_messages(with_categories=true) %}
+<div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
+{% endfor %}
 <div class="tijdbalk">
     <small>Bezetting om</small>
     {% if dag == vandaag %}<a class="pil nu" href="/plattegrond">Nu</a>{% endif %}
@@ -80,9 +85,9 @@
             {% if zonder %}<li class="kop" aria-hidden="true">Nog zonder tafel · {{ zonder | length }}</li>{% endif %}
             {% for r in zonder %}
             <li class="reservering zonder-tafel {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
-                data-id="{{ r.id }}" data-tafels="" data-aantal="{{ r.aantal }}">
+                data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Nog geen tafel{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Nog geen tafel{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
             {% set met = reserveringen | selectattr('id', 'in', toewijzingen) | list %}
@@ -90,9 +95,9 @@
             {% for r in met %}
             {% set tafels = toewijzingen.get(r.id, []) %}
             <li class="reservering {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
-                data-id="{{ r.id }}" data-tafels="{{ tafels | join(' ') }}" data-aantal="{{ r.aantal }}">
+                data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="{{ tafels | join(' ') }}" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Tafel {{ tafels | join(' + ') }}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Tafel {{ tafels | join(' + ') }}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
             {% if not reserveringen %}<li class="leeg">Geen reserveringen op deze dag.</li>{% endif %}
@@ -115,6 +120,7 @@
 <script>
 (function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const DATUM = {{ datum | tojson }};
     const KEUZE = '#7bc47f';  // groen: jouw keuze
     const paneel = document.getElementById('toewijzen');
     const titel = document.getElementById('toewijzen-titel');
@@ -189,7 +195,7 @@
             const antwoord = await fetch('/plattegrond/toewijzen', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-                body: JSON.stringify({ reservering_id: actief.dataset.id, tafels: Array.from(gekozen) })
+                body: JSON.stringify({ datum: DATUM, kenmerk: actief.dataset.kenmerk, tafels: Array.from(gekozen) })
             });
             const data = await antwoord.json();
             if (!antwoord.ok) {

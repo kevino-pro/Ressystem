@@ -1,5 +1,6 @@
 """
-Reserveringen die het personeel zelf invoert: telefonisch of aan de deur.
+Reserveringen die het personeel zelf invoert: telefonisch of aan de deur (binnenloper).
+Een binnenloper staat meteen op "nu", zodat de capaciteit voor online gasten direct klopt.
 
 Het personeel mag buiten de online regels boeken (een grote groep, een tijd na de laatste online
 begintijd). Wordt het voller dan het restaurant aankan, zijn alle kinderstoelen al bezet of is het
@@ -18,6 +19,8 @@ from app.services.email_service import stuur_bevestigingsmail_async
 from app.toegang import huidige_gebruiker, login_vereist
 
 invoeren_bp = Blueprint('invoeren', __name__, url_prefix='/reservering')
+
+BINNENLOPER_NAAM = "Binnenloper"
 invoeren_bp.before_request(valideer_csrf)
 
 VELDNAMEN = {
@@ -56,7 +59,14 @@ def _waarschuwingen(regels, gegevens):
 @login_vereist
 def nieuw():
     regels = current_app.config['REGELS']
-    waarden = {'bron': 'telefoon', 'datum': request.args.get('datum') or regels.nu().date().isoformat(), 'aantal': '2'}
+    if request.args.get('bron') == 'binnenloper':
+        nu = regels.nu()
+        afgerond = nu.minute - nu.minute % 5  # het tijdveld werkt per 5 minuten
+        waarden = {'bron': 'binnenloper', 'datum': nu.date().isoformat(), 'tijd': f"{nu.hour:02d}:{afgerond:02d}",
+                   'aantal': '2'}
+    else:
+        waarden = {'bron': 'telefoon', 'datum': request.args.get('datum') or regels.nu().date().isoformat(),
+                   'aantal': '2'}
     return _formulier(waarden)
 
 
@@ -68,6 +78,8 @@ def opslaan():
     waarden = request.form.to_dict()
     waarden.pop('csrf_token', None)
     gegevens = {k: v for k, v in waarden.items() if k in PersoneelReserveringSchema.model_fields}
+    if gegevens.get('bron') == 'binnenloper' and not (gegevens.get('naam') or '').strip():
+        gegevens['naam'] = BINNENLOPER_NAAM  # aan de deur is een naam niet nodig
     gegevens['allergie_toestemming'] = waarden.get('allergie_toestemming') == '1'
     gegevens['bevestigd'] = waarden.get('bevestigd') == '1'
     try:
@@ -110,4 +122,7 @@ def opslaan():
                                      aantal=g.aantal, reservering_id=reservering_id)
         bericht += " De gast krijgt een bevestigingsmail."
     flash(bericht, 'ok')
+    if g.bron == 'binnenloper' and current_app.config.get('PLATTEGROND') is not None:
+        # Aan de deur is de volgende stap een tafel kiezen: meteen naar de plattegrond op dat moment.
+        return redirect(url_for('web.plattegrond', datum=datum, tijd=tijd))
     return redirect(url_for('web.overzicht', datum=datum))

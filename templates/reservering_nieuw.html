@@ -2,7 +2,7 @@
 {% block titel %}Nieuwe reservering · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="dagnav">
-    <h2>Nieuwe reservering</h2>
+    <h2>{{ 'Binnenloper' if w.bron == 'binnenloper' else 'Nieuwe reservering' }}</h2>
     <a class="pil" href="/overzicht?datum={{ w.datum }}">‹ Terug naar het overzicht</a>
 </div>
 
@@ -14,12 +14,18 @@
         <input type="hidden" name="bron" value="{{ w.bron or 'telefoon' }}">
 
         <div class="veld">
+            {% if w.bron == 'binnenloper' %}
+            <label for="naam">Naam (niet verplicht)</label>
+            <input type="text" id="naam" name="naam" value="{{ w.naam }}" maxlength="100" autocomplete="off"
+                   placeholder="Binnenloper">
+            {% else %}
             <label for="naam">Naam</label>
             <input type="text" id="naam" name="naam" value="{{ w.naam }}" required maxlength="100" autocomplete="off">
+            {% endif %}
         </div>
         <div class="twee">
             <div class="veld">
-                <label for="telefoon">Telefoon</label>
+                <label for="telefoon">Telefoon{{ ' (niet verplicht)' if w.bron == 'binnenloper' }}</label>
                 <input type="tel" id="telefoon" name="telefoon" value="{{ w.telefoon }}" maxlength="20" autocomplete="off"
                        {{ 'required' if (w.bron or 'telefoon') == 'telefoon' }}>
             </div>

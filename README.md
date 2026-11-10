@@ -77,7 +77,7 @@ foto er niet, dan start de app niet en noemt hij het ontbrekende bestand. De opm
 
 ## Reserveringen invoeren door het personeel
 
-Ingelogd personeel (beheerder en medewerker) voert telefonische reserveringen in via **+ Reservering** in het overzicht (`/reservering/nieuw`). E-mail is niet verplicht; is die ingevuld, dan krijgt de gast de gewone bevestigingsmail. Het personeel mag buiten de online regels boeken, zoals een grotere groep of een latere tijd. Wordt het voller dan `max_gasten_tegelijk`, zijn er niet genoeg kinderstoelen of is het restaurant die dag dicht, dan toont de pagina eerst een waarschuwing en slaat pas op na "Toch opslaan". Elke reservering heeft een `bron` (`online`, `ai`, `telefoon`, `binnenloper`) en bij het personeel ook wie hem invoerde; het overzicht toont dat.
+Ingelogd personeel (beheerder en medewerker) voert telefonische reserveringen in via **+ Reservering** in het overzicht (`/reservering/nieuw`). E-mail is niet verplicht; is die ingevuld, dan krijgt de gast de gewone bevestigingsmail. Het personeel mag buiten de online regels boeken, zoals een grotere groep of een latere tijd. Wordt het voller dan `max_gasten_tegelijk`, zijn er niet genoeg kinderstoelen of is het restaurant die dag dicht, dan toont de pagina eerst een waarschuwing en slaat pas op na "Toch opslaan". Voor iemand die zonder reservering binnenloopt is er **+ Binnenloper** (in het overzicht en op de plattegrond, alleen vandaag): datum en tijd staan op nu, naam en telefoon zijn niet verplicht, en na het opslaan opent de plattegrond op dat moment om een tafel te kiezen. Elke reservering heeft een `bron` (`online`, `ai`, `telefoon`, `binnenloper`) en bij het personeel ook wie hem invoerde; het overzicht toont dat.
 
 ## Plattegrond voor het personeel
 

@@ -1,5 +1,6 @@
 """Rollen en toegang voor personeel (deel 3, fase 1)."""
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -116,7 +117,7 @@ class SessieControleTests(ToegangTestBasis):
             self.assertTrue(antwoord.headers["Location"].endswith("/login"), pad)
 
     def test_json_route_geeft_401(self):
-        antwoord = self.client.post("/plattegrond/toewijzen", json={"reservering_id": "x", "tafels": []})
+        antwoord = self.client.post("/plattegrond/toewijzen", json={"datum": "2030-01-01", "kenmerk": "x", "tafels": []})
         self.assertEqual(antwoord.status_code, 401)
         self.assertEqual(antwoord.get_json()["status"], "fout")
 
@@ -189,10 +190,23 @@ class RechtenTests(ToegangTestBasis):
         self.assertEqual(self.client.get("/plattegrond").status_code, 200)
 
     def test_medewerker_mag_tafels_toewijzen(self):
+        self.reservering()
+        log_in(self.app, self.client, naam="anna", rol="medewerker")
+        html = self.client.get(f"/plattegrond?datum={self.DAG}&tijd=18:00").get_data(as_text=True)
+        kenmerk = re.search(r'data-kenmerk="([^"]+)"', html).group(1)
+        antwoord = self.client.post("/plattegrond/toewijzen", json={"datum": self.DAG, "kenmerk": kenmerk, "tafels": []})
+        self.assertEqual(antwoord.status_code, 200, antwoord.get_data(as_text=True))
+
+    def test_medewerker_ziet_geen_reserverings_id(self):
+        # Het id is de annuleerlink van de gast: wie het kent, kan via /annuleren/<id> verwijderen.
         reservering_id = self.reservering()
         log_in(self.app, self.client, naam="anna", rol="medewerker")
-        antwoord = self.client.post("/plattegrond/toewijzen", json={"reservering_id": reservering_id, "tafels": []})
-        self.assertEqual(antwoord.status_code, 200, antwoord.get_data(as_text=True))
+        for pad in (f"/plattegrond?datum={self.DAG}&tijd=18:00", f"/overzicht?datum={self.DAG}"):
+            with self.subTest(pad=pad):
+                html = self.client.get(pad).get_data(as_text=True)
+                self.assertIn("Eva", html)
+                self.assertNotIn(reservering_id, html)
+        self.assertTrue(self.bestaat(reservering_id))
 
     def test_medewerker_mag_niet_verwijderen(self):
         reservering_id = self.reservering()
