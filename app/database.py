@@ -28,7 +28,12 @@ reserveringen = Table(
     Column('kinderstoelen', Integer, nullable=False, server_default='0'),
     # Gezondheidsgegevens: alleen met aparte toestemming, en de dag na het bezoek gewist.
     Column('allergieen', Text, nullable=True),
+    # Waar de reservering vandaan komt (zie BRONNEN) en welk personeelsaccount hem invoerde.
+    Column('bron', Text, nullable=False, server_default='online'),
+    Column('ingevoerd_door', Text, nullable=True),
 )
+
+BRONNEN = ('online', 'ai', 'telefoon', 'binnenloper')
 
 # Welke tafel(s) bij een reservering horen. Een groep kan meerdere tafels krijgen.
 # De code verwijdert toewijzingen zelf mee met een reservering, want SQLite handhaaft
@@ -134,6 +139,21 @@ def piekbezetting(bestaande, start, zitduur):
         for moment in momenten
     )
 
+def drukte_bij(conn, datum, tijd, zitduur_minuten):
+    """
+    Hoeveel gasten en kinderstoelen er al tegelijk zijn tijdens [tijd, tijd + zitduur) op `datum`.
+    Alleen lezen; voor de waarschuwing bij een reservering door het personeel.
+    """
+    with conn.begin():
+        rijen = conn.execute(
+            select(reserveringen.c.tijd, reserveringen.c.aantal, reserveringen.c.kinderstoelen)
+            .where(reserveringen.c.datum == datum)
+        ).all()
+    start = minuten_van(tijd)
+    gasten = piekbezetting([(minuten_van(r.tijd), r.aantal) for r in rijen], start, zitduur_minuten)
+    stoelen = piekbezetting([(minuten_van(r.tijd), r.kinderstoelen) for r in rijen], start, zitduur_minuten)
+    return gasten, stoelen
+
 def bezetting_op(conn, datum):
     """Lijst (begin_in_minuten, aantal) van alle reserveringen op deze dag, voor piekbezetting()."""
     with conn.begin():
@@ -236,12 +256,12 @@ def is_zelfde_gast(a, b):
     """
     True als twee reserveringen (mappings met email en telefoon) bij dezelfde gast horen:
     hetzelfde e-mailadres of telefoonnummer, na normalisatie. De naam telt niet mee:
-    twee verschillende gasten kunnen dezelfde naam hebben.
+    twee verschillende gasten kunnen dezelfde naam hebben. Een leeg e-mailadres of telefoonnummer
+    (mogelijk bij een reservering door het personeel) telt nooit als gelijk.
     """
-    return (
-        normaliseer_email(a['email']) == normaliseer_email(b['email'])
-        or normaliseer_telefoon(a['telefoon']) == normaliseer_telefoon(b['telefoon'])
-    )
+    email_a, email_b = normaliseer_email(a['email'] or ''), normaliseer_email(b['email'] or '')
+    tel_a, tel_b = normaliseer_telefoon(a['telefoon'] or ''), normaliseer_telefoon(b['telefoon'] or '')
+    return bool((email_a and email_a == email_b) or (tel_a and tel_a == tel_b))
 
 def _heeft_al_reservering(conn, gast, datum, tijd):
     """
@@ -256,7 +276,8 @@ def _heeft_al_reservering(conn, gast, datum, tijd):
     return any(is_zelfde_gast(rij, gast) for rij in bestaande)
 
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
-                        kinderstoelen=0, max_kinderstoelen=None, opmerking=None, allergieen=None):
+                        kinderstoelen=0, max_kinderstoelen=None, opmerking=None, allergieen=None,
+                        bron='online', ingevoerd_door=None):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
     en api.py (AI-webhook) gebruikt zodat de capaciteitsregel maar op één plek staat.
@@ -268,6 +289,9 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     Met `max_kinderstoelen` (het aantal in het restaurant) telt het systeem ook de kinderstoelen
     over de zitduur. Passen ze niet meer, dan volgt KinderstoelVolFout. Zonder `max_kinderstoelen`
     (None) wordt dat niet gecontroleerd.
+
+    Met `max_capaciteit` None (reservering door het personeel) wordt de capaciteit niet afgedwongen;
+    het personeel krijgt vooraf een waarschuwing via drukte_bij().
 
     Heeft dezelfde gast al een reservering op deze datum en tijd, dan volgt DubbeleReserveringFout.
     Die controle draait binnen dezelfde lock als de capaciteit, zodat een herhaalde of gelijktijdige
@@ -311,7 +335,7 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
             ]
             huidige_gasten = piekbezetting(bestaande, minuten_van(tijd), zitduur_minuten)
 
-        if huidige_gasten + aantal > max_capaciteit:
+        if max_capaciteit is not None and huidige_gasten + aantal > max_capaciteit:
             raise CapaciteitVolFout(max_capaciteit - huidige_gasten)
 
         if kinderstoelen and max_kinderstoelen is not None:
@@ -333,6 +357,7 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
                 id=unieke_id, naam=naam, email=email, telefoon=telefoon,
                 datum=datum, tijd=tijd, aantal=aantal,
                 kinderstoelen=kinderstoelen, opmerking=opmerking or None, allergieen=allergieen or None,
+                bron=bron, ingevoerd_door=ingevoerd_door,
             )
         )
 

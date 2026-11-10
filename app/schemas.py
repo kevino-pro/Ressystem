@@ -102,6 +102,36 @@ class ReserveringSchema(DTO):
     allergie_toestemming: bool = False  # aparte, uitdrukkelijke toestemming (artikel 9 AVG)
 
 
+def _leeg_is_none(value: object) -> object:
+    """Een leeg of alleen-spaties formulierveld telt als niet ingevuld."""
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
+MAX_PERSONEN_PERSONEEL = 200
+
+
+class PersoneelReserveringSchema(DTO):
+    """
+    Een reservering die het personeel invoert (telefoon of binnenloper). Ruimer dan online:
+    e-mail is niet verplicht en het aantal mag boven de online grens. Capaciteit en openingstijden
+    worden niet hier gecontroleerd; de route waarschuwt daarvoor.
+    """
+    bron: Literal["telefoon", "binnenloper"] = "telefoon"
+    naam: Naam
+    telefoon: Annotated[Optional[Telefoon], BeforeValidator(_leeg_is_none)] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(_leeg_is_none)] = None
+    datum: ISODate
+    tijd: ISOTime
+    aantal: int = Field(..., ge=1, le=MAX_PERSONEN_PERSONEEL)
+    opmerking: Opmerking = None
+    kinderstoelen: int = Field(default=0, ge=0, le=20)
+    allergieen: Allergieen = None
+    allergie_toestemming: bool = False
+    bevestigd: bool = False  # het personeel heeft de waarschuwing gezien en wil toch opslaan
+
+
 class AIWebhookSchema(DTO):
     klant_tekst: str = Field(..., min_length=5, max_length=1000)
     bron: str = Field(default="whatsapp")

@@ -75,6 +75,10 @@ onder de 300 KB; de site legt er zelf een donkere laag over zodat de tekst leesb
 foto er niet, dan start de app niet en noemt hij het ontbrekende bestand. De opmaak zelf staat in
 `static/css/huisstijl.css` en is voor elk restaurant gelijk.
 
+## Reserveringen invoeren door het personeel
+
+Ingelogd personeel (beheerder en medewerker) voert telefonische reserveringen in via **+ Reservering** in het overzicht (`/reservering/nieuw`). E-mail is niet verplicht; is die ingevuld, dan krijgt de gast de gewone bevestigingsmail. Het personeel mag buiten de online regels boeken, zoals een grotere groep of een latere tijd. Wordt het voller dan `max_gasten_tegelijk`, zijn er niet genoeg kinderstoelen of is het restaurant die dag dicht, dan toont de pagina eerst een waarschuwing en slaat pas op na "Toch opslaan". Elke reservering heeft een `bron` (`online`, `ai`, `telefoon`, `binnenloper`) en bij het personeel ook wie hem invoerde; het overzicht toont dat.
+
 ## Plattegrond voor het personeel
 
 Een restaurantbestand kan een sectie `[plattegrond]` hebben. Dan krijgt het personeel na inloggen een plattegrond waarop het reserveringen aan tafels kan toewijzen. Zonder die sectie werkt alles zoals voorheen en is er geen plattegrond. Gasten zien de plattegrond nooit.

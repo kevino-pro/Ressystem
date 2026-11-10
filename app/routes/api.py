@@ -139,6 +139,7 @@ def ai_webhook_reservering():
             tijd=reservation_data["tijd"],
             aantal=reservation_data["aantal"],
             zitduur_minuten=regels.zitduur_minuten,
+            bron='ai',
         )
     except DubbeleReserveringFout as fout:
         return jsonify({
