@@ -28,7 +28,7 @@ def pagina(config, privacy=None):
     app = create_app(config)
     if privacy is not None:
         app.config["PRIVACY"] = privacy
-    antwoord = app.test_client().get("/privacy")
+    antwoord = app.test_client().get("/privacy", headers={"Accept-Language": "nl"})  # deze tests lezen de Nederlandse tekst
     return antwoord.status_code, antwoord.get_data(as_text=True)
 
 

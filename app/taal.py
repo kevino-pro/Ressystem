@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Literal
 
 from flask import current_app, g, has_request_context, request
+from markupsafe import Markup, escape
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 BRONTAAL = "nl"  # de taal van de teksten in de code
@@ -127,6 +128,14 @@ def vertaal(tekst, taal=None, **waarden):
     return tekst.format(**waarden) if waarden else tekst
 
 
+def vertaal_html(tekst, taal=None, **waarden):
+    """
+    Als vertaal(), voor een zin met een link of nadruk erin. De zin en gewone waarden worden ge-escaped;
+    alleen waarden die al veilige HTML zijn (Markup, bijvoorbeeld een {% set %}-blok) blijven zoals ze zijn.
+    """
+    return Markup(escape(vertaal(tekst, taal))).format(**waarden)
+
+
 def datum_tekst(waarde, met_jaar=False, taal=None):
     """'2026-11-07' of een date -> 'zaterdag 7 november' / 'Saturday 7 November' / 'Sabtu 7 November'."""
     taal = taal or huidige_taal()
@@ -149,8 +158,9 @@ def maand_kort(dag):
 
 
 def registreer(app):
-    """Zet `t` en de datumfilters klaar voor de templates."""
+    """Zet `t`, `th` en de datumfilters klaar voor de templates."""
     app.jinja_env.globals["t"] = vertaal
+    app.jinja_env.globals["th"] = vertaal_html
     app.jinja_env.filters["datum_tekst"] = datum_tekst
     app.jinja_env.filters["hoofdletter"] = hoofdletter
     app.jinja_env.filters["dag_kort"] = dag_kort
