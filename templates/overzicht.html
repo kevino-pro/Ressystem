@@ -12,6 +12,7 @@
         <noscript><button type="submit" class="pil">Tonen</button></noscript>
     </form>
     <a class="pil aan" href="/reservering/nieuw?datum={{ datum }}">+ Reservering</a>
+    {% if dag == vandaag %}<a class="pil" href="/reservering/nieuw?bron=binnenloper">+ Binnenloper</a>{% endif %}
 </div>
 
 {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
