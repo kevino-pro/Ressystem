@@ -81,7 +81,7 @@ elementen = [
 [privacy]
 verantwoordelijke = "Waroeng Padang Lapek"
 adres = "Schoolstraat 35, 2511 AW Den Haag"
-bijgewerkt = 2026-11-06
+bijgewerkt = 2026-11-10
 verwerkers = [
     { naam = "Render", doel = "hosting van de reserveringswebsite", locatie = "Europese Unie" },
     { naam = "Neon", doel = "opslag van de reserveringen (database)", locatie = "Europese Unie" },

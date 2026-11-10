@@ -1,0 +1,31 @@
+name: Herinneringsmails (dag voor het bezoek)
+
+on:
+  schedule:
+    # 08:00 en 09:00 UTC: een van de twee is altijd 10:00 in Nederland (winter- en zomertijd).
+    # De app verstuurt pas vanaf het uur in [herinnering] en elke herinnering maar een keer.
+    - cron: '0 8,9 * * *'
+  workflow_dispatch: {}  # handmatig starten om te testen
+
+jobs:
+  herinneringen:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ vars.RENDER_APP_URL }}
+      BEHEER_API_KEY: ${{ secrets.BEHEER_API_KEY }}
+    steps:
+      - name: Herinneringen voor morgen versturen
+        run: |
+          test -n "$APP_URL" || { echo "Repository variable RENDER_APP_URL ontbreekt"; exit 1; }
+          test -n "$BEHEER_API_KEY" || { echo "Repository secret BEHEER_API_KEY ontbreekt"; exit 1; }
+          mislukt=0
+          # Per aanroep verstuurt de app een beperkt aantal; zolang er iets resteert, opnieuw (hoogstens 5 keer).
+          for poging in 1 2 3 4 5; do
+            antwoord=$(curl -sf --max-time 60 --retry 3 --retry-delay 20 --retry-all-errors \
+              -X POST -H "X-Beheer-Key: $BEHEER_API_KEY" "${APP_URL%/}/beheer/herinneringen")
+            echo "$antwoord"
+            mislukt=$((mislukt + $(echo "$antwoord" | jq -r '.mislukt')))
+            [ "$(echo "$antwoord" | jq -r '.resterend')" -gt 0 ] || break
+          done
+          # Mislukte mails laten de taak falen, zodat GitHub je een melding stuurt.
+          [ "$mislukt" -eq 0 ] || { echo "$mislukt herinnering(en) mislukt; zie de logs op Render (MAIL_FAILED)."; exit 1; }
