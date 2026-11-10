@@ -12,6 +12,7 @@
             {% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">{{ t("Medewerkers") }}</a>
+            <a class="pil {{ 'aan' if actief == 'cijfers' }}" href="/cijfers">{{ t("Cijfers") }}</a>
             {% endif %}
             <a class="pil" href="/">{{ t("Reserveringsformulier") }}</a>
             {% if gebruiker %}

@@ -70,6 +70,7 @@ def create_app(config_class=Config):
     from app.routes.accounts import accounts_bp
     from app.routes.account import account_bp
     from app.routes.invoeren import invoeren_bp
+    from app.routes.cijfers import cijfers_bp
 
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp)
@@ -77,6 +78,7 @@ def create_app(config_class=Config):
     app.register_blueprint(accounts_bp)
     app.register_blueprint(account_bp)
     app.register_blueprint(invoeren_bp)
+    app.register_blueprint(cijfers_bp)
 
     def _guard(productie):
         try:

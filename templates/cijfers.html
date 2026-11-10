@@ -1,0 +1,89 @@
+{% extends "personeel.html" %}
+{% block titel %}{{ t("Cijfers") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="dagnav">
+    <h2>{{ t("Week {nummer}", nummer=maandag.isocalendar()[1]) }}
+        <small class="klein">{{ t("{van} t/m {tot}", van=maandag.day ~ ' ' ~ maandag | maand_kort, tot=zondag.day ~ ' ' ~ zondag | maand_kort) }}</small></h2>
+    <a class="pil" href="/cijfers?week={{ vorige_week }}">‹ {{ t("Vorige week") }}</a>
+    <a class="pil {{ 'aan' if maandag == deze_week }}" href="/cijfers">{{ t("Deze week") }}</a>
+    <a class="pil" href="/cijfers?week={{ volgende_week }}">{{ t("Volgende week") }} ›</a>
+</div>
+
+<div class="tellers">
+    <div class="teller"><small>{{ t("Gasten deze week") }}</small><b>{{ totaal.gasten }}</b></div>
+    <div class="teller"><small>{{ t("Week ervoor") }}</small><b>{{ totaal.vorige }}</b></div>
+    <div class="teller {{ 'let' if verschil is not none and verschil < 0 }}">
+        <small>{{ t("Verschil") }}</small>
+        <b>{% if verschil is none %}–{% else %}{{ '+' if verschil > 0 }}{{ verschil }}%{% endif %}</b>
+    </div>
+    <div class="teller"><small>{{ t("Reserveringen") }}</small><b>{{ totaal.reserveringen }}</b></div>
+</div>
+
+<div class="indeling cijfers">
+    <div class="paneel">
+        <h3>{{ t("Per dag") }}</h3>
+        <table class="cijfertabel">
+            <thead>
+                <tr><th>{{ t("Dag") }}</th><th>{{ t("Reserveringen") }}</th><th>{{ t("Gasten") }}</th><th>{{ t("Week ervoor") }}</th></tr>
+            </thead>
+            <tbody>
+                {% for d in dagen %}
+                <tr class="{{ 'later' if d.dag > vandaag }} {{ 'vandaag' if d.dag == vandaag }}">
+                    <td><a href="/overzicht?datum={{ d.dag.isoformat() }}">{{ d.dag | dag_kort }} {{ d.dag.day }} {{ d.dag | maand_kort }}</a></td>
+                    <td>{{ d.reserveringen }}</td>
+                    <td><b>{{ d.gasten }}</b></td>
+                    <td>{{ d.vorige }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr><td>{{ t("Totaal") }}</td><td>{{ totaal.reserveringen }}</td><td><b>{{ totaal.gasten }}</b></td><td>{{ totaal.vorige }}</td></tr>
+            </tfoot>
+        </table>
+        <p class="klein">{{ t("Gasten zonder no-shows. Voor dagen die nog komen staan de reserveringen van nu.") }}</p>
+
+        <h3 class="tussenkop">{{ t("Gasten per week") }}</h3>
+        <ul class="staven">
+            {% for w in weken %}
+            <li class="{{ 'aan' if w.maandag == maandag }}">
+                <span>{{ w.maandag.day }} {{ w.maandag | maand_kort }}</span>
+                <div class="balk"><i style="width: {{ w.balk }}%"></i></div>
+                <b>{{ w.gasten }}</b>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="paneel">
+        <h3>{{ t("Laatste 4 weken") }}</h3>
+        <p class="klein">{{ t("{van} t/m {tot}", van=periode_van.day ~ ' ' ~ periode_van | maand_kort, tot=periode_tot.day ~ ' ' ~ periode_tot | maand_kort) }}</p>
+
+        <p class="kop">{{ t("Drukste tijden") }}</p>
+        {% if drukte %}
+        <p class="klein">{{ t("Gemiddeld aantal gasten aan tafel op een open dag.") }}</p>
+        <ul class="staven smal">
+            {% for r in drukte %}
+            <li><span>{{ r.tijd }}</span><div class="balk"><i style="width: {{ r.balk }}%"></i></div><b>{{ r.gasten | round | int }}</b></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="leeg">{{ t("Geen open dagen in deze periode.") }}</p>
+        {% endif %}
+
+        <p class="kop">{{ t("No-shows") }}</p>
+        <p><b>{{ no_shows.procent }}%</b>
+            <span class="klein">· {{ t("{aantal} van {totaal} reserveringen", aantal=no_shows.no_shows, totaal=no_shows.reserveringen) }}</span></p>
+
+        <p class="kop">{{ t("Hoe gereserveerd") }}</p>
+        <ul class="staven smal">
+            {% for b in bronnen %}
+            <li>
+                <span>{{ {'online': t('Online'), 'telefoon': t('Telefonisch'), 'binnenloper': t('Binnenloper'), 'ai': t('Via AI')}.get(b.bron, b.bron) }}</span>
+                <div class="balk"><i style="width: {{ b.procent }}%"></i></div>
+                <b>{{ b.reserveringen }}</b>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
