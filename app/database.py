@@ -36,6 +36,7 @@ reserveringen = Table(
     Column('status', Text, nullable=False, server_default='verwacht'),
     Column('taal', Text, nullable=False, server_default='nl'),  # taal van de gast, voor de mails
     Column('herinnering_verstuurd', DateTime, nullable=True),  # wanneer de herinneringsmail is verstuurd
+    Column('gewijzigd_op', DateTime, nullable=True),  # wanneer de gast de reservering voor het laatst wijzigde
 )
 
 BRONNEN = ('online', 'ai', 'telefoon', 'binnenloper')
@@ -174,20 +175,23 @@ def drukte_bij(conn, datum, tijd, zitduur_minuten):
     stoelen = piekbezetting([(minuten_van(r.tijd), r.kinderstoelen) for r in rijen], start, zitduur_minuten)
     return gasten, stoelen
 
-def bezetting_op(conn, datum):
+def bezetting_op(conn, datum, behalve=None):
     """
     Lijst (begin_in_minuten, aantal) van alle reserveringen op deze dag, voor piekbezetting().
     Een no-show telt niet mee: zijn plaatsen komen weer vrij.
+    Met `behalve` (een reservering-id) telt die reservering niet mee: bij wijzigen houdt de gast
+    zijn eigen plaatsen niet bezet.
     """
     with conn.begin():
-        return [
-            (minuten_van(rij.tijd), rij.aantal)
-            for rij in conn.execute(
-                select(reserveringen.c.tijd, reserveringen.c.aantal).where(
-                    reserveringen.c.datum == datum, reserveringen.c.status != NIET_GEKOMEN
-                )
-            )
-        ]
+        return _bezetting(conn, datum, reserveringen.c.aantal, behalve)
+
+def _bezetting(conn, datum, kolom, behalve=None):
+    """(begin_in_minuten, waarde van `kolom`) per reservering op `datum`, zonder no-shows en zonder `behalve`."""
+    query = select(reserveringen.c.tijd, kolom).where(
+        reserveringen.c.datum == datum, reserveringen.c.status != NIET_GEKOMEN)
+    if behalve is not None:
+        query = query.where(reserveringen.c.id != behalve)
+    return [(minuten_van(rij[0]), rij[1]) for rij in conn.execute(query)]
 
 class OnbekendeTafelFout(Exception):
     """Een tafelnummer staat niet op de plattegrond. vertaald() geeft de melding in de taal van het verzoek."""
@@ -301,16 +305,18 @@ def is_zelfde_gast(a, b):
     tel_a, tel_b = normaliseer_telefoon(a['telefoon'] or ''), normaliseer_telefoon(b['telefoon'] or '')
     return bool((email_a and email_a == email_b) or (tel_a and tel_a == tel_b))
 
-def _heeft_al_reservering(conn, gast, datum, tijd):
+def _heeft_al_reservering(conn, gast, datum, tijd, behalve=None):
     """
     Zoekt een bestaande reservering van dezelfde gast op exact dezelfde datum en tijd.
     Vergelijkt in Python in plaats van in SQL, zodat het op SQLite en Postgres precies gelijk werkt.
+    Met `behalve` (een reservering-id) telt die reservering zelf niet mee, voor het wijzigen.
     """
-    bestaande = conn.execute(
-        select(reserveringen.c.naam, reserveringen.c.email, reserveringen.c.telefoon).where(
-            reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
-        )
-    ).mappings()
+    query = select(reserveringen.c.naam, reserveringen.c.email, reserveringen.c.telefoon).where(
+        reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
+    )
+    if behalve is not None:
+        query = query.where(reserveringen.c.id != behalve)
+    bestaande = conn.execute(query).mappings()
     return any(is_zelfde_gast(rij, gast) for rij in bestaande)
 
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
@@ -352,12 +358,7 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
         conn.info['exclusieve_lock'] = True
 
     with conn.begin():
-        if dialect == 'postgresql':
-            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
-            conn.execute(
-                text("SELECT pg_advisory_xact_lock(hashtext('reservering_slot'), hashtext(:sleutel))"),
-                {'sleutel': datum}  # per dag: met een zitduur overlappen tijden elkaar
-            )
+        _lock_dag(conn, datum)
 
         if _heeft_al_reservering(conn, {'naam': naam, 'email': email, 'telefoon': telefoon}, datum, tijd):
             raise DubbeleReserveringFout(datum, tijd)
@@ -408,6 +409,75 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
         )
 
     return unieke_id
+
+def _lock_dag(conn, datum):
+    """
+    Postgres: wacht op de advisory-lock voor deze dag (zie verwerk_reservering). Op SQLite doet de
+    exclusieve transactie hetzelfde; die moet de aanroeper voor conn.begin() aanzetten.
+    """
+    if conn.engine.dialect.name == 'postgresql':
+        conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+        conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext('reservering_slot'), hashtext(:sleutel))"),
+            {'sleutel': datum}  # per dag: met een zitduur overlappen tijden elkaar
+        )
+
+class NietMeerWijzigbaarFout(Exception):
+    """De reservering is intussen geannuleerd, of de gast is er al (of kwam niet)."""
+
+def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal, zitduur_minuten,
+                       max_kinderstoelen=None):
+    """
+    Zet een bestaande reservering (status 'verwacht') op een nieuwe datum, tijd en/of aantal personen,
+    met dezelfde controles als verwerk_reservering(): dubbele boeking, gasten tegelijk en kinderstoelen.
+    De reservering telt daarbij zelf niet mee, dus wie alleen het aantal verandert, houdt zijn plek.
+
+    Na het wijzigen:
+    - verliest de reservering haar tafels op de plattegrond (het personeel wijst opnieuw toe);
+    - staat gewijzigd_op op nu, zodat het overzicht hem als gewijzigd toont;
+    - is herinnering_verstuurd weer leeg als de datum is veranderd, zodat de gast voor de nieuwe dag
+      weer een herinnering kan krijgen.
+
+    Fouten: NietMeerWijzigbaarFout, DubbeleReserveringFout, CapaciteitVolFout of KinderstoelVolFout;
+    bij een fout blijft alles zoals het was. Geeft de reservering na de wijziging terug.
+
+    Lock: dezelfde als bij een nieuwe reservering, op de nieuwe datum. Op SQLite is de hele database
+    vergrendeld; op Postgres de nieuwe dag. Dat volstaat: de oude dag krijgt er alleen plek bij.
+    """
+    if conn.engine.dialect.name == 'sqlite':
+        conn.info['exclusieve_lock'] = True
+
+    with conn.begin():
+        _lock_dag(conn, datum)
+        oud = conn.execute(
+            select(reserveringen).where(reserveringen.c.id == reservering_id)
+        ).mappings().first()
+        if oud is None or oud['status'] != 'verwacht':
+            raise NietMeerWijzigbaarFout()
+
+        if _heeft_al_reservering(conn, oud, datum, tijd, behalve=reservering_id):
+            raise DubbeleReserveringFout(datum, tijd)
+
+        start = minuten_van(tijd)
+        huidige_gasten = piekbezetting(
+            _bezetting(conn, datum, reserveringen.c.aantal, reservering_id), start, zitduur_minuten)
+        if max_capaciteit is not None and huidige_gasten + aantal > max_capaciteit:
+            raise CapaciteitVolFout(max_capaciteit - huidige_gasten)
+
+        if oud['kinderstoelen'] and max_kinderstoelen is not None:
+            stoelen = [s for s in _bezetting(conn, datum, reserveringen.c.kinderstoelen, reservering_id) if s[1]]
+            in_gebruik = piekbezetting(stoelen, start, zitduur_minuten) if stoelen else 0
+            if in_gebruik + oud['kinderstoelen'] > max_kinderstoelen:
+                raise KinderstoelVolFout()
+
+        waarden = {'datum': datum, 'tijd': tijd, 'aantal': aantal, 'gewijzigd_op': func.current_timestamp()}
+        if datum != oud['datum']:
+            waarden['herinnering_verstuurd'] = None
+        conn.execute(update(reserveringen).where(reserveringen.c.id == reservering_id).values(**waarden))
+        conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
+        return conn.execute(
+            select(reserveringen).where(reserveringen.c.id == reservering_id)
+        ).mappings().first()
 
 def zoek_dubbele_reserveringen(conn, vanaf):
     """

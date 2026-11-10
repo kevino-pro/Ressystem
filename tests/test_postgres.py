@@ -14,7 +14,7 @@ from app import create_app
 from app.config import Config
 from app.database import (
     CapaciteitVolFout, DubbeleReserveringFout, TafelBezetFout, get_db, metadata, reserveringen,
-    tafeltoewijzingen, verwerk_reservering, wijs_tafels_toe,
+    tafeltoewijzingen, verwerk_reservering, wijs_tafels_toe, wijzig_reservering,
 )
 from app.plattegrond import Plattegrond
 
@@ -165,6 +165,36 @@ class PostgresTests(unittest.TestCase):
             conn = get_db()
             with conn.begin():
                 self.assertEqual(conn.execute(select(func.count()).select_from(tafeltoewijzingen)).scalar(), 1)
+
+    def test_gelijktijdig_wijzigen_naar_de_laatste_plekken_slaagt_maar_een_keer(self):
+        # Deel 9: vier gasten zetten hun reservering tegelijk op een dag waar nog plek is voor één groep.
+        with self.app.app_context():
+            ids = [verwerk_reservering(get_db(), 20, f"Gast {i}", f"g{i}@example.com", f"061234567{i}",
+                                       "2030-01-02", "19:00", 3, zitduur_minuten=60) for i in range(4)]
+        start = threading.Barrier(len(ids))
+        uitkomsten = []
+
+        def poging(reservering_id):
+            with self.app.app_context():
+                start.wait()
+                try:
+                    wijzig_reservering(get_db(), reservering_id, 4, "2030-01-01", "19:00", 3, 60)
+                    uitkomsten.append("gewijzigd")
+                except CapaciteitVolFout:
+                    uitkomsten.append("vol")
+
+        threads = [threading.Thread(target=poging, args=(rid,)) for rid in ids]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        self.assertEqual(sorted(uitkomsten), ["gewijzigd", "vol", "vol", "vol"])
+        with self.app.app_context():
+            conn = get_db()
+            with conn.begin():
+                op_de_dag = conn.execute(select(func.sum(reserveringen.c.aantal))
+                                         .where(reserveringen.c.datum == "2030-01-01")).scalar()
+        self.assertEqual(op_de_dag, 3)
 
 
 if __name__ == "__main__":

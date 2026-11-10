@@ -8,6 +8,7 @@ zitduur_minuten = 60           # elke groep heeft een uur
 max_gasten_tegelijk = 69       # zitplaatsen in Den Haag
 max_personen_per_boeking = 15  # grotere groepen bellen en bestellen vooraf
 min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
+wijzigen_minuten_vooraf = 120  # de gast kan zelf wijzigen tot 2 uur van tevoren; daarna annuleren of bellen
 max_dagen_vooruit = 90
 sluitingsdagen = []            # nog geen vaste sluitingsdagen
 knop_minuten = 30              # het formulier toont knoppen per half uur (12:00, 12:30, ...)

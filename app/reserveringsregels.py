@@ -63,6 +63,8 @@ class ReserveringsRegels(BaseModel):
     max_gasten_tegelijk: int = Field(default=40, ge=1)
     max_personen_per_boeking: int = Field(default=8, ge=1, le=20)  # schemas.py staat ook max. 20 toe
     min_minuten_vooraf: int = Field(default=60, ge=0)
+    # Tot hoeveel minuten voor de begintijd de gast zelf mag wijzigen; daarna alleen annuleren of bellen.
+    wijzigen_minuten_vooraf: int = Field(default=120, ge=0)
     max_dagen_vooruit: int = Field(default=90, ge=1)
     openingstijden: dict[str, tuple[Openingsblok, ...]]
     sluitingsdagen: tuple[date, ...] = ()
@@ -156,6 +158,12 @@ class ReserveringsRegels(BaseModel):
                 tijden.append(time(minuut // 60, minuut % 60))
                 minuut += stap
         return tijden
+
+    def kan_nog_wijzigen(self, dag: date, tijdstip: time, nu: datetime | None = None):
+        """True als een reservering op `dag` om `tijdstip` nog minstens wijzigen_minuten_vooraf weg is."""
+        nu = nu or self.nu()
+        begin = datetime.combine(dag, tijdstip, tzinfo=self.zone)
+        return begin - nu >= timedelta(minutes=self.wijzigen_minuten_vooraf)
 
     def controleer(self, dag: date, tijdstip: time, aantal: int, nu: datetime | None = None, kinderstoelen: int = 0):
         """Gooit RegelFout als dit verzoek niet mag; anders None."""

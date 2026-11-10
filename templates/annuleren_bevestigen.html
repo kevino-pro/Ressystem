@@ -1,9 +1,9 @@
 {% extends "basis.html" %}
-{% block titel %}{{ t("Reservering annuleren") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Wijzig of annuleer") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="kaart">
-    <h2>{{ t("Reservering annuleren?") }}</h2>
-    <p class="sub">{{ t("Jammer dat je niet kunt komen. Is dit de reservering die je wilt annuleren?") }}</p>
+    <h2>{{ t("Wijzig of annuleer") }}</h2>
+    <p class="sub">{{ t("Dit is je reservering. Je kunt hem hier wijzigen of annuleren.") }}</p>
 
     <div class="details">
         {% if reservering.naam | voornaam %}<div class="rij"><span>{{ t("Naam") }}</span><b>{{ reservering.naam | voornaam }}</b></div>{% endif %}
@@ -12,14 +12,255 @@
         <div class="rij"><span>{{ t("Personen") }}</span><b>{{ reservering.aantal }}</b></div>
     </div>
 
-    <form method="POST">
+    {% if niet_wijzigen %}
+    <div class="melding" role="status">
+        {{ niet_wijzigen }} <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>
+    </div>
+    {% else %}
+    <form method="POST" action="{{ url_for('web.wijzigen_klant', reservering_id=reservering.id) }}" id="wijzigForm" class="deel" novalidate>
+        <h3 class="deelkop">{{ t("Iets anders kiezen?") }}</h3>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="knop rood">{{ t("Ja, annuleer mijn reservering") }}</button>
+        <input type="hidden" name="aantal" id="veld_aantal" value="{{ keuze.aantal }}">
+        <input type="hidden" name="datum" id="veld_datum" value="{{ keuze.datum }}">
+        <input type="hidden" name="tijd" id="veld_tijd" value="{{ keuze.tijd }}">
+
+        <fieldset class="stap">
+            <legend><span class="nr">1</span>{{ t("Met hoeveel personen?") }}</legend>
+            <div class="keuzes personen" id="personen">
+                {% for n in range(1, regels.max_personen_per_boeking + 1) %}
+                <button type="button" class="keuze" data-aantal="{{ n }}" aria-pressed="{{ 'true' if n == keuze.aantal else 'false' }}">{{ n }}</button>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="stap">
+            <legend><span class="nr">2</span>{{ t("Welke dag?") }}</legend>
+            <div class="keuzes dagen" id="dagen">
+                {% for d in dagen %}
+                <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
+                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
+                </button>
+                {% endfor %}
+            </div>
+            <p class="klein" style="margin-top: 8px">
+                <label for="datum" style="display: inline">{{ t("Andere datum?") }}</label>
+                <input type="date" id="datum" min="{{ vandaag }}" max="{{ laatste }}" style="width: auto; height: 34px; margin-left: 6px">
+            </p>
+        </fieldset>
+
+        <fieldset class="stap">
+            <legend><span class="nr">3</span>{{ t("Hoe laat?") }}</legend>
+            <div id="tijden" aria-live="polite"><p class="leeg">{{ t("Kies eerst een dag.") }}</p></div>
+        </fieldset>
+
+        <div id="alertBox" class="melding fout" role="alert" {{ '' if fout else 'hidden' }}>{{ fout or '' }}</div>
+        <div id="samenvatting" class="samenvatting" hidden></div>
+        <button type="submit" id="submitBtn" class="knop">{{ t("Wijziging opslaan") }}</button>
+        <p class="klein" style="margin-top: 10px">
+            {{ t("Wijzigen kan tot {duur} van tevoren.", duur=wijzigen_tot) }}
+        </p>
     </form>
-    <a class="knop rand" href="/" style="margin-top: 10px">{{ t("Nee, ik kom gewoon") }}</a>
+    {% endif %}
+
+    <div class="deel">
+        <h3 class="deelkop">{{ t("Reservering annuleren?") }}</h3>
+        <p class="klein" style="margin-bottom: 14px">{{ t("Kun je toch niet komen? Annuleer dan, dan geven we je plek aan een andere gast.") }}</p>
+        <form method="POST" action="{{ url_for('web.annuleren_klant', reservering_id=reservering.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="knop rood">{{ t("Ja, annuleer mijn reservering") }}</button>
+        </form>
+        <a class="knop rand" href="/" style="margin-top: 10px">{{ t("Nee, ik kom gewoon") }}</a>
+    </div>
     <p class="klein" style="margin-top: 16px">
-        {{ t("Liever een andere tijd? Annuleer en maak een nieuwe reservering, of bel") }}
-        <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
+        {{ t("Liever bellen?") }} <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>
     </p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if not niet_wijzigen %}
+<script>
+(function () {
+    // Dezelfde knoppen als op het reserveringsformulier (index.html); de eigen reservering telt niet mee
+    // voor de vrije plekken. /wijzigen controleert alles opnieuw.
+    const ZITDUUR = {{ regels.zitduur_minuten | int }};
+    const RESERVERING = {{ reservering.id | tojson }};
+    const HUIDIG = {{ {'datum': reservering.datum, 'tijd': reservering.tijd, 'aantal': reservering.aantal} | tojson }};
+    const DAGEN = {{ dagnamen | tojson }};  // zondag eerst, zoals Date.getDay()
+    const MAANDEN = {{ maandnamen | tojson }};
+    const T = {{ {
+        'persoon': t('persoon'), 'personen': t('personen'), 'tot': t('tot'), 'lunch': t('Lunch'),
+        'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'), 'jouw_tijd': t('Jouw tijd'),
+        'dag_vol': t('Deze dag is vol voor {aantal} personen. Kies een andere dag of bel ons.'),
+        'laden': t('Tijden laden…'), 'laden_mislukt': t('Tijden laden lukte niet.'),
+        'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'),
+        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'verwerken': t('Verwerken…'),
+        'niets': t('Je hebt niets veranderd. Kies een andere dag, tijd of aantal personen.'),
+    } | tojson }};
+    const keuze = {{ keuze | tojson }};
+
+    const form = document.getElementById('wijzigForm');
+    const tijdenVak = document.getElementById('tijden');
+    const alertBox = document.getElementById('alertBox');
+    const samenvatting = document.getElementById('samenvatting');
+    const submitBtn = document.getElementById('submitBtn');
+    const datumVeld = document.getElementById('datum');
+    let verzoek = 0;  // alleen het laatste antwoord van /beschikbaarheid telt
+
+    function druk(groep, knop) {
+        document.querySelectorAll('#' + groep + ' .keuze').forEach(function (k) {
+            k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
+        });
+    }
+
+    function leesbareDatum(iso) {
+        const d = new Date(iso + 'T12:00:00');
+        const tekst = DAGEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()];
+        return tekst.charAt(0).toUpperCase() + tekst.slice(1);
+    }
+
+    function plus(tijd, minuten) {
+        const [u, m] = tijd.split(':').map(Number);
+        const totaal = (u * 60 + m + minuten) % (24 * 60);
+        return String(Math.floor(totaal / 60)).padStart(2, '0') + ':' + String(totaal % 60).padStart(2, '0');
+    }
+
+    function veranderd() {
+        return keuze.datum !== HUIDIG.datum || keuze.tijd !== HUIDIG.tijd || keuze.aantal !== HUIDIG.aantal;
+    }
+
+    function toonSamenvatting() {
+        if (!keuze.datum || !keuze.tijd || !veranderd()) { samenvatting.hidden = true; return; }
+        samenvatting.replaceChildren();
+        const regel = document.createElement('b');
+        regel.textContent = leesbareDatum(keuze.datum) + ' · ' + keuze.tijd;
+        const onder = document.createElement('small');
+        onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
+        samenvatting.append(regel, onder);
+        samenvatting.hidden = false;
+    }
+
+    function melding(tekst) {
+        tijdenVak.replaceChildren();
+        const p = document.createElement('p');
+        p.className = 'leeg';
+        p.textContent = tekst;
+        tijdenVak.append(p);
+    }
+
+    function tekenTijden(data) {
+        tijdenVak.replaceChildren();
+        if (!data.open) { melding(data.bericht); keuze.tijd = null; toonSamenvatting(); return; }
+        let groep = null;
+        let raster = null;
+        if (!data.tijden.some(function (t) { return t.tijd === keuze.tijd && t.beschikbaar; })) { keuze.tijd = null; }
+        data.tijden.forEach(function (t) {
+            const naam = data.diner_vanaf ? (t.tijd < data.diner_vanaf ? T.lunch : T.diner) : '';
+            if (!raster || naam !== groep) {
+                groep = naam;
+                if (naam) {
+                    const kop = document.createElement('div');
+                    kop.className = 'groep';
+                    kop.textContent = naam;
+                    tijdenVak.append(kop);
+                }
+                raster = document.createElement('div');
+                raster.className = 'keuzes tijden';
+                tijdenVak.append(raster);
+            }
+            const knop = document.createElement('button');
+            knop.type = 'button';
+            knop.className = 'keuze';
+            knop.dataset.tijd = t.tijd;
+            knop.textContent = t.tijd;
+            knop.setAttribute('aria-pressed', t.tijd === keuze.tijd ? 'true' : 'false');
+            const klein = document.createElement('small');
+            if (!t.beschikbaar) {
+                knop.disabled = true;
+                klein.textContent = T.vol;
+            } else if (keuze.datum === HUIDIG.datum && t.tijd === HUIDIG.tijd) {
+                klein.textContent = T.jouw_tijd;  // de tijd van de huidige reservering
+            } else if (t.vrij <= 10) {
+                knop.classList.add('bijna');
+                klein.textContent = T.nog_plekken.replace('{vrij}', t.vrij);
+            }
+            if (klein.textContent) { knop.append(klein); }
+            raster.append(knop);
+        });
+        if (!data.tijden.some(function (t) { return t.beschikbaar; })) {
+            const p = document.createElement('p');
+            p.className = 'leeg';
+            p.textContent = T.dag_vol.replace('{aantal}', keuze.aantal);
+            tijdenVak.append(p);
+        }
+        toonSamenvatting();
+    }
+
+    async function laadTijden() {
+        if (!keuze.datum) { return; }
+        const nummer = ++verzoek;
+        melding(T.laden);
+        try {
+            const antwoord = await fetch('/beschikbaarheid?datum=' + encodeURIComponent(keuze.datum) + '&aantal=' + keuze.aantal
+                + '&behalve=' + encodeURIComponent(RESERVERING));
+            const data = await antwoord.json();
+            if (nummer !== verzoek) { return; }
+            if (!antwoord.ok) { melding(data.bericht || T.laden_mislukt); return; }
+            tekenTijden(data);
+        } catch (fout) {
+            if (nummer === verzoek) { melding(T.geen_verbinding); }
+        }
+    }
+
+    function kiesDatum(iso, knop) {
+        keuze.datum = iso;
+        druk('dagen', knop);
+        datumVeld.value = knop ? '' : iso;
+        toonSamenvatting();
+        laadTijden();
+    }
+
+    document.getElementById('personen').addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (!knop) { return; }
+        keuze.aantal = Number(knop.dataset.aantal);
+        druk('personen', knop);
+        laadTijden();
+    });
+    document.getElementById('dagen').addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (knop && !knop.disabled) { kiesDatum(knop.dataset.datum, knop); }
+    });
+    datumVeld.addEventListener('change', function () {
+        if (!datumVeld.value) { return; }
+        const knop = document.querySelector('#dagen .keuze[data-datum="' + datumVeld.value + '"]');
+        kiesDatum(datumVeld.value, knop && !knop.disabled ? knop : null);
+    });
+    tijdenVak.addEventListener('click', function (e) {
+        const knop = e.target.closest('.keuze');
+        if (!knop || knop.disabled) { return; }
+        keuze.tijd = knop.dataset.tijd;
+        tijdenVak.querySelectorAll('.keuze').forEach(function (k) {
+            k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
+        });
+        toonSamenvatting();
+    });
+
+    // Begin bij de dag van de reservering (of wat de gast net probeerde).
+    const eigen = document.querySelector('#dagen .keuze[data-datum="' + keuze.datum + '"]:not(:disabled)');
+    kiesDatum(keuze.datum, eigen);
+
+    form.addEventListener('submit', function (e) {
+        alertBox.hidden = true;
+        if (!keuze.datum || !keuze.tijd) { e.preventDefault(); alertBox.textContent = T.kies_dag_tijd; alertBox.hidden = false; return; }
+        if (!veranderd()) { e.preventDefault(); alertBox.textContent = T.niets; alertBox.hidden = false; return; }
+        document.getElementById('veld_aantal').value = keuze.aantal;
+        document.getElementById('veld_datum').value = keuze.datum;
+        document.getElementById('veld_tijd').value = keuze.tijd;
+        submitBtn.disabled = true;
+        submitBtn.textContent = T.verwerken;
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

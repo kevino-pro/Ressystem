@@ -8,6 +8,7 @@ zitduur_minuten = 120          # zo lang telt een reservering mee voor de capaci
 max_gasten_tegelijk = 40       # maximaal aantal gasten dat tegelijk aan tafel zit
 max_personen_per_boeking = 8   # grotere groepen bellen het restaurant
 min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
+wijzigen_minuten_vooraf = 120  # optioneel: de gast kan zelf wijzigen tot zoveel minuten van tevoren
 max_dagen_vooruit = 90
 sluitingsdagen = [2026-12-25, 2027-01-01]
 knop_minuten = 30              # optioneel: knoppen per half uur in het formulier (standaard = slot_minuten)
