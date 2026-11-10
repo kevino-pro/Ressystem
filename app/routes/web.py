@@ -5,13 +5,15 @@ from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from flask import Blueprint, Response, abort, render_template, request, jsonify, redirect, url_for, session, current_app
+from flask import (
+    Blueprint, Response, abort, flash, render_template, request, jsonify, redirect, url_for, session, current_app,
+)
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
 
 from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
-    KinderstoelVolFout,
+    KinderstoelVolFout, NIET_GEKOMEN, STATUSSEN, zet_status,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
@@ -168,6 +170,7 @@ def overzicht():
     lijst = haal_reserveringen_op(conn, datum)
     plattegrond_aan = current_app.config.get('PLATTEGROND') is not None
     toewijzingen = haal_toewijzingen_op(conn, datum) if plattegrond_aan else {}
+    gekomen = [r for r in lijst if r['status'] != NIET_GEKOMEN]  # een no-show telt niet mee
 
     # Per begintijd groeperen; de lijst is al op tijd gesorteerd.
     groepen = {}
@@ -175,7 +178,7 @@ def overzicht():
         groepen.setdefault(r['tijd'], []).append(r)
 
     # Drukste moment: de bezetting kan alleen stijgen op het begin van een reservering.
-    bestaande = [(minuten_van(r['tijd']), r['aantal']) for r in lijst]
+    bestaande = [(minuten_van(r['tijd']), r['aantal']) for r in gekomen]
     piek, piek_tijd = 0, None
     for tijd in groepen:
         moment = minuten_van(tijd)
@@ -184,14 +187,17 @@ def overzicht():
             piek, piek_tijd = gasten, tijd
     tellers = {
         'reserveringen': len(lijst),
-        'gasten': sum(r['aantal'] for r in lijst),
+        'gasten': sum(r['aantal'] for r in gekomen),
         'piek': piek, 'piek_tijd': piek_tijd, 'max': regels.max_gasten_tegelijk,
-        'zonder_tafel': sum(1 for r in lijst if not toewijzingen.get(r['id'])),
+        'zonder_tafel': sum(1 for r in gekomen if not toewijzingen.get(r['id'])),
+        'verwacht': sum(1 for r in lijst if r['status'] == 'verwacht'),
     }
+    nu = regels.nu()
     return render_template(
         'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
         groepen=groepen, toewijzingen=toewijzingen, tellers=tellers, plattegrond_aan=plattegrond_aan,
+        kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=f"{nu:%H:%M}",
     )
 
 def _kies_moment(regels, datum_tekst, tijd_tekst):
@@ -242,16 +248,18 @@ def plattegrond():
     toewijzingen = haal_toewijzingen_op(conn, datum)
     start = minuten_van(tijd)
     zitduur = regels.zitduur_minuten
-    aan_tafel = [r for r in lijst if minuten_van(r['tijd']) <= start < minuten_van(r['tijd']) + zitduur]
+    gekomen = [r for r in lijst if r['status'] != NIET_GEKOMEN]  # een no-show bezet geen tafel
+    aan_tafel = [r for r in gekomen if minuten_van(r['tijd']) <= start < minuten_van(r['tijd']) + zitduur]
     bezet = {tafel: r for r in aan_tafel for tafel in toewijzingen.get(r['id'], [])}
     # Tafels die binnen een half uur na dit moment gereserveerd zijn: niet meer weggeven.
-    binnenkort = [r for r in lijst if start < minuten_van(r['tijd']) <= start + STRAKS_MINUTEN]
+    binnenkort = [r for r in gekomen if start < minuten_van(r['tijd']) <= start + STRAKS_MINUTEN]
     straks = {tafel: r for r in binnenkort for tafel in toewijzingen.get(r['id'], []) if tafel not in bezet}
 
     dag = date.fromisoformat(datum)
     return render_template(
         'plattegrond.html', actief='plattegrond', indeling=indeling, datum=datum, dag=dag, tijd=tijd,
-        zitduur=zitduur, reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet, straks=straks,
+        zitduur=zitduur, reserveringen=gekomen, niet_gekomen=[r for r in lijst if r['status'] == NIET_GEKOMEN],
+        toewijzingen=toewijzingen, bezet=bezet, straks=straks, nu_tijd=f"{regels.nu():%H:%M}",
         kenmerken={r['id']: _kenmerk(r['id']) for r in lijst},
         aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE, vandaag=regels.nu().date(),
         tijdknoppen=_tijdknoppen(regels, dag), vorige=(dag - timedelta(days=1)).isoformat(),
@@ -312,6 +320,52 @@ def tafels_toewijzen():
         current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
         return jsonify({"status": "fout", "bericht": "Het lukte niet om op te slaan. Probeer het opnieuw."}), 503
     return jsonify({"status": "succes", "bericht": "Opgeslagen.", "waarschuwing": waarschuwing}), 200
+
+STATUS_BERICHTEN = {
+    'gearriveerd': "{naam} is er.",
+    'no_show': "{naam} is niet gekomen.",
+    'verwacht': "{naam} staat weer op verwacht.",
+}
+
+@web_bp.route('/aankomst', methods=['POST'])
+@login_vereist
+def aankomst():
+    """
+    Zet een reservering op gearriveerd, niet gekomen (no-show) of terug op verwacht.
+    Beheerder en medewerker mogen dit. Net als de plattegrond werkt dit met het kenmerk, niet met het id.
+    """
+    regels = current_app.config['REGELS']
+    status = request.form.get('status')
+    kenmerk = request.form.get('kenmerk')
+    try:
+        dag = date.fromisoformat(request.form.get('datum') or '')
+    except ValueError:
+        dag = None
+    if dag is None or status not in STATUSSEN or not kenmerk:
+        return "Ongeldig verzoek.", 400
+
+    datum = dag.isoformat()
+    reservering = next((r for r in haal_reserveringen_op(get_db(), datum)
+                        if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
+    if reservering is None:
+        return GeenReserveringFout.bericht, 404
+
+    if request.form.get('terug') == 'plattegrond' and current_app.config.get('PLATTEGROND') is not None:
+        terug = url_for('web.plattegrond', datum=datum, tijd=reservering['tijd'])
+    else:
+        terug = url_for('web.overzicht', datum=datum)
+
+    nu = regels.nu()
+    if status != 'verwacht' and dag > nu.date():
+        flash("Dat kan pas op de dag van de reservering.", 'fout')
+        return redirect(terug)
+    if status == NIET_GEKOMEN and dag == nu.date() and f"{nu:%H:%M}" < reservering['tijd']:
+        flash(f"Een no-show kan pas na de begintijd ({reservering['tijd']}).", 'fout')
+        return redirect(terug)
+
+    zet_status(get_db(), reservering['id'], status)
+    flash(STATUS_BERICHTEN[status].format(naam=reservering['naam']), 'ok')
+    return redirect(terug)
 
 @web_bp.route('/beschikbaarheid')
 @rate_limit('beschikbaarheid', 120, 600, json_response=True)
@@ -447,6 +501,9 @@ def annuleren_klant(reservering_id):
 
     if not reservering:
         return "Reservering niet gevonden of reeds geannuleerd.", 404
+    if reservering['status'] != 'verwacht':
+        # Na aankomst of een no-show blijft de reservering staan voor de cijfers.
+        return "Deze reservering kan niet meer online worden geannuleerd.", 409
 
     if request.method == 'POST':
         db_verwijder_reservering(conn, reservering_id)
