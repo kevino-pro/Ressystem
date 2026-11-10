@@ -13,7 +13,7 @@ import app.database as database
 from app import create_app
 from app.config import Config
 from app.database import (
-    CapaciteitVolFout, DubbeleReserveringFout, TafelBezetFout, get_db, metadata, reserveringen,
+    CapaciteitVolFout, DubbeleReserveringFout, TafelBezetFout, dagtellingen, get_db, metadata, reserveringen,
     tafeltoewijzingen, verwerk_reservering, wijs_tafels_toe, wijzig_reservering,
 )
 from app.plattegrond import Plattegrond
@@ -85,6 +85,21 @@ class PostgresTests(unittest.TestCase):
         result = self.runner.invoke(args=["purge-retention", "--uitvoeren", "--productie"])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(self._ids(), ["nieuw"])
+
+    def test_purge_bewaart_dagtelling_op_postgres(self):
+        # Deel 10: de aantallen van de verwijderde dag blijven, zonder namen.
+        with self.app.app_context():
+            conn = get_db()
+            with conn.begin():
+                conn.execute(dagtellingen.delete())
+        self._voeg_toe("oud", 100)
+        result = self.runner.invoke(args=["purge-retention", "--uitvoeren", "--productie"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        with self.app.app_context():
+            conn = get_db()
+            with conn.begin():
+                rijen = [tuple(r) for r in conn.execute(select(dagtellingen))]
+        self.assertEqual(rijen, [((date.today() - timedelta(days=100)).isoformat(), "online", 1, 1, 0)])
 
     def test_capaciteit_met_advisory_lock(self):
         with self.app.app_context():
