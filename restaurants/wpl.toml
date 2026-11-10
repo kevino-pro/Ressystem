@@ -95,3 +95,8 @@ verwerkers = [
 [huisstijl]
 accentkleur = "#d9a441"
 ondertitel = "Schoolstraat 35, Den Haag"
+
+# Talen voor gasten. De browser kiest de taal; past er geen, dan de standaard. Rechtsboven staat EN · NL · ID.
+[talen]
+beschikbaar = ["en", "nl", "id"]
+standaard = "en"

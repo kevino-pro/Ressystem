@@ -25,6 +25,7 @@ TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import constant_time_equals, rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
+from app.taal import DAGEN, MAANDEN, TAAL_COOKIE, huidige_taal, vertaal as t
 from app.toegang import beheerder_vereist, login_vereist, start_sessie
 
 web_bp = Blueprint('web', __name__)
@@ -37,11 +38,35 @@ STRAKS_MINUTEN = 30  # zo ver vooruit kijkt de plattegrond naar tafels die bijna
 DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
 
 def _zitduur_tekst(minuten):
-    """60 -> '1 uur', 90 -> '1,5 uur', 75 -> '75 minuten'."""
+    """60 -> '1 uur', 90 -> '1,5 uur', 75 -> '75 minuten' (in de taal van het verzoek)."""
     if minuten % 30:
-        return f"{minuten} minuten"
-    uren = minuten / 60
-    return f"{uren:g} uur".replace(".", ",")
+        return t("{minuten} minuten", minuten=minuten)
+    if minuten == 60:
+        return t("1 uur")
+    uren = f"{minuten / 60:g}"
+    if huidige_taal() != "en":
+        uren = uren.replace(".", ",")  # 1,5 in het Nederlands en Indonesisch, 1.5 in het Engels
+    return t("{uren} uur", uren=uren)
+
+TAAL_COOKIE_DAGEN = 365
+
+@web_bp.route('/taal/<code>')
+def kies_taal(code):
+    """
+    Onthoudt de gekozen taal in een cookie en gaat terug naar de pagina waar de gast was.
+    `terug` moet een pad op deze site zijn; al het andere wordt de startpagina.
+    """
+    terug = request.args.get('terug', '')
+    # Ook geen stuurtekens: een browser haalt tab en regeleinde weg, dan wordt '/\t/x' alsnog '//x'.
+    if not terug.startswith('/') or terug.startswith('//') or '\\' in terug or not terug.isprintable():
+        terug = '/'
+    antwoord = redirect(terug)
+    if code in current_app.config['TALEN'].beschikbaar:
+        antwoord.set_cookie(
+            TAAL_COOKIE, code, max_age=TAAL_COOKIE_DAGEN * 24 * 3600, samesite='Lax',
+            secure=current_app.config.get('SESSION_COOKIE_SECURE', True), httponly=True,
+        )
+    return antwoord
 
 @web_bp.route('/')
 def home():
@@ -53,8 +78,10 @@ def home():
         dagen.append({'datum': dag.isoformat(), 'dag': dag,
                       'open': bool(regels.blokken_op(dag)) and dag not in regels.sluitingsdagen})
     laatste = vandaag + timedelta(days=regels.max_dagen_vooruit)
+    taal = huidige_taal()
     return render_template('index.html', regels=regels, dagen=dagen, vandaag=vandaag.isoformat(),
-                           laatste=laatste.isoformat(), zitduur_tekst=_zitduur_tekst(regels.zitduur_minuten))
+                           laatste=laatste.isoformat(), zitduur_tekst=_zitduur_tekst(regels.zitduur_minuten),
+                           dagnamen=[DAGEN[taal][6], *DAGEN[taal][:6]], maandnamen=MAANDEN[taal])
 
 def _db_foutdetails(fout):
     """
@@ -117,7 +144,7 @@ def bevestiging_agenda():
         f"DTSTAMP:{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}",
         f"DTSTART;TZID={regels.tijdzone}:{begin:%Y%m%dT%H%M%S}",
         f"DTEND;TZID={regels.tijdzone}:{eind:%Y%m%dT%H%M%S}",
-        f"SUMMARY:Tafel bij {naam} ({reservering['aantal']} p.)",
+        f"SUMMARY:{_ics_tekst(t('Tafel bij {naam} ({aantal} p.)', naam=current_app.config['RESTAURANT_NAAM'], aantal=reservering['aantal']))}",
     ]
     if privacy:
         regels_ics.append(f"LOCATION:{_ics_tekst(privacy.adres)}")
@@ -379,11 +406,11 @@ def beschikbaarheid():
         dag = date.fromisoformat(request.args.get('datum', ''))
         aantal = int(request.args.get('aantal', ''))
     except ValueError:
-        return jsonify({"status": "fout", "bericht": "Geef een datum (JJJJ-MM-DD) en een aantal personen."}), 400
+        return jsonify({"status": "fout", "bericht": t("Geef een datum (JJJJ-MM-DD) en een aantal personen.")}), 400
     if not 1 <= aantal <= regels.max_personen_per_boeking:
-        return jsonify({"status": "fout", "bericht": (
-            f"Online reserveren kan voor 1 tot {regels.max_personen_per_boeking} personen. "
-            "Neem voor grotere groepen contact met ons op.")}), 400
+        return jsonify({"status": "fout", "bericht": t(
+            "Online reserveren kan voor 1 tot {aantal} personen. Neem voor grotere groepen contact met ons op.",
+            aantal=regels.max_personen_per_boeking)}), 400
 
     bestaande = bezetting_op(get_db(), dag.isoformat())
     nu = regels.nu()
@@ -392,7 +419,7 @@ def beschikbaarheid():
         try:
             regels.controleer(dag, tijdstip, aantal, nu=nu)
         except RegelFout as fout:
-            eerste_fout = eerste_fout or fout.bericht
+            eerste_fout = eerste_fout or fout.vertaald()
             continue  # te vroeg, te ver vooruit of een sluitingsdag: geen knop
         vrij = regels.max_gasten_tegelijk - piekbezetting(
             bestaande, minuten_van(f"{tijdstip:%H:%M}"), regels.zitduur_minuten)
@@ -403,9 +430,9 @@ def beschikbaarheid():
             try:
                 regels.controleer(dag, time(12, 0), aantal, nu=nu)
             except RegelFout as fout:
-                eerste_fout = fout.bericht
+                eerste_fout = fout.vertaald()
         return jsonify({"status": "succes", "open": False, "tijden": [],
-                        "bericht": eerste_fout or "Op deze dag kun je niet online reserveren."}), 200
+                        "bericht": eerste_fout or t("Op deze dag kun je niet online reserveren.")}), 200
     return jsonify({"status": "succes", "open": True, "tijden": tijden,
                     "diner_vanaf": f"{regels.diner_vanaf:%H:%M}" if regels.diner_vanaf else None}), 200
 
@@ -414,7 +441,7 @@ def beschikbaarheid():
 def nieuwe_reservering():
     json_data = request.get_json(silent=True)
     if not json_data:
-        return jsonify({"status": "fout", "bericht": "Ongeldige JSON payload"}), 400
+        return jsonify({"status": "fout", "bericht": t("Ongeldige JSON payload")}), 400
 
     try:
         valid_data = ReserveringSchema(**json_data)
@@ -429,25 +456,25 @@ def nieuwe_reservering():
             bericht = OPMERKING_MELDING
         elif "allergieen" in fields:
             bericht = ALLERGIE_MELDING
-        return jsonify({"status": "fout", "bericht": bericht, "velden": fields}), 422
+        return jsonify({"status": "fout", "bericht": t(bericht), "velden": fields}), 422
 
     if valid_data.website:
-        return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
+        return jsonify({"status": "fout", "bericht": t("Spam gedetecteerd.")}), 400
 
     # Allergieen zijn gezondheidsgegevens: alleen bewaren met aparte toestemming, en alleen als dit
     # restaurant erom vraagt. Zonder vinkje weigeren we, zodat de gast niet denkt dat het is doorgegeven.
     allergieen = valid_data.allergieen if current_app.config['REGELS'].vraag_allergieen else None
     if allergieen and not valid_data.allergie_toestemming:
-        return jsonify({"status": "fout", "bericht": TOESTEMMING_MELDING, "velden": ["allergie_toestemming"]}), 422
+        return jsonify({"status": "fout", "bericht": t(TOESTEMMING_MELDING), "velden": ["allergie_toestemming"]}), 422
 
     try:
         current_app.config['REGELS'].controleer(valid_data.datum, valid_data.tijd, valid_data.aantal,
                                                 kinderstoelen=valid_data.kinderstoelen)
     except RegelFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
+        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 400
 
     if not rate_limit_check_adres(valid_data.email):
-        return jsonify({"status": "fout", "bericht": "Te veel verzoeken, probeer het later opnieuw."}), 429
+        return jsonify({"status": "fout", "bericht": t("Te veel verzoeken, probeer het later opnieuw.")}), 429
 
     regels = current_app.config['REGELS']
     conn = get_db()
@@ -461,16 +488,16 @@ def nieuwe_reservering():
             opmerking=valid_data.opmerking, allergieen=allergieen,
         )
     except DubbeleReserveringFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 409
+        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 409
     except KinderstoelVolFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.bericht}), 400
+        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 400
     except CapaciteitVolFout as e:
         return jsonify({
             "status": "fout",
-            "bericht": f"Geen plek meer op dit tijdstip. Nog {e.vrij} plek(ken) beschikbaar."
+            "bericht": t("Geen plek meer op dit tijdstip. Nog {vrij} plek(ken) beschikbaar.", vrij=max(e.vrij, 0))
         }), 400
     except OperationalError:
-        return jsonify({"status": "fout", "bericht": "Database is momenteel druk, probeer het opnieuw."}), 503
+        return jsonify({"status": "fout", "bericht": t("Database is momenteel druk, probeer het opnieuw.")}), 503
 
     session['laatste_reservering'] = unieke_id  # voor de bevestigingspagina
     stuur_bevestigingsmail_async(
@@ -482,7 +509,7 @@ def nieuwe_reservering():
         reservering_id=unieke_id
     )
 
-    return jsonify({"status": "succes", "bericht": "Reservering opgeslagen!", "id": unieke_id}), 200
+    return jsonify({"status": "succes", "bericht": t("Reservering opgeslagen!"), "id": unieke_id}), 200
 
 @web_bp.route('/verwijder/<reservering_id>', methods=['POST'])
 @beheerder_vereist
@@ -500,10 +527,10 @@ def annuleren_klant(reservering_id):
     reservering = haal_reservering_op(conn, reservering_id)
 
     if not reservering:
-        return "Reservering niet gevonden of reeds geannuleerd.", 404
+        return t("Reservering niet gevonden of reeds geannuleerd."), 404
     if reservering['status'] != 'verwacht':
         # Na aankomst of een no-show blijft de reservering staan voor de cijfers.
-        return "Deze reservering kan niet meer online worden geannuleerd.", 409
+        return t("Deze reservering kan niet meer online worden geannuleerd."), 409
 
     if request.method == 'POST':
         db_verwijder_reservering(conn, reservering_id)

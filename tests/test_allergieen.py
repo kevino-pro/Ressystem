@@ -62,6 +62,7 @@ class OpslaanTests(Basis):
             RESTAURANT_CONFIG = "tests/restaurant_vast.toml"
         self.app = create_app(ZonderConfig)
         self.client = self.app.test_client()
+        self.client.environ_base["HTTP_ACCEPT_LANGUAGE"] = "nl"  # deze tests controleren de Nederlandse teksten
         html = self.client.get("/").get_data(as_text=True)
         self.headers = {"X-CSRF-Token": re.search(r'name="csrf-token" content="([^"]+)"', html).group(1)}
         r = self.opgeslagen(self.boek(allergieen="pinda", allergie_toestemming=True))

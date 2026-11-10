@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="{{ taal }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +21,17 @@
             <h1>{{ config.RESTAURANT_NAAM }}</h1>
             {% if huisstijl.ondertitel %}<p>{{ huisstijl.ondertitel }}</p>{% endif %}
         </a>
-        {% block kop_rechts %}{% endblock %}
+        <div class="kop-rechts">
+            {% block kop_rechts %}{% endblock %}
+            {% if talen | length > 1 %}
+            <nav class="talen" aria-label="{{ t('Taal') }}">
+                {% for code in talen %}
+                <a href="/taal/{{ code }}?terug={{ request.full_path.rstrip('?') | urlencode }}" lang="{{ code }}" hreflang="{{ code }}"
+                   class="{{ 'aan' if code == taal }}"{% if code == taal %} aria-current="true"{% endif %}>{{ code | upper }}</a>
+                {% endfor %}
+            </nav>
+            {% endif %}
+        </div>
     </header>
     <main>
         {% block inhoud %}{% endblock %}
@@ -31,7 +41,7 @@
     &copy; {{ config.RESTAURANT_NAAM }}
     · <a href="mailto:{{ config.RESTAURANT_EMAIL }}">{{ config.RESTAURANT_EMAIL }}</a>
     · <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>
-    · <a href="/privacy">Privacy</a>
+    · <a href="/privacy">{{ t('Privacy') }}</a>
 </footer>
 {% endblock %}
 {% block scripts %}{% endblock %}

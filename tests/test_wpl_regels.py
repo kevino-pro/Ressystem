@@ -35,6 +35,7 @@ class WplRegelsTests(unittest.TestCase):
             with conn.begin():
                 conn.execute(reserveringen.delete())
         self.client = self.app.test_client()
+        self.client.environ_base["HTTP_ACCEPT_LANGUAGE"] = "nl"  # deze tests controleren de Nederlandse teksten
         dag = self.regels.nu().date() + timedelta(days=7)
         self.dinsdag = dag + timedelta(days=(1 - dag.weekday()) % 7)
 

@@ -1,39 +1,39 @@
 {% extends "basis.html" %}
-{% block titel %}Reservering bevestigd · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Reservering bevestigd") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 {% set p = config.PRIVACY %}
 <div class="kaart">
     <div class="vink" aria-hidden="true">✓</div>
     {% if reservering %}
-    <h2>Je tafel staat klaar{% if reservering.naam | voornaam %}, {{ reservering.naam | voornaam }}{% endif %}!</h2>
-    <p class="sub">We hebben een bevestiging gestuurd naar <b>{{ reservering.email }}</b>. Geen mail gezien? Kijk even in je spam.</p>
+    <h2>{% if reservering.naam | voornaam %}{{ t("Je tafel staat klaar, {naam}!", naam=reservering.naam | voornaam) }}{% else %}{{ t("Je tafel staat klaar!") }}{% endif %}</h2>
+    <p class="sub">{{ t("We hebben een bevestiging gestuurd naar") }} <b>{{ reservering.email }}</b>. {{ t("Geen mail gezien? Kijk even in je spam.") }}</p>
 
     <div class="details goud">
-        <div class="rij"><span>Datum</span><b>{{ reservering.datum | nl_datum | capitalize }}</b></div>
-        <div class="rij"><span>Tijd</span><b>{{ reservering.tijd }} – {{ reservering.tijd | eindtijd(zitduur) }}</b></div>
-        <div class="rij"><span>Personen</span><b>{{ reservering.aantal }}</b></div>
-        {% if reservering.kinderstoelen %}<div class="rij"><span>Kinderstoelen</span><b>{{ reservering.kinderstoelen }}</b></div>{% endif %}
-        {% if reservering.allergieen %}<div class="rij"><span>Allergieën</span><b>Doorgegeven aan de keuken</b></div>{% endif %}
-        {% if reservering.opmerking %}<div class="rij"><span>Opmerking</span><b>{{ reservering.opmerking }}</b></div>{% endif %}
-        {% if p %}<div class="rij"><span>Adres</span><b>{{ p.adres }}</b></div>{% endif %}
+        <div class="rij"><span>{{ t("Datum") }}</span><b>{{ reservering.datum | datum_tekst | hoofdletter }}</b></div>
+        <div class="rij"><span>{{ t("Tijd") }}</span><b>{{ reservering.tijd }} – {{ reservering.tijd | eindtijd(zitduur) }}</b></div>
+        <div class="rij"><span>{{ t("Personen") }}</span><b>{{ reservering.aantal }}</b></div>
+        {% if reservering.kinderstoelen %}<div class="rij"><span>{{ t("Kinderstoelen") }}</span><b>{{ reservering.kinderstoelen }}</b></div>{% endif %}
+        {% if reservering.allergieen %}<div class="rij"><span>{{ t("Allergieën") }}</span><b>{{ t("Doorgegeven aan de keuken") }}</b></div>{% endif %}
+        {% if reservering.opmerking %}<div class="rij"><span>{{ t("Opmerking") }}</span><b>{{ reservering.opmerking }}</b></div>{% endif %}
+        {% if p %}<div class="rij"><span>{{ t("Adres") }}</span><b>{{ p.adres }}</b></div>{% endif %}
     </div>
 
     <div class="knoppen" style="margin-bottom: 18px">
-        <a class="knop rand" href="/bevestiging/agenda.ics">Zet in agenda</a>
+        <a class="knop rand" href="/bevestiging/agenda.ics">{{ t("Zet in agenda") }}</a>
         {% if p %}
-        <a class="knop rand" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.adres | urlencode }}" target="_blank" rel="noopener">Route</a>
+        <a class="knop rand" href="https://www.google.com/maps/search/?api=1&amp;query={{ p.adres | urlencode }}" target="_blank" rel="noopener">{{ t("Route") }}</a>
         {% endif %}
     </div>
     {% else %}
-    <h2>Reservering ontvangen!</h2>
-    <p class="sub">Bedankt voor je reservering bij {{ config.RESTAURANT_NAAM }}. Je krijgt een bevestiging per e-mail.</p>
+    <h2>{{ t("Reservering ontvangen!") }}</h2>
+    <p class="sub">{{ t("Bedankt voor je reservering bij {restaurant}. Je krijgt een bevestiging per e-mail.", restaurant=config.RESTAURANT_NAAM) }}</p>
     {% endif %}
 
     <p class="klein" style="margin-top: 18px">
-        Kun je toch niet komen? Annuleer via de link in je mail, of bel
+        {{ t("Kun je toch niet komen? Annuleer via de link in je mail, of bel") }}
         <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
-        Dan geven we je tafel aan iemand anders.
+        {{ t("Dan geven we je tafel aan iemand anders.") }}
     </p>
-    <p style="margin-top: 18px"><a href="/">Nog een reservering maken</a></p>
+    <p style="margin-top: 18px"><a href="/">{{ t("Nog een reservering maken") }}</a></p>
 </div>
 {% endblock %}
