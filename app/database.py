@@ -34,6 +34,7 @@ reserveringen = Table(
     Column('ingevoerd_door', Text, nullable=True),
     # verwacht, gearriveerd of no_show (zie STATUSSEN); een no-show telt niet mee in de bezetting.
     Column('status', Text, nullable=False, server_default='verwacht'),
+    Column('taal', Text, nullable=False, server_default='nl'),  # taal van de gast, voor de mails
 )
 
 BRONNEN = ('online', 'ai', 'telefoon', 'binnenloper')
@@ -300,7 +301,7 @@ def _heeft_al_reservering(conn, gast, datum, tijd):
 
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
                         kinderstoelen=0, max_kinderstoelen=None, opmerking=None, allergieen=None,
-                        bron='online', ingevoerd_door=None):
+                        bron='online', ingevoerd_door=None, taal='nl'):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
     en api.py (AI-webhook) gebruikt zodat de capaciteitsregel maar op één plek staat.
@@ -314,6 +315,8 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     (None) wordt dat niet gecontroleerd.
 
     Een no-show (status 'no_show') telt niet mee voor gasten en kinderstoelen.
+
+    `taal` is de taal van de gast ('en', 'nl' of 'id'); daarin gaan de mails.
 
     Met `max_capaciteit` None (reservering door het personeel) wordt de capaciteit niet afgedwongen;
     het personeel krijgt vooraf een waarschuwing via drukte_bij().
@@ -386,7 +389,7 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
                 id=unieke_id, naam=naam, email=email, telefoon=telefoon,
                 datum=datum, tijd=tijd, aantal=aantal,
                 kinderstoelen=kinderstoelen, opmerking=opmerking or None, allergieen=allergieen or None,
-                bron=bron, ingevoerd_door=ingevoerd_door,
+                bron=bron, ingevoerd_door=ingevoerd_door, taal=taal,
             )
         )
 

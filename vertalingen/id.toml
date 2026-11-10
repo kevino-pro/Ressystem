@@ -50,6 +50,18 @@
 "Dan geven we je tafel aan iemand anders." = "Dengan begitu meja Anda bisa kami berikan kepada orang lain."
 "Nog een reservering maken" = "Buat reservasi lagi"
 
+# email_service.py
+"Bevestiging van je reservering - {restaurant}" = "Konfirmasi reservasi Anda - {restaurant}"
+"Beste {naam}," = "Yth. {naam},"
+"Bedankt voor je reservering bij {restaurant}!" = "Terima kasih atas reservasi Anda di {restaurant}!"
+"Hier zijn de gegevens van je reservering:" = "Berikut detail reservasi Anda:"
+"Wil je de reservering wijzigen of annuleren? Klik op deze link:" = "Ingin mengubah atau membatalkan reservasi? Klik tautan ini:"
+"Met vriendelijke groet," = "Salam hangat,"
+"Het team van {restaurant}" = "Tim {restaurant}"
+"Datum: {datum}" = "Tanggal: {datum}"
+"Tijdstip: {tijd}" = "Jam: {tijd}"
+"Aantal personen: {aantal}" = "Jumlah orang: {aantal}"
+
 # index.html
 "Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678." = "Masukkan nomor telepon yang valid, misalnya 0612345678 atau +31 6 12345678."
 "Personeel" = "Staf"

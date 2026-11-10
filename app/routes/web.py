@@ -485,7 +485,7 @@ def nieuwe_reservering():
             datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
             zitduur_minuten=regels.zitduur_minuten,
             kinderstoelen=valid_data.kinderstoelen, max_kinderstoelen=regels.kinderstoelen,
-            opmerking=valid_data.opmerking, allergieen=allergieen,
+            opmerking=valid_data.opmerking, allergieen=allergieen, taal=huidige_taal(),
         )
     except DubbeleReserveringFout as fout:
         return jsonify({"status": "fout", "bericht": fout.vertaald()}), 409
@@ -506,7 +506,8 @@ def nieuwe_reservering():
             datum=valid_data.datum.isoformat(),
             tijd=valid_data.tijd.strftime("%H:%M"),
         aantal=valid_data.aantal,
-        reservering_id=unieke_id
+        reservering_id=unieke_id,
+        taal=huidige_taal(),
     )
 
     return jsonify({"status": "succes", "bericht": t("Reservering opgeslagen!"), "id": unieke_id}), 200

@@ -172,7 +172,7 @@ def create_app(config_class=Config):
         stuur_bevestigingsmail_sync(
             ontvanger_email=reservering['email'], naam=reservering['naam'],
             datum=reservering['datum'], tijd=reservering['tijd'],
-            aantal=reservering['aantal'], reservering_id=reservering['id'],
+            aantal=reservering['aantal'], reservering_id=reservering['id'], taal=reservering['taal'],
         )
         click.echo(f"Mail opnieuw geprobeerd voor reservering {reservering_id} — zie logs voor [MAIL_SENT]/[MAIL_FAILED].")
 

@@ -130,6 +130,7 @@ class PersoneelReserveringSchema(DTO):
     allergieen: Allergieen = None
     allergie_toestemming: bool = False
     bevestigd: bool = False  # het personeel heeft de waarschuwing gezien en wil toch opslaan
+    taal: Optional[Literal["en", "nl", "id"]] = None  # taal van de gast, voor de bevestigingsmail
 
 
 class AIWebhookSchema(DTO):

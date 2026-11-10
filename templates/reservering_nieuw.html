@@ -48,6 +48,16 @@
             <label for="email">E-mail (niet verplicht; dan krijgt de gast een bevestigingsmail)</label>
             <input type="email" id="email" name="email" value="{{ w.email }}" maxlength="254" autocomplete="off">
         </div>
+        {% if talen | length > 1 %}
+        <div class="veld">
+            <label for="taal">Taal van de gast (voor de mail)</label>
+            <select id="taal" name="taal">
+                {% for code in talen %}
+                <option value="{{ code }}" {{ 'selected' if w.taal == code }}>{{ taalnamen[code] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
         <div class="twee">
             <div class="veld">
                 <label for="kinderstoelen">Kinderstoelen</label>
