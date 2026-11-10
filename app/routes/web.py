@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import re
 from datetime import date, datetime, time, timedelta, timezone
 
@@ -19,7 +21,7 @@ from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEF
 TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of laat het veld leeg. "
                        "Je kunt het ook bij aankomst aan ons doorgeven.")
 from app.services.email_service import stuur_bevestigingsmail_async
-from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
+from app.security import constant_time_equals, rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
 from app.toegang import beheerder_vereist, login_vereist, start_sessie
 
@@ -214,6 +216,14 @@ def _kies_moment(regels, datum_tekst, tijd_tekst):
         return None
     return dag.isoformat(), f"{tijdstip:%H:%M}"
 
+def _kenmerk(reservering_id):
+    """
+    Kenmerk van een reservering op de plattegrond. Het id zelf is ook de annuleerlink van de gast;
+    daarom staat op de plattegrond (die ook een medewerker ziet) alleen dit afgeleide kenmerk.
+    """
+    sleutel = str(current_app.config['SECRET_KEY']).encode('utf-8')
+    return hmac.new(sleutel, f"plattegrond:{reservering_id}".encode('utf-8'), hashlib.sha256).hexdigest()[:24]
+
 @web_bp.route('/plattegrond')
 @login_vereist
 def plattegrond():
@@ -242,6 +252,7 @@ def plattegrond():
     return render_template(
         'plattegrond.html', actief='plattegrond', indeling=indeling, datum=datum, dag=dag, tijd=tijd,
         zitduur=zitduur, reserveringen=lijst, toewijzingen=toewijzingen, bezet=bezet, straks=straks,
+        kenmerken={r['id']: _kenmerk(r['id']) for r in lijst},
         aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE, vandaag=regels.nu().date(),
         tijdknoppen=_tijdknoppen(regels, dag), vorige=(dag - timedelta(days=1)).isoformat(),
         volgende=(dag + timedelta(days=1)).isoformat(),
@@ -271,11 +282,21 @@ def tafels_toewijzen():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         data = {}
-    reservering_id = data.get('reservering_id')
+    kenmerk = data.get('kenmerk')
     tafels = data.get('tafels')
-    if (not isinstance(reservering_id, str) or not isinstance(tafels, list)
+    try:
+        datum = date.fromisoformat(data.get('datum')).isoformat()
+    except (TypeError, ValueError):
+        datum = None
+    if (datum is None or not isinstance(kenmerk, str) or not isinstance(tafels, list)
             or len(tafels) > len(indeling.tafels) or not all(isinstance(t, str) for t in tafels)):
         return jsonify({"status": "fout", "bericht": "Ongeldig verzoek."}), 400
+
+    # De plattegrond kent alleen het kenmerk, niet het id (zie _kenmerk); zoek het id op die dag op.
+    reservering_id = next((r['id'] for r in haal_reserveringen_op(get_db(), datum)
+                           if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
+    if reservering_id is None:
+        return jsonify({"status": "fout", "bericht": GeenReserveringFout.bericht}), 404
 
     try:
         waarschuwing = wijs_tafels_toe(
