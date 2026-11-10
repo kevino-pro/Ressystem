@@ -31,6 +31,8 @@ reserveringen = Table(
     # Waar de reservering vandaan komt (zie BRONNEN) en welk personeelsaccount hem invoerde.
     Column('bron', Text, nullable=False, server_default='online'),
     Column('ingevoerd_door', Text, nullable=True),
+    # verwacht, gearriveerd of no_show (zie STATUSSEN); een no-show telt niet mee in de bezetting.
+    Column('status', Text, nullable=False, server_default='verwacht'),
 )
 
 BRONNEN = ('online', 'ai', 'telefoon', 'binnenloper')
@@ -54,6 +56,8 @@ personeel = Table(
 )
 
 ROLLEN = ('beheerder', 'medewerker')
+STATUSSEN = ('verwacht', 'gearriveerd', 'no_show')
+NIET_GEKOMEN = 'no_show'
 
 class CapaciteitVolFout(Exception):
     """Geen ruimte meer op het gevraagde tijdslot. `vrij` is het aantal resterende plekken (kan <= 0 zijn)."""
@@ -147,7 +151,7 @@ def drukte_bij(conn, datum, tijd, zitduur_minuten):
     with conn.begin():
         rijen = conn.execute(
             select(reserveringen.c.tijd, reserveringen.c.aantal, reserveringen.c.kinderstoelen)
-            .where(reserveringen.c.datum == datum)
+            .where(reserveringen.c.datum == datum, reserveringen.c.status != NIET_GEKOMEN)
         ).all()
     start = minuten_van(tijd)
     gasten = piekbezetting([(minuten_van(r.tijd), r.aantal) for r in rijen], start, zitduur_minuten)
@@ -155,12 +159,17 @@ def drukte_bij(conn, datum, tijd, zitduur_minuten):
     return gasten, stoelen
 
 def bezetting_op(conn, datum):
-    """Lijst (begin_in_minuten, aantal) van alle reserveringen op deze dag, voor piekbezetting()."""
+    """
+    Lijst (begin_in_minuten, aantal) van alle reserveringen op deze dag, voor piekbezetting().
+    Een no-show telt niet mee: zijn plaatsen komen weer vrij.
+    """
     with conn.begin():
         return [
             (minuten_van(rij.tijd), rij.aantal)
             for rij in conn.execute(
-                select(reserveringen.c.tijd, reserveringen.c.aantal).where(reserveringen.c.datum == datum)
+                select(reserveringen.c.tijd, reserveringen.c.aantal).where(
+                    reserveringen.c.datum == datum, reserveringen.c.status != NIET_GEKOMEN
+                )
             )
         ]
 
@@ -218,6 +227,7 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
             .where(
                 reserveringen.c.datum == reservering['datum'],
                 tafeltoewijzingen.c.reservering_id != reservering_id,
+                reserveringen.c.status != NIET_GEKOMEN,  # een no-show bezet geen tafel meer
             )
         )
         for rij in anderen:
@@ -290,6 +300,8 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     over de zitduur. Passen ze niet meer, dan volgt KinderstoelVolFout. Zonder `max_kinderstoelen`
     (None) wordt dat niet gecontroleerd.
 
+    Een no-show (status 'no_show') telt niet mee voor gasten en kinderstoelen.
+
     Met `max_capaciteit` None (reservering door het personeel) wordt de capaciteit niet afgedwongen;
     het personeel krijgt vooraf een waarschuwing via drukte_bij().
 
@@ -323,14 +335,17 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
         if zitduur_minuten is None:
             huidige_gasten = conn.execute(
                 select(func.sum(reserveringen.c.aantal)).where(
-                    reserveringen.c.datum == datum, reserveringen.c.tijd == tijd
+                    reserveringen.c.datum == datum, reserveringen.c.tijd == tijd,
+                    reserveringen.c.status != NIET_GEKOMEN,
                 )
             ).scalar() or 0
         else:
             bestaande = [
                 (minuten_van(rij.tijd), rij.aantal)
                 for rij in conn.execute(
-                    select(reserveringen.c.tijd, reserveringen.c.aantal).where(reserveringen.c.datum == datum)
+                    select(reserveringen.c.tijd, reserveringen.c.aantal).where(
+                        reserveringen.c.datum == datum, reserveringen.c.status != NIET_GEKOMEN
+                    )
                 )
             ]
             huidige_gasten = piekbezetting(bestaande, minuten_van(tijd), zitduur_minuten)
@@ -343,7 +358,8 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
                 (minuten_van(rij.tijd), rij.kinderstoelen)
                 for rij in conn.execute(
                     select(reserveringen.c.tijd, reserveringen.c.kinderstoelen).where(
-                        reserveringen.c.datum == datum, reserveringen.c.kinderstoelen > 0
+                        reserveringen.c.datum == datum, reserveringen.c.kinderstoelen > 0,
+                        reserveringen.c.status != NIET_GEKOMEN,
                     )
                 )
             ]
@@ -414,6 +430,17 @@ def haal_reservering_op(conn, reservering_id):
         return conn.execute(
             select(reserveringen).where(reserveringen.c.id == reservering_id)
         ).mappings().first()
+
+def zet_status(conn, reservering_id, status):
+    """Zet de status van een reservering (zie STATUSSEN). Geeft GeenReserveringFout als die niet bestaat."""
+    if status not in STATUSSEN:
+        raise ValueError(f"Onbekende status: {status}")
+    with conn.begin():
+        resultaat = conn.execute(
+            update(reserveringen).where(reserveringen.c.id == reservering_id).values(status=status)
+        )
+    if resultaat.rowcount == 0:
+        raise GeenReserveringFout()
 
 def verwijder_reservering(conn, reservering_id):
     with conn.begin():

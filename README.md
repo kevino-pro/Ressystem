@@ -79,6 +79,10 @@ foto er niet, dan start de app niet en noemt hij het ontbrekende bestand. De opm
 
 Ingelogd personeel (beheerder en medewerker) voert telefonische reserveringen in via **+ Reservering** in het overzicht (`/reservering/nieuw`). E-mail is niet verplicht; is die ingevuld, dan krijgt de gast de gewone bevestigingsmail. Het personeel mag buiten de online regels boeken, zoals een grotere groep of een latere tijd. Wordt het voller dan `max_gasten_tegelijk`, zijn er niet genoeg kinderstoelen of is het restaurant die dag dicht, dan toont de pagina eerst een waarschuwing en slaat pas op na "Toch opslaan". Voor iemand die zonder reservering binnenloopt is er **+ Binnenloper** (in het overzicht en op de plattegrond, alleen vandaag): datum en tijd staan op nu, naam en telefoon zijn niet verplicht, en na het opslaan opent de plattegrond op dat moment om een tafel te kiezen. Elke reservering heeft een `bron` (`online`, `ai`, `telefoon`, `binnenloper`) en bij het personeel ook wie hem invoerde; het overzicht toont dat.
 
+## Gearriveerd en no-show
+
+Vandaag (en voor eerdere dagen) staan in het overzicht bij elke reservering de knoppen **Is er** en, vanaf de begintijd, **Niet gekomen**. Beheerder en medewerker mogen dit; **Ongedaan maken** zet de reservering terug op verwacht. De kolom `status` is `verwacht`, `gearriveerd` of `no_show`. Een no-show telt niet meer mee voor de bezetting, de kinderstoelen en de tafels, zodat die plaatsen weer vrij zijn. De plattegrond toont wie er nog niet binnen is (een stip op de tafel) en zet de no-shows apart. Na aankomst of een no-show kan de gast niet meer online annuleren, zodat de cijfers kloppen.
+
 ## Plattegrond voor het personeel
 
 Een restaurantbestand kan een sectie `[plattegrond]` hebben. Dan krijgt het personeel na inloggen een plattegrond waarop het reserveringen aan tafels kan toewijzen. Zonder die sectie werkt alles zoals voorheen en is er geen plattegrond. Gasten zien de plattegrond nooit.

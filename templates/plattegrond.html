@@ -64,6 +64,7 @@
                 <text x="{{ x + b / 2 }}" y="{{ y + h / 2 - (4 if t.hoogte > 1 else 2) }}" text-anchor="middle" font-size="13" font-weight="bold" fill="#f4ede2">{{ t.nummer }}</text>
                 <text x="{{ x + b / 2 }}" y="{{ y + h / 2 + (12 if t.hoogte > 1 else 10) }}" text-anchor="middle" font-size="9"
                       fill="{{ accent if later and not gast else '#c9bba6' }}">{% if gast %}{{ gast.naam | truncate(12 if t.breedte > 1 else 6, True, '…') }}{% elif later %}vanaf {{ later.tijd }}{% else %}{{ t.stoelen }} st.{% endif %}</text>
+                {% if gast and gast.status == 'verwacht' and dag == vandaag %}<circle class="nog-niet" cx="{{ x + b - 8 }}" cy="{{ y + 8 }}" r="4" fill="{{ accent }}"></circle>{% endif %}
             </g>
             {% endfor %}
         </svg>
@@ -72,6 +73,7 @@
             <span><i></i>vrij</span>
             <span><i class="bezet"></i>bezet om {{ tijd }}</span>
             <span><i class="straks"></i>komt binnen 30 min</span>
+            {% if dag == vandaag %}<span><i class="nog-niet"></i>nog niet binnen</span>{% endif %}
             <span><i class="keuze-kleur"></i>jouw keuze</span>
             <span>{{ indeling.tafels | length }} tafels · {{ indeling.totaal_stoelen }} stoelen · {{ indeling.tafels | length - bezet | length }} vrij</span>
         </div>
@@ -87,7 +89,7 @@
             <li class="reservering zonder-tafel {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Nog geen tafel{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Nog geen tafel{% if r.status == 'gearriveerd' %} · is er{% elif dag == vandaag and r.tijd <= nu_tijd %} · nog niet binnen{% endif %}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
             {% set met = reserveringen | selectattr('id', 'in', toewijzingen) | list %}
@@ -97,10 +99,14 @@
             <li class="reservering {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-kenmerk="{{ kenmerken[r.id] }}" data-tafels="{{ tafels | join(' ') }}" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Tafel {{ tafels | join(' + ') }}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Tafel {{ tafels | join(' + ') }}{% if r.status == 'gearriveerd' %} · is er{% elif dag == vandaag and r.tijd <= nu_tijd %} · nog niet binnen{% endif %}{% if r.bron == 'binnenloper' %} · binnenloper{% elif r.bron == 'telefoon' %} · telefonisch{% endif %}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
-            {% if not reserveringen %}<li class="leeg">Geen reserveringen op deze dag.</li>{% endif %}
+            {% if niet_gekomen %}<li class="kop" aria-hidden="true">Niet gekomen · {{ niet_gekomen | length }}</li>{% endif %}
+            {% for r in niet_gekomen %}
+            <li class="niet-gekomen"><b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span><small>Niet gekomen · de plaatsen zijn weer vrij</small></li>
+            {% endfor %}
+            {% if not reserveringen and not niet_gekomen %}<li class="leeg">Geen reserveringen op deze dag.</li>{% endif %}
         </ul>
         <div id="toewijzen" hidden style="margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px">
             <p><b id="toewijzen-titel"></b></p>

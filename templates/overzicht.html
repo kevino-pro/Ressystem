@@ -27,6 +27,9 @@
         <b>{{ tellers.piek }} / {{ tellers.max }}</b>
         <div class="balk"><i style="width: {{ [100, (tellers.piek * 100 / tellers.max) | round | int] | min }}%"></i></div>
     </div>
+    {% if dag == vandaag %}
+    <div class="teller"><small>Nog niet binnen</small><b>{{ tellers.verwacht }}</b></div>
+    {% endif %}
     {% if plattegrond_aan %}
     <div class="teller {{ 'let' if tellers.zonder_tafel }}"><small>Nog zonder tafel</small><b>{{ tellers.zonder_tafel }}</b></div>
     {% endif %}
@@ -39,13 +42,14 @@
         <span>{{ rijen | length }} reservering{{ 'en' if rijen | length != 1 }} · {{ rijen | sum(attribute='aantal') }} gasten</span>
     </div>
     {% for r in rijen %}
-    <div class="res">
+    <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}">
         <div class="aantal" title="{{ r.aantal }} personen">{{ r.aantal }}</div>
         <div class="wie">
             <b>{{ r.naam }}</b>
             <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
-            {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' %}
+            {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' %}
             <div class="notities">
+                {% if r.status == 'gearriveerd' %}<span class="notitie">Is er</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">Niet gekomen</span>{% endif %}
                 {% if r.bron != 'online' %}<span class="notitie">{{ {'telefoon': 'Telefonisch', 'binnenloper': 'Binnenloper', 'ai': 'Via AI'}.get(r.bron, r.bron) }}{% if r.ingevoerd_door %} · {{ r.ingevoerd_door }}{% endif %}</span>{% endif %}
                 {% if r.kinderstoelen %}<span class="notitie">{{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}</span>{% endif %}
                 {% if r.allergieen %}<span class="notitie tekst allergie">Allergie: {{ r.allergieen }}</span>{% endif %}
@@ -53,7 +57,7 @@
             </div>
             {% endif %}
         </div>
-        {% if plattegrond_aan %}
+        {% if plattegrond_aan and r.status != 'no_show' %}
             {% if toewijzingen.get(r.id) %}
             <span class="tafel">Tafel {{ toewijzingen[r.id] | join(' + ') }}</span>
             {% else %}
@@ -61,6 +65,19 @@
             {% endif %}
         {% else %}<span></span>{% endif %}
         <div class="acties">
+            {% if dag <= vandaag %}
+            <form class="status" action="/aankomst" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="datum" value="{{ datum }}">
+                <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                {% if r.status == 'verwacht' %}
+                <button type="submit" name="status" value="gearriveerd">Is er</button>
+                {% if dag < vandaag or r.tijd <= nu_tijd %}<button type="submit" name="status" value="no_show">Niet gekomen</button>{% endif %}
+                {% else %}
+                <button type="submit" name="status" value="verwacht">Ongedaan maken</button>
+                {% endif %}
+            </form>
+            {% endif %}
             {% if r.telefoon %}<a href="tel:{{ r.telefoon }}">Bel</a>{% endif %}
             {% if r.email %}<a href="mailto:{{ r.email }}">Mail</a>{% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
