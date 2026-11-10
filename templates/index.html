@@ -74,6 +74,18 @@
                     </select>
                 </div>
                 {% endif %}
+                {% if regels.vraag_allergieen %}
+                <div class="veld">
+                    <label for="allergieen">Allergieën</label>
+                    <input type="text" id="allergieen" maxlength="200" autocomplete="off"
+                           placeholder="Bijvoorbeeld: pinda, gluten">
+                    <label class="akkoord klein-akkoord" id="allergie_akkoord" hidden>
+                        <input type="checkbox" id="allergie_toestemming">
+                        <span>Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het,
+                            en we wissen het de dag na mijn bezoek.</span>
+                    </label>
+                </div>
+                {% endif %}
                 <div class="veld">
                     <label for="opmerking">Opmerking</label>
                     <textarea id="opmerking" rows="2" maxlength="300"
@@ -261,6 +273,18 @@
     }
 
     const kinderstoelVeld = document.getElementById('kinderstoelen');  // ontbreekt als het restaurant er geen heeft
+    const allergieVeld = document.getElementById('allergieen');        // ontbreekt als het restaurant er niet naar vraagt
+    if (allergieVeld) {
+        // De toestemming verschijnt pas als er iets is ingevuld, en is dan verplicht.
+        const akkoord = document.getElementById('allergie_akkoord');
+        const vinkje = document.getElementById('allergie_toestemming');
+        allergieVeld.addEventListener('input', function () {
+            const ingevuld = allergieVeld.value.trim() !== '';
+            akkoord.hidden = !ingevuld;
+            vinkje.required = ingevuld;
+            if (!ingevuld) { vinkje.checked = false; }
+        });
+    }
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -280,7 +304,9 @@
             website: document.getElementById('website').value,  // honeypot
             privacy_akkoord: document.getElementById('privacy_akkoord').checked,  // Boolean
             opmerking: document.getElementById('opmerking').value.trim(),
-            kinderstoelen: kinderstoelVeld ? parseInt(kinderstoelVeld.value, 10) : 0
+            kinderstoelen: kinderstoelVeld ? parseInt(kinderstoelVeld.value, 10) : 0,
+            allergieen: allergieVeld ? allergieVeld.value.trim() : '',
+            allergie_toestemming: allergieVeld ? document.getElementById('allergie_toestemming').checked : false
         };
         try {
             const antwoord = await fetch('/reservering', {

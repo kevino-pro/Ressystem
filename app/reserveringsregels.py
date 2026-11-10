@@ -54,6 +54,8 @@ class ReserveringsRegels(BaseModel):
     diner_vanaf: time | None = None
     # Hoeveel kinderstoelen het restaurant heeft. 0 = het formulier vraagt er niet naar.
     kinderstoelen: int = Field(default=0, ge=0, le=20)
+    # Vraagt het formulier naar allergieen? Alleen met aparte toestemming, en de dag na het bezoek gewist.
+    vraag_allergieen: bool = False
 
     @field_validator("diner_vanaf", mode="before")
     @classmethod

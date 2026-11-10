@@ -18,6 +18,7 @@
         <li>We gebruiken je gegevens alleen voor je reservering.</li>
         <li>Geen reclame, en we verkopen niets door.</li>
         <li>Na {{ config.RETENTIE_DAGEN_AVG }} dagen wordt alles automatisch gewist.</li>
+        {% if regels.vraag_allergieen %}<li>Allergieën alleen met jouw toestemming, en de dag na je bezoek gewist.</li>{% endif %}
     </ul>
 </div>
 {% endif %}
@@ -44,6 +45,8 @@
     <ul>
         <li>Je naam, e-mailadres en telefoonnummer.</li>
         <li>De datum, het tijdstip en het aantal personen van je reservering.</li>
+        <li>Als je die invult: een opmerking{% if regels.kinderstoelen %} en het aantal kinderstoelen{% endif %}.</li>
+        {% if regels.vraag_allergieen %}<li>Als je die invult en er toestemming voor geeft: je allergieën.</li>{% endif %}
         <li>Reserveer je via een bericht, dan ook de tekst van dat bericht.</li>
         <li>Je IP-adres, kort en alleen in het geheugen van de server, om misbruik van het formulier tegen te gaan. Het wordt niet opgeslagen.</li>
     </ul>
@@ -56,6 +59,14 @@
         als er iets verandert. Dat is nodig om de reservering uit te voeren (artikel 6 lid 1 onder b AVG).
         Wij gebruiken je gegevens niet voor reclame en verkopen ze niet.
     </p>
+    {% if regels.vraag_allergieen %}
+    <p>
+        Allergieën zijn gezondheidsgegevens. Die bewaren we alleen als je daar bij het reserveren apart toestemming
+        voor geeft (artikel 9 lid 2 onder a AVG), zodat de keuken rekening met je kan houden. Alleen ons personeel ziet ze;
+        ze staan niet in de bevestigingsmail. Je kunt je toestemming altijd intrekken door ons te mailen of te bellen,
+        dan wissen we ze meteen. Liever niet online? Geef het dan bij aankomst aan ons door.
+    </p>
+    {% endif %}
 </section>
 
 <section>
@@ -63,6 +74,7 @@
     <p>
         Tot <strong>{{ config.RETENTIE_DAGEN_AVG }} dagen</strong> na de datum van je reservering.
         Daarna worden ze elke nacht automatisch en definitief verwijderd. Annuleer je, dan verwijderen wij je reservering direct.
+        {% if regels.vraag_allergieen %}Allergieën wissen we al eerder: in de nacht na je bezoek.{% endif %}
     </p>
 </section>
 

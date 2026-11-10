@@ -8,7 +8,7 @@ import logging
 from flask import Blueprint, abort, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import get_db, tel_of_schoon_oude_reserveringen
+from app.database import get_db, tel_of_schoon_oude_reserveringen, wis_allergieen_voor
 from app.security import constant_time_equals, rate_limit_check
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,17 @@ def valideer_beheer_key():
 
 @beheer_bp.post('/opschonen')
 def opschonen():
-    """Verwijdert reserveringen buiten de bewaartermijn: hetzelfde werk als `flask purge-retention --uitvoeren`."""
+    """
+    Verwijdert reserveringen buiten de bewaartermijn (hetzelfde werk als `flask purge-retention --uitvoeren`)
+    en wist de allergieen van reserveringen van voor vandaag (tijdzone van het restaurant).
+    """
+    vandaag = current_app.config['REGELS'].nu().date().isoformat()
     try:
         verwijderd = tel_of_schoon_oude_reserveringen(get_db(), True)
+        allergieen_gewist = wis_allergieen_voor(get_db(), vandaag)
     except SQLAlchemyError:
         logger.error("[BEHEER] Opschonen mislukt door een databasefout.")
         return jsonify({"status": "fout", "bericht": "Opschonen mislukt door een databasefout."}), 503
-    logger.info("[BEHEER] Opschonen uitgevoerd; %s reservering(en) verwijderd.", verwijderd)
-    return jsonify({"status": "succes", "verwijderd": verwijderd})
+    logger.info("[BEHEER] Opschonen uitgevoerd; %s reservering(en) verwijderd, %s keer allergieen gewist.",
+                verwijderd, allergieen_gewist)
+    return jsonify({"status": "succes", "verwijderd": verwijderd, "allergieen_gewist": allergieen_gewist})

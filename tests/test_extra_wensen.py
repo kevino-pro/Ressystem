@@ -31,6 +31,7 @@ class TestConfig(Config):
     DATABASE_URL = "sqlite:///:memory:"
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
+    ADMIN_INITIAL_PASSWORD = "test-admin-wachtwoord"
     RESTAURANT_CONFIG = "restaurants/wpl.toml"  # 2 kinderstoelen, zitduur 60
 
 

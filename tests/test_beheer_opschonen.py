@@ -62,7 +62,7 @@ class BeheerOpschonenTests(unittest.TestCase):
     def test_verwijdert_alleen_oude_reserveringen(self):
         antwoord = self.post()
         self.assertEqual(antwoord.status_code, 200)
-        self.assertEqual(antwoord.get_json(), {"status": "succes", "verwijderd": 1})
+        self.assertEqual(antwoord.get_json(), {"status": "succes", "verwijderd": 1, "allergieen_gewist": 0})
         self.assertEqual(self.ids(), ["nieuw"])
 
     def test_tweede_keer_niets_meer(self):
