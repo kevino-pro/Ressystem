@@ -6,6 +6,7 @@ from sqlalchemy import insert
 from app import create_app
 from app.config import Config
 from app.database import get_db, init_db, reserveringen, tafeltoewijzingen, wijs_tafels_toe
+from tests.hulp import log_in
 
 
 class TestConfig(Config):
@@ -24,8 +25,7 @@ class PlattegrondStijlTests(unittest.TestCase):
     def setUp(self):
         self.app = create_app(TestConfig)
         self.client = self.app.test_client()
-        with self.client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(self.app, self.client)
         with self.app.app_context():
             init_db()
             conn = get_db()

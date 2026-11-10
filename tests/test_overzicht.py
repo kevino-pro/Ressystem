@@ -5,6 +5,7 @@ from app import create_app
 from app.config import Config
 from app.database import get_db, metadata, reserveringen, verwerk_reservering, wijs_tafels_toe
 from app.security import reset_rate_limits
+from tests.hulp import log_in
 
 DAG = "2030-01-01"  # een dinsdag
 
@@ -40,8 +41,7 @@ class OverzichtTests(unittest.TestCase):
             verwerk_reservering(conn, 69, "Eva", "eva@example.com", "0611111111", "2030-01-02", "18:00", 2,
                                 zitduur_minuten=90)
         self.client = self.app.test_client()
-        with self.client.session_transaction() as sessie:
-            sessie["ingelogd"] = True
+        log_in(self.app, self.client)
 
     def pagina(self, query=f"?datum={DAG}"):
         antwoord = self.client.get("/overzicht" + query)

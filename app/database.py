@@ -4,8 +4,8 @@ from flask import current_app, g
 from werkzeug.security import generate_password_hash
 from sqlalchemy.engine import make_url
 from sqlalchemy import (
-    MetaData, Table, Column, Text, Integer, DateTime, ForeignKey,
-    create_engine, event, select, insert, delete, update, func, text,
+    MetaData, Table, Column, Text, Integer, Boolean, DateTime, ForeignKey,
+    create_engine, event, select, insert, delete, update, func, text, true,
 )
 from app.normalisatie import normaliseer_email, normaliseer_telefoon
 
@@ -44,7 +44,11 @@ personeel = Table(
     Column('id', Integer, primary_key=True, autoincrement=True),
     Column('gebruikersnaam', Text, unique=True, nullable=False),
     Column('wachtwoord_hash', Text, nullable=False),
+    Column('rol', Text, nullable=False, server_default='medewerker'),
+    Column('actief', Boolean, nullable=False, server_default=true()),
 )
+
+ROLLEN = ('beheerder', 'medewerker')
 
 class CapaciteitVolFout(Exception):
     """Geen ruimte meer op het gevraagde tijdslot. `vrij` is het aantal resterende plekken (kan <= 0 zijn)."""
@@ -436,17 +440,22 @@ def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
             _verwijder_ouder_dan(conn, grens)
     return aantal
 
-def maak_gebruiker(conn, gebruikersnaam, wachtwoord):
-    """Maakt een personeelsaccount aan. Geeft False terug (zonder iets te wijzigen) als de naam al bestaat."""
+def maak_gebruiker(conn, gebruikersnaam, wachtwoord, rol='medewerker'):
+    """
+    Maakt een personeelsaccount aan. Geeft False terug (zonder iets te wijzigen) als de naam al bestaat;
+    hoofdletters tellen daarbij niet mee, zodat 'Anna' en 'anna' niet naast elkaar kunnen bestaan.
+    """
+    if rol not in ROLLEN:
+        raise ValueError(f"Onbekende rol: {rol}")
     with conn.begin():
         bestaat = conn.execute(
-            select(personeel.c.id).where(personeel.c.gebruikersnaam == gebruikersnaam)
+            select(personeel.c.id).where(func.lower(personeel.c.gebruikersnaam) == gebruikersnaam.lower())
         ).first()
         if bestaat:
             return False
         conn.execute(
             insert(personeel).values(
-                gebruikersnaam=gebruikersnaam, wachtwoord_hash=generate_password_hash(wachtwoord)
+                gebruikersnaam=gebruikersnaam, wachtwoord_hash=generate_password_hash(wachtwoord), rol=rol
             )
         )
     return True
@@ -479,7 +488,7 @@ def init_db():
                 raise RuntimeError("Configureer ADMIN_INITIAL_PASSWORD voordat de admin-gebruiker wordt aangemaakt.")
             conn.execute(
                 insert(personeel).values(
-                    gebruikersnaam='admin', wachtwoord_hash=generate_password_hash(initial_pw)
+                    gebruikersnaam='admin', wachtwoord_hash=generate_password_hash(initial_pw), rol='beheerder'
                 )
             )
     schonen_oude_reserveringen()

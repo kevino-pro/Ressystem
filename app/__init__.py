@@ -3,16 +3,17 @@ import logging
 from datetime import date
 from pathlib import Path
 import click
-from flask import Flask
+from flask import Flask, has_request_context
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.security import csrf_token
+from app.toegang import MIN_WACHTWOORD_LENGTE, huidige_gebruiker
 from app.config import Config
 from app.database import (
     init_db_pool, close_db, init_db, get_db, haal_reservering_op,
     controleer_dialect, dialect_uit_config, maak_gebruiker, tel_of_schoon_oude_reserveringen,
     wis_allergieen_voor, zoek_dubbele_reserveringen,
-    ProductieVlagVereist,
+    ProductieVlagVereist, ROLLEN,
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
@@ -20,8 +21,6 @@ from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
 from app.huisstijl import laad_huisstijl
 from app import weergave
-
-MIN_WACHTWOORD_LENGTE = 12
 
 def create_app(config_class=Config):
     # Enige plek die dit configureert: geldt zo voor run.py, wsgi.py (gunicorn) en `flask` CLI-commands.
@@ -56,6 +55,8 @@ def create_app(config_class=Config):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=app.config['TRUSTED_PROXY_COUNT'])
     app.jinja_env.globals['csrf_token'] = csrf_token
     app.context_processor(lambda: {'huisstijl': app.config['HUISSTIJL']})
+    # De ingelogde gebruiker voor het menu en de knoppen; None op gastpagina's en zonder geldige sessie.
+    app.context_processor(lambda: {'gebruiker': huidige_gebruiker() if has_request_context() else None})
     weergave.registreer(app)
 
     from app.routes.web import web_bp
@@ -88,15 +89,16 @@ def create_app(config_class=Config):
 
     @app.cli.command('create-admin')
     @click.option('--gebruikersnaam', default='admin', show_default=True)
+    @click.option('--rol', type=click.Choice(ROLLEN), default='beheerder', show_default=True)
     @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
-    def create_admin_command(gebruikersnaam, productie):
-        """Maak een personeelsaccount aan (wachtwoord via verborgen prompt)."""
+    def create_admin_command(gebruikersnaam, rol, productie):
+        """Maak een personeelsaccount aan (wachtwoord via verborgen prompt). Standaard een beheerder."""
         _guard(productie)
         wachtwoord = click.prompt('Wachtwoord', hide_input=True, confirmation_prompt=True)
         if len(wachtwoord) < MIN_WACHTWOORD_LENGTE:
             raise click.ClickException(f"Wachtwoord moet minstens {MIN_WACHTWOORD_LENGTE} tekens hebben.")
         try:
-            aangemaakt = maak_gebruiker(get_db(), gebruikersnaam, wachtwoord)
+            aangemaakt = maak_gebruiker(get_db(), gebruikersnaam, wachtwoord, rol)
         except SQLAlchemyError:
             app.logger.error("create-admin mislukt door een databasefout.")
             raise click.ClickException("Aanmaken mislukt door een databasefout.")
