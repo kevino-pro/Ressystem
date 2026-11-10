@@ -39,6 +39,10 @@ a { color: var(--accent); }
 
 /* Kop en voet */
 header.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
+.kop-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.talen { display: flex; gap: 2px; font-size: 12px; }
+.talen a { color: var(--zacht); text-decoration: none; padding: 4px 7px; border-radius: 6px; }
+.talen a.aan { color: var(--accent); font-weight: 600; }
 .logo { text-decoration: none; }
 .logo h1 { font-family: var(--kop-font); font-size: 28px; font-weight: 700; color: var(--accent); }
 .logo p { font-size: 13px; color: var(--zacht); margin-top: 4px; }

@@ -1,9 +1,9 @@
 {% extends "basis.html" %}
-{% block titel %}Reservering geannuleerd · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Reservering geannuleerd") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="kaart">
-    <h2>Reservering geannuleerd</h2>
-    <p class="sub">Je reservering is geannuleerd en je gegevens zijn verwijderd. Tot een andere keer!</p>
-    <a class="knop" href="/" style="margin-top: 22px">Kies een nieuwe tijd</a>
+    <h2>{{ t("Reservering geannuleerd") }}</h2>
+    <p class="sub">{{ t("Je reservering is geannuleerd en je gegevens zijn verwijderd. Tot een andere keer!") }}</p>
+    <a class="knop" href="/" style="margin-top: 22px">{{ t("Kies een nieuwe tijd") }}</a>
 </div>
 {% endblock %}

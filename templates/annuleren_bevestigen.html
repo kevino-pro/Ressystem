@@ -1,24 +1,24 @@
 {% extends "basis.html" %}
-{% block titel %}Reservering annuleren · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block titel %}{{ t("Reservering annuleren") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
 {% block inhoud %}
 <div class="kaart">
-    <h2>Reservering annuleren?</h2>
-    <p class="sub">Jammer dat je niet kunt komen. Is dit de reservering die je wilt annuleren?</p>
+    <h2>{{ t("Reservering annuleren?") }}</h2>
+    <p class="sub">{{ t("Jammer dat je niet kunt komen. Is dit de reservering die je wilt annuleren?") }}</p>
 
     <div class="details">
-        {% if reservering.naam | voornaam %}<div class="rij"><span>Naam</span><b>{{ reservering.naam | voornaam }}</b></div>{% endif %}
-        <div class="rij"><span>Datum</span><b>{{ reservering.datum | nl_datum | capitalize }}</b></div>
-        <div class="rij"><span>Tijd</span><b>{{ reservering.tijd }}</b></div>
-        <div class="rij"><span>Personen</span><b>{{ reservering.aantal }}</b></div>
+        {% if reservering.naam | voornaam %}<div class="rij"><span>{{ t("Naam") }}</span><b>{{ reservering.naam | voornaam }}</b></div>{% endif %}
+        <div class="rij"><span>{{ t("Datum") }}</span><b>{{ reservering.datum | datum_tekst | hoofdletter }}</b></div>
+        <div class="rij"><span>{{ t("Tijd") }}</span><b>{{ reservering.tijd }}</b></div>
+        <div class="rij"><span>{{ t("Personen") }}</span><b>{{ reservering.aantal }}</b></div>
     </div>
 
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="knop rood">Ja, annuleer mijn reservering</button>
+        <button type="submit" class="knop rood">{{ t("Ja, annuleer mijn reservering") }}</button>
     </form>
-    <a class="knop rand" href="/" style="margin-top: 10px">Nee, ik kom gewoon</a>
+    <a class="knop rand" href="/" style="margin-top: 10px">{{ t("Nee, ik kom gewoon") }}</a>
     <p class="klein" style="margin-top: 16px">
-        Liever een andere tijd? Annuleer en maak een nieuwe reservering, of bel
+        {{ t("Liever een andere tijd? Annuleer en maak een nieuwe reservering, of bel") }}
         <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
     </p>
 </div>

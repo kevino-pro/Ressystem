@@ -47,6 +47,7 @@ class Basis(unittest.TestCase):
             with conn.begin():
                 conn.execute(reserveringen.delete())
         self.client = self.app.test_client()
+        self.client.environ_base["HTTP_ACCEPT_LANGUAGE"] = "nl"  # deze tests controleren de Nederlandse teksten
         html = self.client.get("/").get_data(as_text=True)
         self.headers = {"X-CSRF-Token": re.search(r'name="csrf-token" content="([^"]+)"', html).group(1)}
         dag = self.regels.nu().date() + timedelta(days=7)

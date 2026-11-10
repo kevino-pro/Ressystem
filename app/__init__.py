@@ -20,7 +20,7 @@ from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
 from app.huisstijl import laad_huisstijl
-from app import weergave
+from app import taal, weergave
 
 def create_app(config_class=Config):
     # Enige plek die dit configureert: geldt zo voor run.py, wsgi.py (gunicorn) en `flask` CLI-commands.
@@ -47,6 +47,8 @@ def create_app(config_class=Config):
     if app.config.get('APP_ENV') == 'production' and app.config['PRIVACY'] is None:
         raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
     app.config['HUISSTIJL'] = laad_huisstijl(regels_pad, app.static_folder)
+    app.config['TALEN'] = taal.laad_talen(regels_pad)  # zonder [talen] alleen Nederlands
+    app.config['VERTALINGEN'] = taal.laad_vertalingen()
 
     init_db_pool(app)
     app.teardown_appcontext(close_db)
@@ -58,6 +60,7 @@ def create_app(config_class=Config):
     # De ingelogde gebruiker voor het menu en de knoppen; None op gastpagina's en zonder geldige sessie.
     app.context_processor(lambda: {'gebruiker': huidige_gebruiker() if has_request_context() else None})
     weergave.registreer(app)
+    taal.registreer(app)
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp

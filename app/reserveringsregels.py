@@ -10,15 +10,33 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.taal import BRONTAAL, DAGEN, huidige_taal, vertaal
+
 WEEKDAGEN = ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
 TOEGESTANE_SLOTLENGTES = (5, 10, 15, 20, 30, 60)
 
 
 class RegelFout(Exception):
-    """Een reserveringsverzoek valt buiten de regels; `bericht` is geschikt voor de gast."""
-    def __init__(self, bericht):
-        self.bericht = bericht
-        super().__init__(bericht)
+    """
+    Een reserveringsverzoek valt buiten de regels. `bericht` is de Nederlandse tekst voor de gast;
+    vertaald() geeft dezelfde tekst in de taal van het verzoek. Een `weekdag` (0 = maandag) wordt
+    in elke taal als naam ingevuld.
+    """
+    def __init__(self, sjabloon, **waarden):
+        self.sjabloon = sjabloon
+        self.waarden = waarden
+        self.bericht = sjabloon.format(**self._ingevuld(BRONTAAL))
+        super().__init__(self.bericht)
+
+    def _ingevuld(self, taal):
+        waarden = dict(self.waarden)
+        if "weekdag" in waarden:
+            waarden["weekdag"] = DAGEN[taal][waarden["weekdag"]]
+        return waarden
+
+    def vertaald(self):
+        taal = huidige_taal()
+        return vertaal(self.sjabloon, taal=taal, **self._ingevuld(taal))
 
 
 def _naar_tijd(waarde):
@@ -145,29 +163,29 @@ class ReserveringsRegels(BaseModel):
         if kinderstoelen > self.kinderstoelen:
             if not self.kinderstoelen:
                 raise RegelFout("Je kunt online geen kinderstoel reserveren. Bel ons, dan regelen we het.")
-            raise RegelFout(f"Er zijn maximaal {self.kinderstoelen} kinderstoelen per reservering.")
+            raise RegelFout("Er zijn maximaal {aantal} kinderstoelen per reservering.", aantal=self.kinderstoelen)
         if aantal > self.max_personen_per_boeking:
             raise RegelFout(
-                f"Online reserveren kan voor maximaal {self.max_personen_per_boeking} personen. "
-                "Neem voor grotere groepen contact met ons op."
+                "Online reserveren kan voor maximaal {aantal} personen. "
+                "Neem voor grotere groepen contact met ons op.", aantal=self.max_personen_per_boeking
             )
         if (tijdstip.hour * 60 + tijdstip.minute) % self.slot_minuten:
-            raise RegelFout(f"Kies een tijd per {self.slot_minuten} minuten, bijvoorbeeld 19:00.")
+            raise RegelFout("Kies een tijd per {minuten} minuten, bijvoorbeeld 19:00.", minuten=self.slot_minuten)
         gevraagd = datetime.combine(dag, tijdstip, tzinfo=self.zone)
         if gevraagd < nu + timedelta(minutes=self.min_minuten_vooraf):
             if gevraagd < nu:
                 raise RegelFout("Dit tijdstip ligt in het verleden.")
-            raise RegelFout(f"Reserveer minstens {self.min_minuten_vooraf} minuten van tevoren.")
+            raise RegelFout("Reserveer minstens {minuten} minuten van tevoren.", minuten=self.min_minuten_vooraf)
         if dag > nu.date() + timedelta(days=self.max_dagen_vooruit):
-            raise RegelFout(f"Je kunt maximaal {self.max_dagen_vooruit} dagen vooruit reserveren.")
+            raise RegelFout("Je kunt maximaal {dagen} dagen vooruit reserveren.", dagen=self.max_dagen_vooruit)
         if dag in self.sluitingsdagen:
             raise RegelFout("Het restaurant is op deze dag gesloten.")
         blokken = self.blokken_op(dag)
         if not blokken:
-            raise RegelFout(f"Het restaurant is op {WEEKDAGEN[dag.weekday()]} gesloten.")
+            raise RegelFout("Het restaurant is op {weekdag} gesloten.", weekdag=dag.weekday())
         if not any(blok.van <= tijdstip <= blok.tot for blok in blokken):
             vensters = ", ".join(f"{b.van:%H:%M}-{b.tot:%H:%M}" for b in blokken)
-            raise RegelFout(f"Op {WEEKDAGEN[dag.weekday()]} kun je reserveren tussen {vensters}.")
+            raise RegelFout("Op {weekdag} kun je reserveren tussen {vensters}.", weekdag=dag.weekday(), vensters=vensters)
 
 
 def laad_regels(pad) -> ReserveringsRegels:

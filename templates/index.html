@@ -1,22 +1,22 @@
 {% extends "basis.html" %}
-{% block kop_rechts %}<a class="pil" href="/login">Personeel</a>{% endblock %}
+{% block kop_rechts %}<a class="pil" href="/login">{{ t("Personeel") }}</a>{% endblock %}
 {% block inhoud %}
 <div class="kaart">
-    <h2>Reserveer een tafel</h2>
+    <h2>{{ t("Reserveer een tafel") }}</h2>
     <div class="info">
-        <span>Tafel voor <b>{{ zitduur_tekst }}</b></span>
-        <span>Online tot <b>{{ regels.max_personen_per_boeking }} personen</b></span>
+        <span>{{ t("Tafel voor") }} <b>{{ zitduur_tekst }}</b></span>
+        <span>{{ t("Online tot") }} <b>{{ t("{aantal} personen", aantal=regels.max_personen_per_boeking) }}</b></span>
     </div>
 
     <form id="reserveringsForm" novalidate>
         <!-- HONEYPOT (anti-spam, onzichtbaar voor mensen) -->
         <div hidden aria-hidden="true">
-            <label for="website">Laat dit veld leeg:</label>
+            <label for="website">{{ t("Laat dit veld leeg:") }}</label>
             <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
         </div>
 
         <fieldset class="stap">
-            <legend><span class="nr">1</span>Met hoeveel personen?</legend>
+            <legend><span class="nr">1</span>{{ t("Met hoeveel personen?") }}</legend>
             <div class="keuzes personen" id="personen">
                 {% for n in range(1, regels.max_personen_per_boeking + 1) %}
                 <button type="button" class="keuze" data-aantal="{{ n }}" aria-pressed="{{ 'true' if n == 2 else 'false' }}">{{ n }}</button>
@@ -25,88 +25,87 @@
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">2</span>Welke dag?</legend>
+            <legend><span class="nr">2</span>{{ t("Welke dag?") }}</legend>
             <div class="keuzes dagen" id="dagen">
                 {% for d in dagen %}
                 <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
-                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ 'dicht' if not d.open else d.dag | maand_kort }}</small>
+                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
                 </button>
                 {% endfor %}
             </div>
             <p class="klein" style="margin-top: 8px">
-                <label for="datum" style="display: inline">Andere datum?</label>
+                <label for="datum" style="display: inline">{{ t("Andere datum?") }}</label>
                 <input type="date" id="datum" min="{{ vandaag }}" max="{{ laatste }}" style="width: auto; height: 34px; margin-left: 6px">
             </p>
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">3</span>Hoe laat?</legend>
-            <div id="tijden" aria-live="polite"><p class="leeg">Kies eerst een dag.</p></div>
+            <legend><span class="nr">3</span>{{ t("Hoe laat?") }}</legend>
+            <div id="tijden" aria-live="polite"><p class="leeg">{{ t("Kies eerst een dag.") }}</p></div>
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">4</span>Je gegevens</legend>
+            <legend><span class="nr">4</span>{{ t("Je gegevens") }}</legend>
             <div class="veld">
-                <label for="naam">Naam</label>
-                <input type="text" id="naam" required minlength="2" maxlength="100" autocomplete="name" placeholder="Jan Jansen">
+                <label for="naam">{{ t("Naam") }}</label>
+                <input type="text" id="naam" required minlength="2" maxlength="100" autocomplete="name" placeholder="{{ t('Jan Jansen') }}">
             </div>
             <div class="twee">
                 <div class="veld">
-                    <label for="email">E-mailadres</label>
-                    <input type="email" id="email" required autocomplete="email" placeholder="naam@voorbeeld.nl">
+                    <label for="email">{{ t("E-mailadres") }}</label>
+                    <input type="email" id="email" required autocomplete="email" placeholder="{{ t('naam@voorbeeld.nl') }}">
                 </div>
                 <div class="veld">
-                    <label for="telefoon">Telefoonnummer</label>
+                    <label for="telefoon">{{ t("Telefoonnummer") }}</label>
                     <input type="tel" id="telefoon" required minlength="9" maxlength="20" placeholder="06 12345678"
                            inputmode="tel" autocomplete="tel" pattern="\+?[0-9][0-9 \-]*"
-                           title="Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.">
+                           title="{{ t('Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.') }}">
                 </div>
             </div>
             <div class="extra">
-                <p class="extra-kop">Nog iets dat we moeten weten? <small>(niet verplicht)</small></p>
+                <p class="extra-kop">{{ t("Nog iets dat we moeten weten?") }} <small>({{ t("niet verplicht") }})</small></p>
                 {% if regels.kinderstoelen %}
                 <div class="veld">
-                    <label for="kinderstoelen">Kinderstoelen</label>
+                    <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
                     <select id="kinderstoelen">
                         {% for n in range(0, regels.kinderstoelen + 1) %}
-                        <option value="{{ n }}">{{ 'Geen' if n == 0 else n }}</option>
+                        <option value="{{ n }}">{{ t('Geen') if n == 0 else n }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 {% endif %}
                 {% if regels.vraag_allergieen %}
                 <div class="veld">
-                    <label for="allergieen">Allergieën</label>
+                    <label for="allergieen">{{ t("Allergieën") }}</label>
                     <input type="text" id="allergieen" maxlength="200" autocomplete="off"
-                           placeholder="Bijvoorbeeld: pinda, gluten">
+                           placeholder="{{ t('Bijvoorbeeld: pinda, gluten') }}">
                     <label class="akkoord klein-akkoord" id="allergie_akkoord" hidden>
                         <input type="checkbox" id="allergie_toestemming">
-                        <span>Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het,
-                            en we wissen het de dag na mijn bezoek.</span>
+                        <span>{{ t("Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het, en we wissen het de dag na mijn bezoek.") }}</span>
                     </label>
                 </div>
                 {% endif %}
                 <div class="veld">
-                    <label for="opmerking">Opmerking</label>
+                    <label for="opmerking">{{ t("Opmerking") }}</label>
                     <textarea id="opmerking" rows="2" maxlength="300"
-                              placeholder="Bijvoorbeeld: we vieren een verjaardag, of we bestellen graag vooraf"></textarea>
+                              placeholder="{{ t('Bijvoorbeeld: we vieren een verjaardag, of we bestellen graag vooraf') }}"></textarea>
                 </div>
             </div>
         </fieldset>
 
         <label class="akkoord">
             <input type="checkbox" id="privacy_akkoord" required>
-            <span>Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering. Lees de
-                <a href="/privacy" target="_blank">privacyverklaring</a>.</span>
+            <span>{{ t("Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering.") }}
+                {{ t("Lees de") }} <a href="/privacy" target="_blank">{{ t("privacyverklaring") }}</a>.</span>
         </label>
 
         <div id="alertBox" class="melding fout" role="alert" hidden></div>
         <div id="samenvatting" class="samenvatting" hidden></div>
-        <button type="submit" id="submitBtn" class="knop">Reservering bevestigen</button>
+        <button type="submit" id="submitBtn" class="knop">{{ t("Reservering bevestigen") }}</button>
         <p class="klein" style="text-align: center; margin-top: 12px">
-            Met meer dan {{ regels.max_personen_per_boeking }} personen? Bel
+            {{ t("Met meer dan {aantal} personen? Bel", aantal=regels.max_personen_per_boeking) }}
             <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
-            Dan kun je ook meteen vooraf bestellen.
+            {{ t("Dan kun je ook meteen vooraf bestellen.") }}
         </p>
     </form>
 </div>
@@ -116,9 +115,19 @@
 <script>
 (function () {
     const ZITDUUR = {{ regels.zitduur_minuten | int }};
-    const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-    const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus',
-                     'september', 'oktober', 'november', 'december'];
+    const DAGEN = {{ dagnamen | tojson }};  // zondag eerst, zoals Date.getDay()
+    const MAANDEN = {{ maandnamen | tojson }};
+    const T = {{ {
+        'persoon': t('persoon'), 'personen': t('personen'), 'tot': t('tot'), 'lunch': t('Lunch'),
+        'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'),
+        'dag_vol': t('Deze dag is vol voor {aantal} personen. Kies een andere dag of bel ons.'),
+        'laden': t('Tijden laden…'), 'laden_mislukt': t('Tijden laden lukte niet.'),
+        'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'), 'kalender': t('Kies een datum in de kalender.'),
+        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'verwerken': t('Verwerken…'),
+        'fout': t('Er is een fout opgetreden bij het verzenden.'),
+        'netwerk': t('Netwerkfout: kan geen verbinding maken met de server.'),
+        'bevestigen': t('Reservering bevestigen'),
+    } | tojson }};
     const keuze = { aantal: 2, datum: null, tijd: null };
 
     const form = document.getElementById('reserveringsForm');
@@ -153,7 +162,7 @@
         const regel = document.createElement('b');
         regel.textContent = leesbareDatum(keuze.datum) + ' · ' + keuze.tijd;
         const onder = document.createElement('small');
-        onder.textContent = keuze.aantal + (keuze.aantal === 1 ? ' persoon' : ' personen') + ' · tot ' + plus(keuze.tijd, ZITDUUR);
+        onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
         samenvatting.append(regel, onder);
         samenvatting.hidden = false;
     }
@@ -173,7 +182,7 @@
         let raster = null;
         if (!data.tijden.some(function (t) { return t.tijd === keuze.tijd && t.beschikbaar; })) { keuze.tijd = null; }
         data.tijden.forEach(function (t) {
-            const naam = data.diner_vanaf ? (t.tijd < data.diner_vanaf ? 'Lunch' : 'Diner') : '';
+            const naam = data.diner_vanaf ? (t.tijd < data.diner_vanaf ? T.lunch : T.diner) : '';
             if (!raster || naam !== groep) {
                 groep = naam;
                 if (naam) {
@@ -195,12 +204,12 @@
             if (!t.beschikbaar) {
                 knop.disabled = true;
                 const klein = document.createElement('small');
-                klein.textContent = 'Vol';
+                klein.textContent = T.vol;
                 knop.append(klein);
             } else if (t.vrij <= 10) {
                 knop.classList.add('bijna');
                 const klein = document.createElement('small');
-                klein.textContent = 'Nog ' + t.vrij + ' plekken';
+                klein.textContent = T.nog_plekken.replace('{vrij}', t.vrij);
                 knop.append(klein);
             }
             raster.append(knop);
@@ -208,7 +217,7 @@
         if (!data.tijden.some(function (t) { return t.beschikbaar; })) {
             const p = document.createElement('p');
             p.className = 'leeg';
-            p.textContent = 'Deze dag is vol voor ' + keuze.aantal + ' personen. Kies een andere dag of bel ons.';
+            p.textContent = T.dag_vol.replace('{aantal}', keuze.aantal);
             tijdenVak.append(p);
         }
         toonSamenvatting();
@@ -217,15 +226,15 @@
     async function laadTijden() {
         if (!keuze.datum) { return; }
         const nummer = ++verzoek;
-        melding('Tijden laden…');
+        melding(T.laden);
         try {
             const antwoord = await fetch('/beschikbaarheid?datum=' + encodeURIComponent(keuze.datum) + '&aantal=' + keuze.aantal);
             const data = await antwoord.json();
             if (nummer !== verzoek) { return; }
-            if (!antwoord.ok) { melding(data.bericht || 'Tijden laden lukte niet.'); return; }
+            if (!antwoord.ok) { melding(data.bericht || T.laden_mislukt); return; }
             tekenTijden(data);
         } catch (fout) {
-            if (nummer === verzoek) { melding('Geen verbinding. Probeer het opnieuw.'); }
+            if (nummer === verzoek) { melding(T.geen_verbinding); }
         }
     }
 
@@ -265,7 +274,7 @@
 
     // Begin met de eerste open dag.
     const eerste = document.querySelector('#dagen .keuze:not(:disabled)');
-    if (eerste) { kiesDatum(eerste.dataset.datum, eerste); } else { melding('Kies een datum in de kalender.'); }
+    if (eerste) { kiesDatum(eerste.dataset.datum, eerste); } else { melding(T.kalender); }
 
     function fout(tekst) {
         alertBox.textContent = tekst;  // textContent: meldingen van de server worden nooit als HTML uitgevoerd
@@ -289,11 +298,11 @@
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         alertBox.hidden = true;
-        if (!keuze.datum || !keuze.tijd) { fout('Kies een dag en een tijd.'); return; }
+        if (!keuze.datum || !keuze.tijd) { fout(T.kies_dag_tijd); return; }
         if (!form.reportValidity()) { return; }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Verwerken…';
+        submitBtn.textContent = T.verwerken;
         const payload = {
             naam: document.getElementById('naam').value.trim(),
             email: document.getElementById('email').value.trim(),
@@ -322,13 +331,13 @@
                 window.location.href = '/bevestiging';
                 return;
             }
-            fout(result.bericht || 'Er is een fout opgetreden bij het verzenden.');
+            fout(result.bericht || T.fout);
             laadTijden();  // misschien is de tijd net vol geraakt
         } catch (err) {
-            fout('Netwerkfout: kan geen verbinding maken met de server.');
+            fout(T.netwerk);
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Reservering bevestigen';
+            submitBtn.textContent = T.bevestigen;
         }
     });
 })();

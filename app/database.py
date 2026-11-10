@@ -8,6 +8,7 @@ from sqlalchemy import (
     create_engine, event, select, insert, delete, update, func, text, true,
 )
 from app.normalisatie import normaliseer_email, normaliseer_telefoon
+from app.taal import MAANDEN as MAANDEN_PER_TAAL, huidige_taal, vertaal
 
 # Eén proces-brede engine; SQLAlchemy beheert zelf de connectie-pool per dialect.
 _engine = None
@@ -73,19 +74,31 @@ class KinderstoelVolFout(Exception):
     def __init__(self):
         super().__init__(self.bericht)
 
+    def vertaald(self):
+        return vertaal(self.bericht)
+
 MAANDEN = ("januari", "februari", "maart", "april", "mei", "juni", "juli",
            "augustus", "september", "oktober", "november", "december")
 
 class DubbeleReserveringFout(Exception):
-    """Deze gast heeft al een reservering op dezelfde datum en tijd. `bericht` is geschikt voor de gast."""
+    """
+    Deze gast heeft al een reservering op dezelfde datum en tijd. `bericht` is geschikt voor de gast
+    (Nederlands); vertaald() geeft hem in de taal van het verzoek.
+    """
+    SJABLOON = ("Je hebt al een reservering op {datum} om {tijd}. "
+                "Die staat genoteerd, je hoeft niets opnieuw te doen. Wil je iets wijzigen? "
+                "Gebruik de link in je bevestigingsmail of bel het restaurant.")
+
     def __init__(self, datum, tijd):
-        dag = date.fromisoformat(datum)
-        self.bericht = (
-            f"Je hebt al een reservering op {dag.day} {MAANDEN[dag.month - 1]} om {tijd}. "
-            "Die staat genoteerd, je hoeft niets opnieuw te doen. Wil je iets wijzigen? "
-            "Gebruik de link in je bevestigingsmail of bel het restaurant."
-        )
+        self.dag = date.fromisoformat(datum)
+        self.tijd = tijd
+        self.bericht = self.SJABLOON.format(datum=f"{self.dag.day} {MAANDEN[self.dag.month - 1]}", tijd=tijd)
         super().__init__(self.bericht)
+
+    def vertaald(self):
+        taal = huidige_taal()
+        datum = f"{self.dag.day} {MAANDEN_PER_TAAL[taal][self.dag.month - 1]}"
+        return vertaal(self.SJABLOON, taal=taal, datum=datum, tijd=self.tijd)
 
 def init_db_pool(app):
     """
