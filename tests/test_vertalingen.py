@@ -4,15 +4,16 @@ vertalingen/en.toml en vertalingen/id.toml, met dezelfde plaatshouders.
 """
 import ast
 import re
+import tomllib
 import unittest
 from pathlib import Path
 
 from app.taal import ALLE_TALEN, BRONTAAL, laad_vertalingen, plaatshouders
 
 PROJECTMAP = Path(__file__).resolve().parent.parent
-# t("...") of t('...') in een template (of _t(...) waar t een andere betekenis heeft);
+# t("..."), th("...") of t('...') in een template (of _t(...) waar t een andere betekenis heeft);
 # de zin zelf mag geen eigen aanhalingsteken van dat soort bevatten.
-T_IN_TEMPLATE = re.compile(r"""\b_?t\(\s*(["'])((?:(?!\1).)*?)\1""", re.S)
+T_IN_TEMPLATE = re.compile(r"""\b_?th?\(\s*(["'])((?:(?!\1).)*?)\1""", re.S)
 VERTAAL_FUNCTIES = {"t", "vertaal", "RegelFout"}
 
 
@@ -56,8 +57,18 @@ def zinnen_via_constanten():
     )}
 
 
+def zinnen_in_restaurantbestanden():
+    """Doel en locatie van de verwerkers in restaurants/*.toml: privacy.html toont ze via t()."""
+    zinnen = {}
+    for pad in sorted((PROJECTMAP / "restaurants").glob("*.toml")):
+        for verwerker in tomllib.loads(pad.read_text(encoding="utf-8")).get("privacy", {}).get("verwerkers", []):
+            zinnen.setdefault(verwerker["doel"], pad.name)
+            zinnen.setdefault(verwerker["locatie"], pad.name)
+    return zinnen
+
+
 def alle_zinnen():
-    return {**zinnen_via_constanten(), **zinnen_in_code(), **zinnen_in_templates()}
+    return {**zinnen_in_restaurantbestanden(), **zinnen_via_constanten(), **zinnen_in_code(), **zinnen_in_templates()}
 
 
 class VertalingenTests(unittest.TestCase):
