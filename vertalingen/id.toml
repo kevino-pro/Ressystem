@@ -123,15 +123,20 @@
 
 # email_service.py
 "Bevestiging van je reservering - {restaurant}" = "Konfirmasi reservasi Anda - {restaurant}"
+"Herinnering: je reservering morgen om {tijd} - {restaurant}" = "Pengingat: reservasi Anda besok pukul {tijd} - {restaurant}"
 "Beste {naam}," = "Yth. {naam},"
 "Bedankt voor je reservering bij {restaurant}!" = "Terima kasih atas reservasi Anda di {restaurant}!"
 "Hier zijn de gegevens van je reservering:" = "Berikut detail reservasi Anda:"
 "Wil je de reservering wijzigen of annuleren? Klik op deze link:" = "Ingin mengubah atau membatalkan reservasi? Klik tautan ini:"
 "Met vriendelijke groet," = "Salam hangat,"
 "Het team van {restaurant}" = "Tim {restaurant}"
+"Morgen ben je welkom bij {restaurant}. We kijken ernaar uit!" = "Besok kami menantikan kedatangan Anda di {restaurant}. Sampai jumpa!"
+"Kun je toch niet komen? Annuleer dan via deze link, dan geven we je plek aan een andere gast:" = "Ternyata tidak bisa datang? Batalkan melalui tautan ini, agar tempat Anda bisa kami berikan kepada tamu lain:"
+"Wil je iets wijzigen? Bel ons op {telefoon}." = "Ingin mengubah sesuatu? Hubungi kami di {telefoon}."
 "Datum: {datum}" = "Tanggal: {datum}"
 "Tijdstip: {tijd}" = "Jam: {tijd}"
 "Aantal personen: {aantal}" = "Jumlah orang: {aantal}"
+"Adres: {adres}" = "Alamat: {adres}"
 
 # index.html
 "Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678." = "Masukkan nomor telepon yang valid, misalnya 0612345678 atau +31 6 12345678."

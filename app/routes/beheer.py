@@ -9,6 +9,7 @@ from flask import Blueprint, abort, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db, tel_of_schoon_oude_reserveringen, wis_allergieen_voor
+from app.herinnering import verstuur_herinneringen
 from app.security import constant_time_equals, rate_limit_check
 
 logger = logging.getLogger(__name__)
@@ -49,3 +50,25 @@ def opschonen():
     logger.info("[BEHEER] Opschonen uitgevoerd; %s reservering(en) verwijderd, %s keer allergieen gewist.",
                 verwijderd, allergieen_gewist)
     return jsonify({"status": "succes", "verwijderd": verwijderd, "allergieen_gewist": allergieen_gewist})
+
+
+@beheer_bp.post('/herinneringen')
+def herinneringen():
+    """
+    Verstuurt de herinneringsmails voor morgen, vanaf het uur uit [herinnering] (tijdzone van het restaurant).
+    Elke reservering krijgt er hoogstens een. Per aanroep een beperkt aantal: zolang `resterend` meer dan 0 is,
+    roept de geplande taak opnieuw aan. Zonder [herinnering] doet de route niets.
+    """
+    leeg = {"verstuurd": 0, "mislukt": 0, "resterend": 0}
+    instelling = current_app.config.get('HERINNERING')
+    if instelling is None:
+        return jsonify({"status": "uit", **leeg})
+    if current_app.config['REGELS'].nu().hour < instelling.uur:
+        return jsonify({"status": "te_vroeg", **leeg})
+    try:
+        verstuurd, mislukt, resterend = verstuur_herinneringen(get_db(), current_app.config)
+    except SQLAlchemyError:
+        logger.error("[BEHEER] Herinneringen mislukt door een databasefout.")
+        return jsonify({"status": "fout", "bericht": "Herinneringen mislukt door een databasefout."}), 503
+    logger.info("[BEHEER] Herinneringen: %s verstuurd, %s mislukt, %s nog te doen.", verstuurd, mislukt, resterend)
+    return jsonify({"status": "succes", "verstuurd": verstuurd, "mislukt": mislukt, "resterend": resterend})

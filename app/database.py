@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash
 from sqlalchemy.engine import make_url
 from sqlalchemy import (
     MetaData, Table, Column, Text, Integer, Boolean, DateTime, ForeignKey,
-    create_engine, event, select, insert, delete, update, func, text, true,
+    create_engine, event, select, insert, delete, update, func, text, true, or_,
 )
 from app.normalisatie import normaliseer_email, normaliseer_telefoon
 from app.taal import MAANDEN as MAANDEN_PER_TAAL, huidige_taal, vertaal
@@ -35,6 +35,7 @@ reserveringen = Table(
     # verwacht, gearriveerd of no_show (zie STATUSSEN); een no-show telt niet mee in de bezetting.
     Column('status', Text, nullable=False, server_default='verwacht'),
     Column('taal', Text, nullable=False, server_default='nl'),  # taal van de gast, voor de mails
+    Column('herinnering_verstuurd', DateTime, nullable=True),  # wanneer de herinneringsmail is verstuurd
 )
 
 BRONNEN = ('online', 'ai', 'telefoon', 'binnenloper')
@@ -520,6 +521,39 @@ def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
         if uitvoeren and aantal:
             _verwijder_ouder_dan(conn, grens)
     return aantal
+
+def te_herinneren(conn, datum, aangemaakt_voor):
+    """
+    Reserveringen op `datum` die nog een herinneringsmail moeten krijgen: status verwacht, met e-mailadres,
+    nog niet herinnerd en aangemaakt voor `aangemaakt_voor` (UTC zonder tijdzone, zoals aangemaakt_op).
+    Wie pas vandaag reserveerde, heeft net de bevestiging gehad en krijgt geen herinnering.
+    """
+    query = select(reserveringen).where(
+        reserveringen.c.datum == datum,
+        reserveringen.c.status == 'verwacht',
+        reserveringen.c.email != '',
+        reserveringen.c.herinnering_verstuurd.is_(None),
+        or_(reserveringen.c.aangemaakt_op.is_(None), reserveringen.c.aangemaakt_op < aangemaakt_voor),
+    ).order_by(reserveringen.c.tijd.asc(), reserveringen.c.id.asc())
+    with conn.begin():
+        return conn.execute(query).mappings().all()
+
+def claim_herinnering(conn, reservering_id):
+    """
+    Legt de herinnering vast voordat de mail weggaat, zodat twee gelijktijdige runs niet allebei mailen.
+    True als deze run de reservering heeft; mislukt de mail, dan zet herinnering_terugzetten hem terug.
+    """
+    with conn.begin():
+        resultaat = conn.execute(
+            update(reserveringen)
+            .where(reserveringen.c.id == reservering_id, reserveringen.c.herinnering_verstuurd.is_(None))
+            .values(herinnering_verstuurd=func.current_timestamp())
+        )
+    return resultaat.rowcount == 1
+
+def herinnering_terugzetten(conn, reservering_id):
+    with conn.begin():
+        conn.execute(update(reserveringen).where(reserveringen.c.id == reservering_id).values(herinnering_verstuurd=None))
 
 def zet_taal(conn, gebruiker_id, taal):
     """De taal van de personeelspagina's voor dit account."""

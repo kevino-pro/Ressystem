@@ -12,13 +12,14 @@ from app.config import Config
 from app.database import (
     init_db_pool, close_db, init_db, get_db, haal_reservering_op,
     controleer_dialect, dialect_uit_config, maak_gebruiker, tel_of_schoon_oude_reserveringen,
-    wis_allergieen_voor, zoek_dubbele_reserveringen,
+    te_herinneren, wis_allergieen_voor, zoek_dubbele_reserveringen,
     ProductieVlagVereist, ROLLEN,
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
+from app.herinnering import laad_herinnering, morgen_en_grens, verstuur_herinneringen
 from app.huisstijl import laad_huisstijl
 from app import taal, weergave
 
@@ -48,6 +49,7 @@ def create_app(config_class=Config):
         raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
     app.config['HUISSTIJL'] = laad_huisstijl(regels_pad, app.static_folder)
     app.config['TALEN'] = taal.laad_talen(regels_pad)  # zonder [talen] alleen Nederlands
+    app.config['HERINNERING'] = laad_herinnering(regels_pad)  # None: geen herinneringsmails
     app.config['VERTALINGEN'] = taal.laad_vertalingen()
 
     init_db_pool(app)
@@ -133,6 +135,33 @@ def create_app(config_class=Config):
             click.echo(f"Bij {gewist} reservering(en) van voor vandaag de allergieën gewist.")
         else:
             click.echo(f"{aantal} reservering(en) zouden worden verwijderd (gebruik --uitvoeren).")
+
+    @app.cli.command('herinneringen')
+    @click.option('--uitvoeren', is_flag=True, help='Verstuur daadwerkelijk; zonder deze vlag alleen tellen.')
+    @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
+    def herinneringen_command(uitvoeren, productie):
+        """Toon of verstuur de herinneringsmails voor morgen (zonder op het ingestelde uur te wachten)."""
+        _guard(productie)
+        if app.config['HERINNERING'] is None:
+            raise click.ClickException("Het restaurantbestand heeft geen [herinnering]; er gaan geen herinneringen uit.")
+        morgen, grens = morgen_en_grens(app.config['REGELS'])
+        try:
+            if not uitvoeren:
+                aantal = len(te_herinneren(get_db(), morgen, grens))
+                click.echo(f"{aantal} herinnering(en) voor {morgen} klaar om te versturen (gebruik --uitvoeren).")
+                return
+            verstuurd = mislukt = 0
+            while True:
+                v, m, resterend = verstuur_herinneringen(get_db(), app.config)
+                verstuurd, mislukt = verstuurd + v, mislukt + m
+                if not resterend or not v:
+                    break
+        except SQLAlchemyError:
+            app.logger.error("herinneringen mislukt door een databasefout.")
+            raise click.ClickException("Herinneringen versturen mislukt door een databasefout.")
+        click.echo(f"{verstuurd} herinnering(en) voor {morgen} verstuurd, {mislukt} mislukt.")
+        if mislukt:
+            raise SystemExit(1)
 
     @app.cli.command('dubbele-reserveringen')
     @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
