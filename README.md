@@ -53,6 +53,7 @@ Alle velden staan onder `[reserveringen]`:
 | `knop_minuten` | Optioneel. Om de hoeveel minuten het formulier een tijdknop toont (bijvoorbeeld 30). Een veelvoud van `slot_minuten`; zonder dit veld gelijk aan `slot_minuten`. |
 | `diner_vanaf` | Optioneel. Vanaf deze tijd staan de tijdknoppen onder "Diner", ervoor onder "Lunch", bijvoorbeeld `"16:00"`. Zonder dit veld: geen kopjes. |
 | `kinderstoelen` | Optioneel. Hoeveel kinderstoelen het restaurant heeft. Het formulier vraagt er dan naar, en online kan niemand meer kinderstoelen tegelijk reserveren dan er zijn. Zonder dit veld (of 0) vraagt het formulier er niet naar. |
+| `vraag_allergieen` | Optioneel, `true` of `false` (standaard). Het formulier vraagt dan naar allergieën. Die worden alleen bewaard als de gast daar apart toestemming voor geeft, alleen het personeel ziet ze, en de nachtelijke opschoning wist ze de dag na het bezoek. De privacyverklaring past zich vanzelf aan. |
 | `[reserveringen.openingstijden]` | Per weekdag (`maandag` t/m `zondag`) een lijst vensters, bijvoorbeeld `dinsdag = [["17:00", "20:30"]]`. Een lege lijst of een ontbrekende dag betekent gesloten. Het venster geeft aan wanneer een reservering mag beginnen; de tweede tijd is dus de laatste begintijd, niet de sluitingstijd. Beide tijden moeten op een slotgrens vallen. |
 
 De test `test_alle_restaurantbestanden_zijn_geldig` laadt in CI elk bestand in `restaurants/`,

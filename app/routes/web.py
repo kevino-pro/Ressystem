@@ -14,7 +14,10 @@ from app.database import (
     haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe,
 )
-from app.schemas import NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
+from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
+
+TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of laat het veld leeg. "
+                       "Je kunt het ook bij aankomst aan ons doorgeven.")
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.security import rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
@@ -80,7 +83,7 @@ def health():
 
 @web_bp.route('/privacy')
 def privacy():
-    return render_template('privacy.html')
+    return render_template('privacy.html', regels=current_app.config['REGELS'])
 
 def _laatste_reservering():
     """De reservering die deze bezoeker net heeft gemaakt (id staat in de sessiecookie), of None."""
@@ -353,10 +356,18 @@ def nieuwe_reservering():
             bericht = NAAM_MELDING
         elif "opmerking" in fields:
             bericht = OPMERKING_MELDING
+        elif "allergieen" in fields:
+            bericht = ALLERGIE_MELDING
         return jsonify({"status": "fout", "bericht": bericht, "velden": fields}), 422
 
     if valid_data.website:
         return jsonify({"status": "fout", "bericht": "Spam gedetecteerd."}), 400
+
+    # Allergieen zijn gezondheidsgegevens: alleen bewaren met aparte toestemming, en alleen als dit
+    # restaurant erom vraagt. Zonder vinkje weigeren we, zodat de gast niet denkt dat het is doorgegeven.
+    allergieen = valid_data.allergieen if current_app.config['REGELS'].vraag_allergieen else None
+    if allergieen and not valid_data.allergie_toestemming:
+        return jsonify({"status": "fout", "bericht": TOESTEMMING_MELDING, "velden": ["allergie_toestemming"]}), 422
 
     try:
         current_app.config['REGELS'].controleer(valid_data.datum, valid_data.tijd, valid_data.aantal,
@@ -376,7 +387,7 @@ def nieuwe_reservering():
             datum=valid_data.datum.isoformat(), tijd=valid_data.tijd.strftime("%H:%M"), aantal=valid_data.aantal,
             zitduur_minuten=regels.zitduur_minuten,
             kinderstoelen=valid_data.kinderstoelen, max_kinderstoelen=regels.kinderstoelen,
-            opmerking=valid_data.opmerking,
+            opmerking=valid_data.opmerking, allergieen=allergieen,
         )
     except DubbeleReserveringFout as fout:
         return jsonify({"status": "fout", "bericht": fout.bericht}), 409

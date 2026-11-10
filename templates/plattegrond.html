@@ -82,7 +82,7 @@
             <li class="reservering zonder-tafel {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-id="{{ r.id }}" data-tafels="" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Nog geen tafel{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Nog geen tafel{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
             {% set met = reserveringen | selectattr('id', 'in', toewijzingen) | list %}
@@ -92,7 +92,7 @@
             <li class="reservering {{ 'nu-aan-tafel' if r.id in aan_tafel_ids }}"
                 data-id="{{ r.id }}" data-tafels="{{ tafels | join(' ') }}" data-aantal="{{ r.aantal }}">
                 <b>{{ r.tijd }} · {{ r.naam }}</b><span class="p">{{ r.aantal }} p.</span>
-                <small>Tafel {{ tafels | join(' + ') }}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
+                <small>Tafel {{ tafels | join(' + ') }}{% if r.allergieen %} · allergie{% endif %}{% if r.kinderstoelen %} · {{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}{% endif %}{% if r.opmerking %} · opmerking{% endif %}</small>
             </li>
             {% endfor %}
             {% if not reserveringen %}<li class="leeg">Geen reserveringen op deze dag.</li>{% endif %}

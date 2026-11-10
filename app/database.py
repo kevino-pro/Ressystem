@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash
 from sqlalchemy.engine import make_url
 from sqlalchemy import (
     MetaData, Table, Column, Text, Integer, DateTime, ForeignKey,
-    create_engine, event, select, insert, delete, func, text,
+    create_engine, event, select, insert, delete, update, func, text,
 )
 from app.normalisatie import normaliseer_email, normaliseer_telefoon
 
@@ -406,11 +406,24 @@ def _verwijder_ouder_dan(conn, grens):
     conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id.in_(oude_ids)))
     conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
 
+def wis_allergieen_voor(conn, datum):
+    """
+    Wist de allergieen van reserveringen met een datum voor `datum` ('YYYY-MM-DD'): na het bezoek zijn
+    ze niet meer nodig. De rest van de reservering blijft tot de gewone bewaartermijn. Geeft het aantal terug.
+    """
+    voorwaarde = (reserveringen.c.datum < datum, reserveringen.c.allergieen.is_not(None))
+    with conn.begin():
+        aantal = conn.execute(select(func.count()).select_from(reserveringen).where(*voorwaarde)).scalar()
+        if aantal:
+            conn.execute(update(reserveringen).where(*voorwaarde).values(allergieen=None))
+    return aantal
+
 def schonen_oude_reserveringen():
     conn = get_db()
     grens = _retentiegrens()
     with conn.begin():
         _verwijder_ouder_dan(conn, grens)
+    wis_allergieen_voor(conn, date.today().isoformat())
 
 def tel_of_schoon_oude_reserveringen(conn, uitvoeren):
     """Telt reserveringen buiten de bewaartermijn en verwijdert ze alleen als `uitvoeren` True is."""

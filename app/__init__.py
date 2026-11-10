@@ -11,7 +11,7 @@ from app.config import Config
 from app.database import (
     init_db_pool, close_db, init_db, get_db, haal_reservering_op,
     controleer_dialect, dialect_uit_config, maak_gebruiker, tel_of_schoon_oude_reserveringen,
-    zoek_dubbele_reserveringen,
+    wis_allergieen_voor, zoek_dubbele_reserveringen,
     ProductieVlagVereist,
 )
 from app.services.email_service import stuur_bevestigingsmail_sync
@@ -108,15 +108,18 @@ def create_app(config_class=Config):
     @click.option('--uitvoeren', is_flag=True, help='Verwijder daadwerkelijk; zonder deze vlag alleen tellen.')
     @click.option('--productie', is_flag=True, help='Bevestig bewust een niet-SQLite database.')
     def purge_retention_command(uitvoeren, productie):
-        """Toon of verwijder reserveringen buiten de bewaartermijn (RETENTIE_DAGEN_AVG)."""
+        """Toon of verwijder reserveringen buiten de bewaartermijn (RETENTIE_DAGEN_AVG); wist ook oude allergieën."""
         _guard(productie)
         try:
             aantal = tel_of_schoon_oude_reserveringen(get_db(), uitvoeren)
+            if uitvoeren:
+                gewist = wis_allergieen_voor(get_db(), app.config['REGELS'].nu().date().isoformat())
         except SQLAlchemyError:
             app.logger.error("purge-retention mislukt door een databasefout.")
             raise click.ClickException("Opschonen mislukt door een databasefout.")
         if uitvoeren:
             click.echo(f"{aantal} reservering(en) verwijderd.")
+            click.echo(f"Bij {gewist} reservering(en) van voor vandaag de allergieën gewist.")
         else:
             click.echo(f"{aantal} reservering(en) zouden worden verwijderd (gebruik --uitvoeren).")
 

@@ -38,9 +38,10 @@
         <div class="wie">
             <b>{{ r.naam }}</b>
             <small><a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a> · <a href="mailto:{{ r.email }}">{{ r.email }}</a></small>
-            {% if r.kinderstoelen or r.opmerking %}
+            {% if r.kinderstoelen or r.opmerking or r.allergieen %}
             <div class="notities">
                 {% if r.kinderstoelen %}<span class="notitie">{{ r.kinderstoelen }} kinderstoel{{ 'en' if r.kinderstoelen != 1 }}</span>{% endif %}
+                {% if r.allergieen %}<span class="notitie tekst allergie">Allergie: {{ r.allergieen }}</span>{% endif %}
                 {% if r.opmerking %}<span class="notitie tekst">{{ r.opmerking }}</span>{% endif %}
             </div>
             {% endif %}

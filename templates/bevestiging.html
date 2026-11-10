@@ -13,6 +13,7 @@
         <div class="rij"><span>Tijd</span><b>{{ reservering.tijd }} – {{ reservering.tijd | eindtijd(zitduur) }}</b></div>
         <div class="rij"><span>Personen</span><b>{{ reservering.aantal }}</b></div>
         {% if reservering.kinderstoelen %}<div class="rij"><span>Kinderstoelen</span><b>{{ reservering.kinderstoelen }}</b></div>{% endif %}
+        {% if reservering.allergieen %}<div class="rij"><span>Allergieën</span><b>Doorgegeven aan de keuken</b></div>{% endif %}
         {% if reservering.opmerking %}<div class="rij"><span>Opmerking</span><b>{{ reservering.opmerking }}</b></div>{% endif %}
         {% if p %}<div class="rij"><span>Adres</span><b>{{ p.adres }}</b></div>{% endif %}
     </div>
