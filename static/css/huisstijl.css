@@ -100,6 +100,9 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .rij:last-child { border-bottom: 0; }
 .rij span:first-child { color: var(--zacht); }
 .rij b { font-weight: 600; text-align: right; }
+/* Wijzig of annuleer: wijzigen en annuleren als losse delen onder elkaar */
+.deel { border-top: 1px solid var(--lijn); padding-top: 22px; margin-top: 22px; }
+.deelkop { margin-bottom: 14px; }
 .vink { width: 58px; height: 58px; border-radius: 50%; background: rgba(123, 196, 127, .15); border: 1px solid rgba(123, 196, 127, .5);
         display: grid; place-items: center; color: var(--groen); font-size: 28px; margin-bottom: 16px; }
 

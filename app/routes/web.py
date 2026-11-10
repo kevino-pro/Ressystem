@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
-    KinderstoelVolFout, NIET_GEKOMEN, STATUSSEN, zet_status,
+    KinderstoelVolFout, NIET_GEKOMEN, NietMeerWijzigbaarFout, STATUSSEN, wijzig_reservering, zet_status,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
@@ -76,9 +76,8 @@ def kies_taal(code):
         )
     return antwoord
 
-@web_bp.route('/')
-def home():
-    regels = current_app.config['REGELS']
+def _kiezer(regels):
+    """Wat de knoppen voor personen, dag en tijd nodig hebben (reserveren en wijzigen)."""
     vandaag = regels.nu().date()
     dagen = []
     for i in range(DAGEN_IN_STRIP):
@@ -87,9 +86,13 @@ def home():
                       'open': bool(regels.blokken_op(dag)) and dag not in regels.sluitingsdagen})
     laatste = vandaag + timedelta(days=regels.max_dagen_vooruit)
     taal = huidige_taal()
-    return render_template('index.html', regels=regels, dagen=dagen, vandaag=vandaag.isoformat(),
-                           laatste=laatste.isoformat(), zitduur_tekst=_zitduur_tekst(regels.zitduur_minuten),
-                           dagnamen=[DAGEN[taal][6], *DAGEN[taal][:6]], maandnamen=MAANDEN[taal])
+    return {'regels': regels, 'dagen': dagen, 'vandaag': vandaag.isoformat(), 'laatste': laatste.isoformat(),
+            'dagnamen': [DAGEN[taal][6], *DAGEN[taal][:6]], 'maandnamen': MAANDEN[taal]}
+
+@web_bp.route('/')
+def home():
+    regels = current_app.config['REGELS']
+    return render_template('index.html', zitduur_tekst=_zitduur_tekst(regels.zitduur_minuten), **_kiezer(regels))
 
 def _db_foutdetails(fout):
     """
@@ -456,7 +459,9 @@ def beschikbaarheid():
             "Online reserveren kan voor 1 tot {aantal} personen. Neem voor grotere groepen contact met ons op.",
             aantal=regels.max_personen_per_boeking)}), 400
 
-    bestaande = bezetting_op(get_db(), dag.isoformat())
+    # Bij wijzigen telt de eigen reservering niet mee (zie wijzigen_klant); /wijzigen controleert opnieuw.
+    behalve = request.args.get('behalve', '')[:64] or None
+    bestaande = bezetting_op(get_db(), dag.isoformat(), behalve=behalve)
     nu = regels.nu()
     tijden, eerste_fout = [], None
     for tijdstip in regels.knoptijden_op(dag):
@@ -581,4 +586,82 @@ def annuleren_klant(reservering_id):
         db_verwijder_reservering(conn, reservering_id)
         return render_template('annuleren_bevestigd.html')
 
-    return render_template('annuleren_bevestigen.html', reservering=reservering)
+    return _wijzigpagina(reservering)
+
+def _waarom_niet_wijzigen(regels, reservering):
+    """None als de gast deze reservering (status verwacht) nog zelf mag wijzigen, anders de reden voor de gast."""
+    if reservering['aantal'] > regels.max_personen_per_boeking:
+        return t("Een reservering voor zoveel personen kun je niet online wijzigen. Bel ons, dan regelen we het.")
+    if not regels.kan_nog_wijzigen(date.fromisoformat(reservering['datum']), time.fromisoformat(reservering['tijd'])):
+        return t("Je reservering begint binnen {duur}. Wijzigen kan nu niet meer online. Je kunt nog annuleren, of bel ons.",
+                 duur=_zitduur_tekst(regels.wijzigen_minuten_vooraf))
+    return None
+
+def _wijzigpagina(reservering, fout=None, status=200, keuze=None):
+    """De pagina 'Wijzig of annuleer'. `keuze` is wat de gast probeerde; standaard de huidige reservering."""
+    regels = current_app.config['REGELS']
+    keuze = keuze or {'datum': reservering['datum'], 'tijd': reservering['tijd'], 'aantal': reservering['aantal']}
+    return render_template('annuleren_bevestigen.html', reservering=reservering, fout=fout, keuze=keuze,
+                           niet_wijzigen=_waarom_niet_wijzigen(regels, reservering),
+                           wijzigen_tot=_zitduur_tekst(regels.wijzigen_minuten_vooraf), **_kiezer(regels)), status
+
+@web_bp.route('/wijzigen/<reservering_id>', methods=['GET', 'POST'])
+@rate_limit('wijzigen', 20, 600)
+def wijzigen_klant(reservering_id):
+    """
+    De gast zet zijn reservering op een andere dag, tijd of aantal personen, met dezelfde regels als bij
+    reserveren. Kan tot wijzigen_minuten_vooraf voor de huidige begintijd; daarna alleen annuleren of bellen.
+    GET (bijvoorbeeld een taallink na een mislukte poging) gaat terug naar de pagina Wijzig of annuleer.
+    """
+    if request.method == 'GET':
+        return redirect(url_for('web.annuleren_klant', reservering_id=reservering_id))
+    conn = get_db()
+    reservering = haal_reservering_op(conn, reservering_id)
+    if not reservering:
+        return t("Reservering niet gevonden of reeds geannuleerd."), 404
+    if reservering['status'] != 'verwacht':
+        return t("Deze reservering kan niet meer online worden gewijzigd."), 409
+
+    regels = current_app.config['REGELS']
+    if _waarom_niet_wijzigen(regels, reservering):
+        return _wijzigpagina(reservering, status=409)
+
+    datum_tekst, tijd_tekst = request.form.get('datum', ''), request.form.get('tijd', '')
+    try:
+        dag = date.fromisoformat(datum_tekst)
+        aantal = int(request.form.get('aantal', ''))
+        if not TIJD_PATROON.fullmatch(tijd_tekst):
+            raise ValueError(tijd_tekst)
+        tijdstip = time.fromisoformat(tijd_tekst)
+    except ValueError:
+        return _wijzigpagina(reservering, t("Kies een dag en een tijd."), 400)
+    keuze = {'datum': dag.isoformat(), 'tijd': tijd_tekst, 'aantal': aantal}
+
+    if not 1 <= aantal <= regels.max_personen_per_boeking:
+        return _wijzigpagina(reservering, t(
+            "Online reserveren kan voor 1 tot {aantal} personen. Neem voor grotere groepen contact met ons op.",
+            aantal=regels.max_personen_per_boeking), 400, keuze)
+    if (keuze['datum'], keuze['tijd'], aantal) == (reservering['datum'], reservering['tijd'], reservering['aantal']):
+        return _wijzigpagina(reservering, t("Je hebt niets veranderd. Kies een andere dag, tijd of aantal personen."),
+                             400, keuze)
+    try:
+        regels.controleer(dag, tijdstip, aantal, kinderstoelen=reservering['kinderstoelen'])
+    except RegelFout as fout:
+        return _wijzigpagina(reservering, fout.vertaald(), 400, keuze)
+
+    try:
+        nieuw = wijzig_reservering(conn, reservering_id, regels.max_gasten_tegelijk, keuze['datum'], tijd_tekst,
+                                   aantal, regels.zitduur_minuten, max_kinderstoelen=regels.kinderstoelen)
+    except NietMeerWijzigbaarFout:
+        return t("Deze reservering kan niet meer online worden gewijzigd."), 409
+    except DubbeleReserveringFout:
+        return _wijzigpagina(reservering, t("Je hebt op deze dag en tijd al een andere reservering."), 409, keuze)
+    except KinderstoelVolFout as fout:
+        return _wijzigpagina(reservering, fout.vertaald(), 400, keuze)
+    except CapaciteitVolFout as e:
+        return _wijzigpagina(reservering, t("Geen plek meer op dit tijdstip. Nog {vrij} plek(ken) beschikbaar.",
+                                            vrij=max(e.vrij, 0)), 400, keuze)
+    except OperationalError:
+        return _wijzigpagina(reservering, t("Database is momenteel druk, probeer het opnieuw."), 503, keuze)
+
+    return render_template('wijziging_opgeslagen.html', reservering=nieuw)
