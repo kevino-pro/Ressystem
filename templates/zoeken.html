@@ -1,0 +1,48 @@
+{% extends "personeel.html" %}
+{% block titel %}{{ t("Zoeken") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="dagnav">
+    <h2>{{ t("Zoeken") }}</h2>
+    <a class="pil" href="/overzicht">‹ {{ t("Terug naar het overzicht") }}</a>
+    <form class="zoek" action="/zoeken" method="GET" role="search">
+        <label for="zoekterm" class="verborgen">{{ t("Naam of telefoonnummer") }}</label>
+        <input type="search" id="zoekterm" name="q" value="{{ zoekterm }}" maxlength="100" autofocus
+               placeholder="{{ t('Zoek op naam of telefoon') }}">
+        <button type="submit" class="pil aan">{{ t("Zoeken") }}</button>
+    </form>
+</div>
+<p class="sub" style="margin-bottom: 14px">{{ t("Zoekt in de reserveringen van vandaag en later.") }}</p>
+
+{% if te_kort %}
+<div class="melding" role="status">{{ t("Typ minstens {aantal} tekens.", aantal=min_tekens) }}</div>
+{% elif zoekterm %}
+{% if meer %}
+<div class="melding" role="status">{{ t("Meer dan {aantal} resultaten. Maak je zoekopdracht specifieker.", aantal=max_resultaten) }}</div>
+{% endif %}
+<div class="lijst">
+    {% for datum, rijen in groepen.items() %}
+    <div class="tijdkop datumkop">
+        <b>{{ datum | datum_tekst(met_jaar=datum[:4] != vandaag.year | string) | hoofdletter }}</b>
+        <span>{{ t('{aantal} reservering', aantal=rijen | length) if rijen | length == 1 else t('{aantal} reserveringen', aantal=rijen | length) }}</span>
+        <a href="/overzicht?datum={{ datum }}">{{ t("Naar deze dag") }} ›</a>
+    </div>
+    {% for r in rijen %}
+    <div class="res zoek {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}">
+        <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
+        <div class="wie">
+            <b>{{ r.tijd }} · {{ r.naam }}</b>
+            <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
+            {% if r.status != 'verwacht' %}
+            <div class="notities">
+                {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% else %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="leeg" style="padding: 24px 0; text-align: center">{{ t("Geen reserveringen gevonden.") }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

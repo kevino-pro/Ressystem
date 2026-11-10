@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import re
+import unicodedata
 from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import text
@@ -15,9 +16,10 @@ from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
     KinderstoelVolFout, NIET_GEKOMEN, STATUSSEN, zet_status,
     GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
-    haal_personeel_op, haal_reserveringen_op, haal_reservering_op, haal_toewijzingen_op,
+    haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
 )
+from app.normalisatie import normaliseer_naam, normaliseer_telefoon
 from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
 
 TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of laat het veld leeg. "
@@ -36,6 +38,9 @@ HOKJE = 48  # pixels per hokje op de plattegrond
 STRAKS_MINUTEN = 30  # zo ver vooruit kijkt de plattegrond naar tafels die bijna bezet zijn
 
 DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
+ZOEK_MIN_TEKENS = 2
+ZOEK_MAX_RESULTATEN = 50
+TELEFOON_ZOEKTERM = re.compile(r'[\d\s+()\-]+')  # alleen cijfers en wat je in een telefoonnummer typt
 
 def _zitduur_tekst(minuten):
     """60 -> '1 uur', 90 -> '1,5 uur', 75 -> '75 minuten' (in de taal van het verzoek)."""
@@ -228,6 +233,42 @@ def overzicht():
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
         groepen=groepen, toewijzingen=toewijzingen, tellers=tellers, plattegrond_aan=plattegrond_aan,
         kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=f"{nu:%H:%M}",
+    )
+
+def _zoekvorm(tekst):
+    """Kleine letters, zonder accenten en dubbele spaties: 'José  de Vries' en 'jose de vries' zijn gelijk."""
+    tekst = unicodedata.normalize('NFKD', normaliseer_naam(tekst))
+    return ''.join(teken for teken in tekst if not unicodedata.combining(teken))
+
+def zoek_reserveringen(lijst, zoekterm):
+    """
+    De reserveringen uit `lijst` die bij de zoekterm passen. Bestaat de zoekterm alleen uit cijfers (en +, spaties,
+    haakjes of streepjes) met minstens 3 cijfers, dan op telefoonnummer: 0612, +31 612 en 612 vinden 06-12345678.
+    Anders op een deel van de naam, zonder op hoofdletters of accenten te letten.
+    """
+    zoekterm = zoekterm.strip()
+    cijfers = normaliseer_telefoon(zoekterm)
+    if TELEFOON_ZOEKTERM.fullmatch(zoekterm) and len(cijfers) >= 3:
+        return [r for r in lijst if r['telefoon'] and cijfers in normaliseer_telefoon(r['telefoon'])]
+    naam = _zoekvorm(zoekterm)
+    return [r for r in lijst if naam in _zoekvorm(r['naam'])]
+
+@web_bp.route('/zoeken')
+@login_vereist
+def zoeken():
+    """Zoeken op naam of telefoonnummer in de reserveringen van vandaag en later; oude reserveringen niet."""
+    vandaag = current_app.config['REGELS'].nu().date()
+    zoekterm = request.args.get('q', '').strip()[:100]
+    gevonden = []
+    if len(zoekterm) >= ZOEK_MIN_TEKENS:
+        gevonden = zoek_reserveringen(haal_reserveringen_vanaf(get_db(), vandaag.isoformat()), zoekterm)
+    groepen = {}
+    for r in gevonden[:ZOEK_MAX_RESULTATEN]:
+        groepen.setdefault(r['datum'], []).append(r)
+    return render_template(
+        'zoeken.html', actief='overzicht', zoekterm=zoekterm, groepen=groepen, vandaag=vandaag,
+        te_kort=0 < len(zoekterm) < ZOEK_MIN_TEKENS, min_tekens=ZOEK_MIN_TEKENS,
+        meer=len(gevonden) > ZOEK_MAX_RESULTATEN, max_resultaten=ZOEK_MAX_RESULTATEN,
     )
 
 def _kies_moment(regels, datum_tekst, tijd_tekst):

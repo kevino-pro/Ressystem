@@ -213,6 +213,9 @@
 "Tonen" = "Tampilkan"
 "Reservering" = "Reservasi"
 "Binnenloper" = "Tamu langsung"
+"Naam of telefoonnummer" = "Nama atau nomor telepon"
+"Zoek op naam of telefoon" = "Cari nama atau telepon"
+"Zoeken" = "Cari"
 "Gasten" = "Tamu"
 "Drukste moment" = "Saat paling ramai"
 "Nog niet binnen" = "Belum datang"
@@ -381,3 +384,10 @@
 # wpl.toml
 "doorsturen van reserveringen die als bericht binnenkomen" = "meneruskan reservasi yang masuk sebagai pesan"
 "omzetten van een bericht naar een reservering (alleen bij reserveren via een bericht)" = "mengubah pesan menjadi reservasi (hanya untuk reservasi lewat pesan)"
+
+# zoeken.html
+"Zoekt in de reserveringen van vandaag en later." = "Mencari di reservasi hari ini dan seterusnya."
+"Typ minstens {aantal} tekens." = "Ketik minimal {aantal} karakter."
+"Meer dan {aantal} resultaten. Maak je zoekopdracht specifieker." = "Lebih dari {aantal} hasil. Buat pencarian Anda lebih spesifik."
+"Naar deze dag" = "Ke hari ini"
+"Geen reserveringen gevonden." = "Tidak ada reservasi yang ditemukan."
