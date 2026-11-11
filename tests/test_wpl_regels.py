@@ -64,7 +64,8 @@ class WplRegelsTests(unittest.TestCase):
 
     def test_formulier(self):
         html = self.client.get("/").get_data(as_text=True)
-        self.assertEqual(html.count('class="keuze" data-aantal='), 15)
+        aantal = html.split('<select id="aantal">')[1].split("</select>")[0]
+        self.assertEqual(aantal.count("<option value="), 15)
         self.assertIn("1 uur", html)
         self.assertNotIn("1,5 uur", html)
         self.assertIn("const ZITDUUR = 60;", html)
