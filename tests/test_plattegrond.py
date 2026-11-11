@@ -72,7 +72,7 @@ class LaadPlattegrondTests(unittest.TestCase):
     def test_wpl_den_haag(self):
         p = laad_plattegrond(PROJECTMAP / "restaurants" / "wpl.toml")
         self.assertEqual(len(p.tafels), 22)
-        self.assertEqual(p.totaal_stoelen, 68)
+        self.assertEqual(p.totaal_stoelen, 69)  # gelijk aan max_gasten_tegelijk in wpl.toml
         self.assertEqual(p.tafel("2").vorm, "rond")
 
     def test_alle_restaurantbestanden_hebben_geldige_plattegrond(self):

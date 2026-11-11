@@ -58,7 +58,7 @@ tafels = [
     { nummer = "6a", stoelen = 2, kolom = 10, rij = 3 },
     { nummer = "5b", stoelen = 2, kolom = 13, rij = 3 },
     { nummer = "5a", stoelen = 2, kolom = 14, rij = 3 },
-    { nummer = "4", stoelen = 4, kolom = 16, rij = 3, breedte = 2 },
+    { nummer = "4", stoelen = 5, kolom = 16, rij = 3, breedte = 2 },
     # Bij de ingang
     { nummer = "9", stoelen = 4, kolom = 0, rij = 5, breedte = 2, hoogte = 2 },
     { nummer = "10a", stoelen = 3, kolom = 2, rij = 5, breedte = 2, hoogte = 2 },
