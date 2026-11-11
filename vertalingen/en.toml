@@ -248,6 +248,8 @@
 # overzicht.html
 "Vorige dag" = "Previous day"
 "Vandaag" = "Today"
+"Morgen" = "Tomorrow"
+"Andere dag" = "Other day"
 "Volgende dag" = "Next day"
 "Kies datum" = "Choose date"
 "Tonen" = "Show"

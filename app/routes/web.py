@@ -76,14 +76,24 @@ def kies_taal(code):
         )
     return antwoord
 
+def _heeft_plek_op(regels, dag, nu):
+    """True als er op deze dag nog een tijd is die online geboekt mag worden (open, niet te laat, niet te ver vooruit)."""
+    for tijdstip in regels.knoptijden_op(dag):
+        try:
+            regels.controleer(dag, tijdstip, 1, nu=nu)
+        except RegelFout:
+            continue
+        return True
+    return False
+
 def _kiezer(regels):
     """Wat de knoppen voor personen, dag en tijd nodig hebben (reserveren en wijzigen)."""
-    vandaag = regels.nu().date()
+    nu = regels.nu()
+    vandaag = nu.date()
     dagen = []
     for i in range(DAGEN_IN_STRIP):
         dag = vandaag + timedelta(days=i)
-        dagen.append({'datum': dag.isoformat(), 'dag': dag,
-                      'open': bool(regels.blokken_op(dag)) and dag not in regels.sluitingsdagen})
+        dagen.append({'datum': dag.isoformat(), 'dag': dag, 'open': _heeft_plek_op(regels, dag, nu)})
     laatste = vandaag + timedelta(days=regels.max_dagen_vooruit)
     taal = huidige_taal()
     return {'regels': regels, 'dagen': dagen, 'vandaag': vandaag.isoformat(), 'laatste': laatste.isoformat(),
