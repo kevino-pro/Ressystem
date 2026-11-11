@@ -35,15 +35,18 @@
                     <small>{{ t('Vandaag') if loop.first else (t('Morgen') if loop.index == 2 else d.dag | dag_kort) }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
                 </button>
                 {% endfor %}
-                <button type="button" class="keuze" id="andere" aria-pressed="false">
+                <div class="andere-wrap">
+                <button type="button" class="keuze" id="andere" aria-pressed="false" tabindex="-1">
                     <span id="andere-leeg">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
                         <small>{{ t("Andere dag") }}</small>
                     </span>
                     <span id="andere-gekozen" hidden><small id="andere-dag"></small><b id="andere-nr"></b><small id="andere-maand"></small></span>
                 </button>
+                {# Het echte datumveld ligt onzichtbaar over de knop: een tik opent de kalender, ook op iPhone (showPicker werkt daar niet). #}
+                <input type="date" id="datum" class="datumveld" min="{{ vandaag }}" max="{{ laatste }}" aria-label="{{ t('Andere datum?') }}">
+                </div>
             </div>
-            <input type="date" id="datum" class="datumveld" min="{{ vandaag }}" max="{{ laatste }}" aria-label="{{ t('Andere datum?') }}">
         </fieldset>
 
         <fieldset class="stap">
@@ -107,17 +110,13 @@
             </details>
         </fieldset>
 
-        <label class="akkoord">
-            <input type="checkbox" id="privacy_akkoord" required>
-            <span>{{ t("Ik ga akkoord met het opslaan van mijn gegevens voor deze reservering.") }}
-                {{ t("Lees de") }} <a href="/privacy" target="_blank">{{ t("privacyverklaring") }}</a>.</span>
-        </label>
-
         <div id="alertBox" class="melding fout" role="alert" hidden></div>
         <div class="actiebalk">
             <div class="samen" id="samen" aria-live="polite"><b>{{ t("Kies een tijd") }}</b></div>
             <button type="submit" id="submitBtn" class="knop" disabled>{{ t("Reservering bevestigen") }}</button>
         </div>
+        {% set privacylink %}<a href="/privacy" target="_blank">{{ t("privacyverklaring") }}</a>{% endset %}
+        <p class="juridisch">{{ th("Door te reserveren ga je akkoord met onze {privacy}. Wijzigen of annuleren kan altijd via de link in je mail.", privacy=privacylink) }}</p>
     </form>
 </div>
 {% endblock %}
@@ -286,15 +285,7 @@
     });
     document.getElementById('dagen').addEventListener('click', function (e) {
         const knop = e.target.closest('.keuze');
-        if (!knop || knop.disabled) { return; }
-        if (knop === andere) {
-            if (typeof datumVeld.showPicker === 'function') {
-                try { datumVeld.showPicker(); return; } catch (fout) { /* dan het gewone veld hieronder */ }
-            }
-            datumVeld.classList.add('zichtbaar');  // oudere browsers: toon het datumveld zelf
-            datumVeld.focus();
-            return;
-        }
+        if (!knop || knop.disabled || knop === andere) { return; }  // "Andere dag" regelt het datumveld zelf
         kiesDatum(knop.dataset.datum, knop);
     });
     datumVeld.addEventListener('change', function () {
@@ -378,7 +369,7 @@
             if (!eersteFout) { eersteFout = allergieVeld; }
         }
         if (eersteFout) { eersteFout.focus(); return; }
-        if (!form.reportValidity()) { return; }  // o.a. het vinkje voor de privacyverklaring
+        if (!form.reportValidity()) { return; }
 
         bezig = true;
         updateBalk();
@@ -391,7 +382,6 @@
             tijd: keuze.tijd,
             aantal: keuze.aantal,  // Integer voor Pydantic
             website: document.getElementById('website').value,  // honeypot
-            privacy_akkoord: document.getElementById('privacy_akkoord').checked,  // Boolean
             opmerking: document.getElementById('opmerking').value.trim(),
             kinderstoelen: kinderstoelVeld ? parseInt(kinderstoelVeld.value, 10) : 0,
             allergieen: allergieVeld ? allergieVeld.value.trim() : '',

@@ -95,7 +95,7 @@ class ReserveringSchema(DTO):
     tijd: ISOTime
     aantal: int = Field(..., ge=1, le=20, validation_alias=AliasChoices("aantal", "aantal_personen"))
     website: Optional[str] = None
-    privacy_akkoord: Literal[True]
+    privacy_akkoord: Optional[bool] = None  # niet meer nodig; oudere pagina's sturen het nog mee
     opmerking: Opmerking = None
     kinderstoelen: int = Field(default=0, ge=0, le=20)
     allergieen: Allergieen = None
