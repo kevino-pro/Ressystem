@@ -8,36 +8,29 @@
 
 {% if fout %}<div class="melding fout" role="alert">{{ fout }}</div>{% endif %}
 
+{% set is_binnenloper = w.bron == 'binnenloper' %}
+{# Het uitklapblok staat open als er iets in staat of als er een melding is, zodat niets verborgen blijft. #}
+{% set meer_open = fout or waarschuwingen or w.email or w.allergieen or w.opmerking or (w.kinderstoelen or '0') != '0'
+                   or (is_binnenloper and (w.naam or w.telefoon)) %}
 <div class="paneel paneel-smal">
     <form action="/reservering/nieuw" method="POST" id="invoeren">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="bron" value="{{ w.bron or 'telefoon' }}">
 
+        {% if not is_binnenloper %}
         <div class="veld">
-            {% if w.bron == 'binnenloper' %}
-            <label for="naam">{{ t("Naam") }} ({{ t("niet verplicht") }})</label>
-            <input type="text" id="naam" name="naam" value="{{ w.naam }}" maxlength="100" autocomplete="off"
-                   placeholder="{{ t('Binnenloper') }}">
-            {% else %}
             <label for="naam">{{ t("Naam") }}</label>
             <input type="text" id="naam" name="naam" value="{{ w.naam }}" required maxlength="100" autocomplete="off">
-            {% endif %}
         </div>
-        <div class="twee">
-            <div class="veld">
-                <label for="telefoon">{{ t("Telefoon") }}{{ ' (' ~ t('niet verplicht') ~ ')' if w.bron == 'binnenloper' }}</label>
-                <input type="tel" id="telefoon" name="telefoon" value="{{ w.telefoon }}" maxlength="20" autocomplete="off"
-                       {{ 'required' if (w.bron or 'telefoon') == 'telefoon' }}>
-            </div>
+        <div class="veld">
+            <label for="telefoon">{{ t("Telefoon") }}</label>
+            <input type="tel" id="telefoon" name="telefoon" value="{{ w.telefoon }}" required maxlength="20" autocomplete="off" inputmode="tel">
+        </div>
+        {% endif %}
+        <div class="twee naast">
             <div class="veld">
                 <label for="aantal">{{ t("Personen") }}</label>
-                <input type="number" id="aantal" name="aantal" value="{{ w.aantal }}" required min="1" max="{{ max_personen }}">
-            </div>
-        </div>
-        <div class="twee">
-            <div class="veld">
-                <label for="datum">{{ t("Datum") }}</label>
-                <input type="date" id="datum" name="datum" value="{{ w.datum }}" required min="{{ vandaag.isoformat() }}">
+                <input type="number" id="aantal" name="aantal" value="{{ w.aantal }}" required min="1" max="{{ max_personen }}" inputmode="numeric">
             </div>
             <div class="veld">
                 <label for="tijd">{{ t("Tijd") }}</label>
@@ -45,42 +38,62 @@
             </div>
         </div>
         <div class="veld">
-            <label for="email">{{ t("E-mail (niet verplicht; dan krijgt de gast een bevestigingsmail)") }}</label>
-            <input type="email" id="email" name="email" value="{{ w.email }}" maxlength="254" autocomplete="off">
+            <label for="datum">{{ t("Datum") }}</label>
+            <input type="date" id="datum" name="datum" value="{{ w.datum }}" required min="{{ vandaag.isoformat() }}">
         </div>
-        {% if talen | length > 1 %}
-        <div class="veld">
-            <label for="taal">{{ t("Taal van de gast (voor de mail)") }}</label>
-            <select id="taal" name="taal">
-                {% for code in talen %}
-                <option value="{{ code }}" {{ 'selected' if w.taal == code }}>{{ taalnamen[code] }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
-        <div class="twee">
-            <div class="veld">
-                <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
-                <select id="kinderstoelen" name="kinderstoelen">
-                    {% for n in range(0, 6) %}
-                    <option value="{{ n }}" {{ 'selected' if (w.kinderstoelen or '0') == n | string }}>{{ n }}</option>
-                    {% endfor %}
-                </select>
+        <p class="hint ruimte" id="ruimte" aria-live="polite" hidden></p>
+
+        <details class="meer" id="meer" {{ 'open' if meer_open }}>
+            <summary>{{ t("Meer gegevens") }} <small>({{ t("niet verplicht") }})</small></summary>
+            <div class="extra">
+                {% if is_binnenloper %}
+                <div class="veld">
+                    <label for="naam">{{ t("Naam") }} ({{ t("niet verplicht") }})</label>
+                    <input type="text" id="naam" name="naam" value="{{ w.naam }}" maxlength="100" autocomplete="off"
+                           placeholder="{{ t('Binnenloper') }}">
+                </div>
+                <div class="veld">
+                    <label for="telefoon">{{ t("Telefoon") }} ({{ t("niet verplicht") }})</label>
+                    <input type="tel" id="telefoon" name="telefoon" value="{{ w.telefoon }}" maxlength="20" autocomplete="off" inputmode="tel">
+                </div>
+                {% endif %}
+                <div class="veld">
+                    <label for="email">{{ t("E-mail (niet verplicht; dan krijgt de gast een bevestigingsmail)") }}</label>
+                    <input type="email" id="email" name="email" value="{{ w.email }}" maxlength="254" autocomplete="off">
+                </div>
+                {% if talen | length > 1 %}
+                <div class="veld">
+                    <label for="taal">{{ t("Taal van de gast (voor de mail)") }}</label>
+                    <select id="taal" name="taal">
+                        {% for code in talen %}
+                        <option value="{{ code }}" {{ 'selected' if w.taal == code }}>{{ taalnamen[code] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="veld" style="max-width: 180px">
+                    <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
+                    <select id="kinderstoelen" name="kinderstoelen">
+                        {% for n in range(0, 6) %}
+                        <option value="{{ n }}" {{ 'selected' if (w.kinderstoelen or '0') == n | string }}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if regels.vraag_allergieen %}
+                <div class="veld">
+                    <label for="allergieen">{{ t("Allergieën") }} ({{ t("niet verplicht") }})</label>
+                    <input type="text" id="allergieen" name="allergieen" value="{{ w.allergieen }}" maxlength="200" autocomplete="off">
+                    <label class="klein-akkoord"><input type="checkbox" name="allergie_toestemming" value="1"
+                           {{ 'checked' if w.allergie_toestemming == '1' }}>
+                        {{ t("De gast geeft toestemming om de allergieën te bewaren (ze worden de nacht na het bezoek gewist).") }}</label>
+                </div>
+                {% endif %}
+                <div class="veld">
+                    <label for="opmerking">{{ t("Opmerking") }} ({{ t("niet verplicht") }})</label>
+                    <textarea id="opmerking" name="opmerking" rows="2" maxlength="300">{{ w.opmerking }}</textarea>
+                </div>
             </div>
-        </div>
-        {% if regels.vraag_allergieen %}
-        <div class="veld">
-            <label for="allergieen">{{ t("Allergieën") }} ({{ t("niet verplicht") }})</label>
-            <input type="text" id="allergieen" name="allergieen" value="{{ w.allergieen }}" maxlength="200" autocomplete="off">
-            <label class="klein-akkoord"><input type="checkbox" name="allergie_toestemming" value="1"
-                   {{ 'checked' if w.allergie_toestemming == '1' }}>
-                {{ t("De gast geeft toestemming om de allergieën te bewaren (ze worden de nacht na het bezoek gewist).") }}</label>
-        </div>
-        {% endif %}
-        <div class="veld">
-            <label for="opmerking">{{ t("Opmerking") }} ({{ t("niet verplicht") }})</label>
-            <textarea id="opmerking" name="opmerking" rows="2" maxlength="300">{{ w.opmerking }}</textarea>
-        </div>
+        </details>
 
         {% if waarschuwingen %}
         <div class="melding fout" role="alert">
@@ -104,6 +117,35 @@
         vlag.remove();
         document.getElementById('opslaan').textContent = {{ t('Reservering opslaan') | tojson }};
     }, { once: true });
+})();
+
+// Laat bij het invullen zien of er plek is. Alleen een hulp: opslaan blijft werken zoals voorheen, ook zonder dit.
+(function () {
+    const form = document.getElementById('invoeren');
+    const plek = document.getElementById('ruimte');
+    let teller = 0;
+    let timer = null;
+    async function ververs() {
+        const e = form.elements;
+        if (!e.datum.value || !e.tijd.value || !e.aantal.value) { plek.hidden = true; return; }
+        const nummer = ++teller;
+        try {
+            const vraag = new URLSearchParams({
+                datum: e.datum.value, tijd: e.tijd.value, aantal: e.aantal.value, kinderstoelen: e.kinderstoelen.value
+            });
+            const antwoord = await fetch('/reservering/ruimte?' + vraag.toString());
+            const data = await antwoord.json();
+            if (nummer !== teller) { return; }
+            if (!antwoord.ok || data.status !== 'succes') { plek.hidden = true; return; }
+            plek.textContent = data.tekst;  // textContent: de tekst komt van de server en wordt nooit als HTML uitgevoerd
+            plek.classList.toggle('let-op', !!data.let_op);
+            plek.hidden = false;
+        } catch (fout) {
+            if (nummer === teller) { plek.hidden = true; }
+        }
+    }
+    form.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(ververs, 300); });
+    ververs();
 })();
 </script>
 {% endblock %}

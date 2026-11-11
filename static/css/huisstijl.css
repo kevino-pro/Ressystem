@@ -324,6 +324,12 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .dagnav input[type=search] { flex: 1; width: auto; min-width: 0; }
     .indeling, .indeling.cijfers { grid-template-columns: 1fr; }
 }
+/* Formulier voor telefonische reserveringen: de zin over de ruimte */
+.ruimte { margin: -4px 0 16px; font-size: 13px; }
+.ruimte.let-op { color: var(--accent); }
+.paneel details.meer { margin-bottom: 16px; }
+.paneel .twee.naast { grid-template-columns: 1fr 1fr; }  /* personen en tijd blijven ook op een telefoon naast elkaar */
+
 /* Plattegrond: het paneel om tafels toe te wijzen. Op een telefoon is het een vaste balk met tafelknoppen. */
 .toewijzen { margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px; }
 .toewijzen-keuze { margin-top: 4px; font-size: 13px; }

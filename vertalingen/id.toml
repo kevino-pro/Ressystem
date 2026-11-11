@@ -285,6 +285,8 @@
 "Reserveringsformulier" = "Formulir reservasi"
 "Uitloggen" = "Keluar"
 "Menu" = "Menu"
+"Meer gegevens" = "Data lainnya"
+"Rond {tijd} is er plek; er blijven {vrij} van {maximum} plekken vrij." = "Sekitar pukul {tijd} masih ada tempat; {vrij} dari {maximum} kursi tetap kosong."
 
 # plattegrond.html
 "is er" = "sudah datang"

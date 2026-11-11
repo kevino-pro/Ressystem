@@ -10,20 +10,20 @@ Het personeel (medewerkers) gebruikt de pagina's op een **telefoon**, de beheerd
 
 Gemeten op een testkopie met 12 reserveringen op één dag, op 390 px breed (BEWIJS):
 
-| Wat | Voor | Na |
-|---|---|---|
-| Menu | 173 px hoog: 3 rijen met tot 11 items (beheerder) | 95 px: naam, knop Menu en twee hoofdpagina's |
-| Eerste reservering op de pagina Reserveringen | pas op 756 px (bijna een heel scherm scrollen) | op 468 px (na fase 1 en 2) |
-| Reserveringen, paginalengte | 3122 px | 2450 px |
-| Plattegrond op telefoon | de **hele pagina** was 694 px breed en schoof zijwaarts; 18 tijdknoppen in 5 rijen; tafels van 33 px om op te tikken | pagina past in 390 px; tijden in één strook; tafelknoppen van 52 px in een vaste balk |
-| Formulier telefonische reservering | 11 velden, 1329 px, vrij tijdveld zonder te zien of er plek is | binnenloper 560 px; telefonisch 811 px gemeten vóór personen en tijd naast elkaar kwamen te staan, dus nu korter; plus een zin met de ruimte tijdens het invullen |
+| Wat                                           | Voor                                                                                                                       | Na                                                                                                                                                                  |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Menu                                          | 173 px hoog: 3 rijen met tot 11 items (beheerder)                                                                          | 95 px: naam, knop Menu en twee hoofdpagina's                                                                                                                        |
+| Eerste reservering op de pagina Reserveringen | pas op 756 px (bijna een heel scherm scrollen)                                                                             | op 468 px (na fase 1 en 2)                                                                                                                                          |
+| Reserveringen, paginalengte                   | 3122 px                                                                                                                    | 2450 px                                                                                                                                                             |
+| Plattegrond op telefoon                       | de **hele pagina** was 694 px breed en schoof zijwaarts; 18 tijdknoppen in 5 rijen; tafels van 33 px om op te tikken | pagina past in 390 px; tijden in één strook; tafelknoppen van 52 px in een vaste balk                                                                             |
+| Formulier telefonische reservering            | 11 velden, 1329 px, vrij tijdveld zonder te zien of er plek is                                                             | binnenloper 560 px; telefonisch 811 px gemeten vóór personen en tijd naast elkaar kwamen te staan, dus nu korter; plus een zin met de ruimte tijdens het invullen |
 
-| Fase | Inhoud | Tests daarna (bij main op 3375575: 614) |
-|---|---|---|
-| 1 | Menu: op een telefoon alleen Reserveringen en Plattegrond, de rest onder Menu | 623 (+9) |
-| 2 | Reserveringsoverzicht compacter op een telefoon | 628 (+5) |
-| 3 | Plattegrond op een telefoon: tijdenstrook, tafelknoppen in een vaste balk, geen zijwaarts schuivende pagina | 636 (+8) |
-| 4 | Invoerformulier: minder velden vooraf en direct zien of er plek is (nieuwe hulproute `/reservering/ruimte`) | 650 (+14) |
+| Fase | Inhoud                                                                                                        | Tests daarna (bij main op 3375575: 614) |
+| ---- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | Menu: op een telefoon alleen Reserveringen en Plattegrond, de rest onder Menu                                 | 623 (+9)                                |
+| 2    | Reserveringsoverzicht compacter op een telefoon                                                               | 628 (+5)                                |
+| 3    | Plattegrond op een telefoon: tijdenstrook, tafelknoppen in een vaste balk, geen zijwaarts schuivende pagina   | 636 (+8)                                |
+| 4    | Invoerformulier: minder velden vooraf en direct zien of er plek is (nieuwe hulproute `/reservering/ruimte`) | 650 (+14)                               |
 
 De fases bouwen op elkaar voort (fase 3 gebruikt een klasse uit fase 2): voer ze in volgorde uit.
 
@@ -622,7 +622,6 @@ if __name__ == "__main__":
  "is er" = "sudah datang"
 ````
 
-
 ## Bijlage 2: bestanden van fase 2 (Overzicht op telefoon)
 
 #### Nieuwe bestanden en bestanden die je helemaal vervangt
@@ -777,7 +776,6 @@ if __name__ == "__main__":
                  <summary aria-label="{{ t('Meer acties') }}">⋯</summary>
 ````
 
-
 ## Bijlage 3: bestanden van fase 3 (Plattegrond op telefoon)
 
 #### Nieuwe bestanden en bestanden die je helemaal vervangt
@@ -853,7 +851,7 @@ class PlattegrondTelefoonTests(unittest.TestCase):
 
     def test_tijdbalk_toont_de_gekozen_tijd(self):
         _, html = self.pagina("?datum=2030-01-01&tijd=19:30")
-        self.assertIn('class="pil aan" href="/plattegrond?datum=2030-01-01&amp;tijd=19:30"', html)
+        self.assertIn('class="pil aan" href="/plattegrond?datum=2030-01-01&tijd=19:30"', html)
 
     def test_meldingen_nooit_als_html(self):
         _, html = self.pagina()
@@ -1032,7 +1030,6 @@ if __name__ == "__main__":
          actief = null;
          gekozen = new Set();
 ````
-
 
 ## Bijlage 4: bestanden van fase 4 (Invoerformulier)
 
@@ -1432,4 +1429,3 @@ if __name__ == "__main__":
  # plattegrond.html
  "is er" = "sudah datang"
 ````
-
