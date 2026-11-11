@@ -324,6 +324,27 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .dagnav input[type=search] { flex: 1; width: auto; min-width: 0; }
     .indeling, .indeling.cijfers { grid-template-columns: 1fr; }
 }
+/* Personeel op een telefoon: de reserveringen eerst, niet de knoppen en tellers. Bellen kan met het nummer, mailen met Mail. */
+@media (max-width: 700px) {
+    .alleen-breed { display: none; }
+    .dagnav { gap: 8px; margin-bottom: 12px; }
+    .dagnav h2 { font-size: 22px; margin-right: 0; }
+    .dagnav .pil, .dagnav input[type=date] { min-height: 36px; }
+    .tellers { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .teller { padding: 8px 10px; border-radius: 12px; }
+    .teller small { display: block; font-size: 11px; line-height: 1.25; }
+    .teller b { font-size: 19px; margin-top: 2px; }
+    .teller .balk { height: 4px; margin-top: 5px; }
+    .lijst { padding: 0 12px 4px; }
+    .tijdkop { padding: 12px 0 6px; }
+    .res { grid-template-columns: 40px 1fr auto; column-gap: 10px; row-gap: 6px; padding: 10px 0; }
+    .res .wie { grid-column: 2; grid-row: 1; }
+    .res .tafel { grid-column: 3; grid-row: 1; align-self: start; justify-self: end; }
+    .res .acties { grid-column: 2 / -1; grid-row: 2; }
+    .res .wie .mailtekst, .res .wie .scheiding, .acties .bel { display: none; }
+    .res .wie .tel { display: inline-block; padding: 4px 0; font-size: 14px; color: var(--tekst); }
+    .res .wie small { margin-top: 0; }
+}
 @media (max-width: 480px) {
     .kaart { padding: 18px; }
     .logo h1 { font-size: 24px; }
