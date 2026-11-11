@@ -285,6 +285,8 @@
 "Reserveringsformulier" = "Booking form"
 "Uitloggen" = "Log out"
 "Menu" = "Menu"
+"Meer gegevens" = "More details"
+"Rond {tijd} is er plek; er blijven {vrij} van {maximum} plekken vrij." = "There is room around {tijd}; {vrij} of {maximum} seats stay free."
 
 # plattegrond.html
 "is er" = "arrived"

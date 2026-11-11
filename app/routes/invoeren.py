@@ -8,7 +8,10 @@ restaurant die dag gesloten, dan toont de pagina eerst een waarschuwing. Pas na 
 wordt de reservering bewaard. Er wordt nooit iets geblokkeerd behalve een dag in het verleden,
 een ongeldig veld of een dubbele boeking.
 """
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from datetime import date, time
+from types import SimpleNamespace
+
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
@@ -55,6 +58,38 @@ def _waarschuwingen(regels, gegevens):
         lijst.append(t("Er zijn dan {nodig} kinderstoelen nodig; het restaurant heeft er {aantal}.",
                        nodig=stoelen + gegevens.kinderstoelen, aantal=regels.kinderstoelen))
     return lijst
+
+
+def _ruimtetekst(regels, dag, tijdstip, aantal, kinderstoelen):
+    """
+    De zin onder het formulier: past deze groep, of wat het personeel anders moet weten. Dezelfde controle als
+    bij het opslaan (_waarschuwingen); geeft (tekst, let_op) terug en bewaart niets.
+    """
+    waarschuwingen = _waarschuwingen(regels, SimpleNamespace(datum=dag, tijd=tijdstip, aantal=aantal, kinderstoelen=kinderstoelen))
+    if waarschuwingen:
+        return " ".join(waarschuwingen), True
+    gasten, _ = drukte_bij(get_db(), dag.isoformat(), tijdstip.strftime("%H:%M"), regels.zitduur_minuten)
+    return t("Rond {tijd} is er plek; er blijven {vrij} van {maximum} plekken vrij.", tijd=tijdstip.strftime("%H:%M"),
+             vrij=regels.max_gasten_tegelijk - gasten - aantal, maximum=regels.max_gasten_tegelijk), False
+
+
+@invoeren_bp.route('/ruimte', methods=['GET'])
+@login_vereist(json_response=True)
+@rate_limit('personeel-ruimte', 120, 600, json_response=True)
+def ruimte():
+    """Hulp voor het formulier: is er plek op deze dag en tijd? GET /reservering/ruimte?datum=...&tijd=...&aantal=..."""
+    regels = current_app.config['REGELS']
+    try:
+        dag = date.fromisoformat(request.args.get('datum', ''))
+        tijdstip = time.fromisoformat(request.args.get('tijd', ''))
+        aantal = int(request.args.get('aantal', ''))
+        kinderstoelen = int(request.args.get('kinderstoelen') or 0)
+    except ValueError:
+        return jsonify({"status": "fout"}), 400
+    if not 1 <= aantal <= MAX_PERSONEN_PERSONEEL or not 0 <= kinderstoelen <= 20:
+        return jsonify({"status": "fout"}), 400
+    tekst, let_op = _ruimtetekst(regels, dag, tijdstip, aantal, kinderstoelen)
+    return jsonify({"status": "succes", "tekst": tekst, "let_op": let_op})
 
 
 @invoeren_bp.route('/nieuw', methods=['GET'])
