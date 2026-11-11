@@ -29,17 +29,21 @@
 
         <fieldset class="stap">
             <legend>{{ t("Welke dag?") }}</legend>
-            <div class="keuzes dagen" id="dagen">
+            <div class="dagrij" id="dagen">
                 {% for d in dagen %}
                 <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
-                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
+                    <small>{{ t('Vandaag') if loop.first else (t('Morgen') if loop.index == 2 else d.dag | dag_kort) }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
                 </button>
                 {% endfor %}
+                <button type="button" class="keuze" id="andere" aria-pressed="false">
+                    <span id="andere-leeg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+                        <small>{{ t("Andere dag") }}</small>
+                    </span>
+                    <span id="andere-gekozen" hidden><small id="andere-dag"></small><b id="andere-nr"></b><small id="andere-maand"></small></span>
+                </button>
             </div>
-            <p class="klein" style="margin-top: 8px">
-                <label for="datum" style="display: inline">{{ t("Andere datum?") }}</label>
-                <input type="date" id="datum" min="{{ vandaag }}" max="{{ laatste }}" style="width: auto; height: 34px; margin-left: 6px">
-            </p>
+            <input type="date" id="datum" class="datumveld" min="{{ vandaag }}" max="{{ laatste }}" aria-label="{{ t('Andere datum?') }}">
         </fieldset>
 
         <fieldset class="stap">
@@ -145,6 +149,7 @@
     const submitBtn = document.getElementById('submitBtn');
     const datumVeld = document.getElementById('datum');
     const aantalVeld = document.getElementById('aantal');
+    const andere = document.getElementById('andere');
     let verzoek = 0;  // alleen het laatste antwoord van /beschikbaarheid telt
     let bezig = false;
 
@@ -254,10 +259,23 @@
         }
     }
 
+    // De knop "Andere dag" toont de gekozen datum als die niet bij de dagen ernaast hoort.
+    function toonAndere(iso) {
+        document.getElementById('andere-leeg').hidden = !!iso;
+        document.getElementById('andere-gekozen').hidden = !iso;
+        if (!iso) { return; }
+        const d = new Date(iso + 'T12:00:00');
+        const taal = document.documentElement.lang;
+        document.getElementById('andere-dag').textContent = d.toLocaleDateString(taal, { weekday: 'short' });
+        document.getElementById('andere-nr').textContent = d.getDate();
+        document.getElementById('andere-maand').textContent = d.toLocaleDateString(taal, { month: 'short' });
+    }
+
     function kiesDatum(iso, knop) {
         keuze.datum = iso;
-        druk('dagen', knop);
-        if (knop) { datumVeld.value = ''; }
+        druk('dagen', knop || andere);
+        toonAndere(knop ? null : iso);
+        if (knop) { datumVeld.value = ''; } else { andere.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
         updateBalk();
         laadTijden();
     }
@@ -268,7 +286,16 @@
     });
     document.getElementById('dagen').addEventListener('click', function (e) {
         const knop = e.target.closest('.keuze');
-        if (knop && !knop.disabled) { kiesDatum(knop.dataset.datum, knop); }
+        if (!knop || knop.disabled) { return; }
+        if (knop === andere) {
+            if (typeof datumVeld.showPicker === 'function') {
+                try { datumVeld.showPicker(); return; } catch (fout) { /* dan het gewone veld hieronder */ }
+            }
+            datumVeld.classList.add('zichtbaar');  // oudere browsers: toon het datumveld zelf
+            datumVeld.focus();
+            return;
+        }
+        kiesDatum(knop.dataset.datum, knop);
     });
     datumVeld.addEventListener('change', function () {
         if (!datumVeld.value) { return; }
@@ -286,7 +313,7 @@
     });
 
     // Begin met de eerste open dag.
-    const eerste = document.querySelector('#dagen .keuze:not(:disabled)');
+    const eerste = document.querySelector('#dagen .keuze[data-datum]:not(:disabled)');
     if (eerste) { kiesDatum(eerste.dataset.datum, eerste); } else { melding(T.kalender); }
 
     function fout(tekst) {

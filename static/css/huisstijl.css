@@ -287,6 +287,15 @@ details.meer .extra { margin-top: 14px; }
 .actiebalk .knop { width: auto; flex: none; min-width: 130px; max-width: 46%; min-height: 52px; padding: 0 12px; font-size: 14.5px;
                    line-height: 1.2; text-align: center; }
 footer.voet .personeel { opacity: .7; }
+fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt de fieldset mee met de dagstrook i.p.v. die te laten scrollen */
+.dagrij { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.dagrij::-webkit-scrollbar { display: none; }
+.dagrij .keuze { flex: 1 0 56px; min-height: 66px; scroll-snap-align: start; }
+.dagrij .keuze span { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.dagrij #andere svg { width: 20px; height: 20px; margin-bottom: 2px; }
+.datumveld { position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+.datumveld.zichtbaar { position: static; opacity: 1; pointer-events: auto; width: auto; height: 40px; margin-top: 8px; }
+@media (max-width: 480px) { .dagrij { margin: 0 -18px; padding: 2px 18px 8px; } .dagrij .keuze { flex: none; width: 66px; } }
 @media (max-width: 480px) { .actiebalk { gap: 10px; margin-left: -18px; margin-right: -18px; padding-left: 18px; padding-right: 18px; } }
 
 @media (max-width: 700px) {
