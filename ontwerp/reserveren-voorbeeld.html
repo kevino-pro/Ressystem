@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reserveren (ontwerpvoorbeeld)</title>
+<style>
+/* Kopie van static/css/huisstijl.css zodat dit voorbeeld los werkt */
+/* Huisstijl voor alle pagina's. De accentkleur en de achtergrondfoto komen per restaurant uit
+   [huisstijl] in het restaurantbestand (zie templates/basis.html); de rest is voor elk restaurant gelijk. */
+:root {
+    --accent: #d9a441;
+    --accent-tekst: #1a1306;
+    --kaart: rgba(20, 16, 12, .88);
+    --lijn: rgba(255, 255, 255, .12);
+    --tekst: #f4ede2;
+    --zacht: #c9bba6;
+    --veld: rgba(255, 255, 255, .06);
+    --rood: #e57373;
+    --groen: #7bc47f;
+    --kop-font: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+* { box-sizing: border-box; margin: 0; }
+body {
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px; color: var(--tekst); background: #120d09;
+    min-height: 100vh; position: relative; display: flex; flex-direction: column;
+}
+body.personeel { background: #100c09; }
+a { color: var(--accent); }
+.verborgen, [hidden] { display: none !important; }
+
+/* Achtergrond: foto als die is ingesteld, anders een warme gloed. Altijd een donkere laag erover. */
+.foto {
+    position: absolute; inset: 0; overflow: hidden; z-index: 0;
+    background:
+        radial-gradient(ellipse at 20% 30%, #5a3a1c 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, #6b2f1a 0%, transparent 50%),
+        #120d09;
+    background-size: cover; background-position: center;
+}
+.foto::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10, 8, 6, .6), rgba(10, 8, 6, .88)); }
+
+.wrap { position: relative; z-index: 1; width: 100%; max-width: 620px; margin: 0 auto; padding: 28px 16px 40px; flex: 1; }
+.wrap.smal { max-width: 440px; }
+.wrap.breed { max-width: 1180px; padding-top: 20px; }
+
+/* Kop en voet */
+header.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
+.kop-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.talen { display: flex; gap: 2px; font-size: 12px; }
+.talen a { color: var(--zacht); text-decoration: none; padding: 4px 7px; border-radius: 6px; }
+.talen a.aan { color: var(--accent); font-weight: 600; }
+.logo { text-decoration: none; }
+.logo h1 { font-family: var(--kop-font); font-size: 28px; font-weight: 700; color: var(--accent); }
+.logo p { font-size: 13px; color: var(--zacht); margin-top: 4px; }
+footer.voet { position: relative; z-index: 1; text-align: center; font-size: 12px; color: var(--zacht); padding: 0 16px 28px; line-height: 1.7; }
+footer.voet a { color: var(--tekst); }
+nav.staf { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding-bottom: 18px; border-bottom: 1px solid var(--lijn); margin-bottom: 22px; }
+nav.staf .logo h1 { font-size: 21px; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tabs form { display: inline; }
+
+/* Bouwstenen */
+.kaart { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 18px; padding: 28px;
+         backdrop-filter: blur(8px); box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+.sub { color: var(--zacht); margin-top: 6px; line-height: 1.55; }
+.klein { font-size: 12.5px; color: var(--zacht); line-height: 1.6; }
+.pil { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12.5px; color: var(--zacht);
+       text-decoration: none; border: 1px solid var(--lijn); padding: 7px 12px; border-radius: 999px;
+       background: transparent; cursor: pointer; white-space: nowrap; }
+.pil:hover { color: var(--tekst); border-color: rgba(255, 255, 255, .3); }
+.pil.aan { color: var(--accent-tekst); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.knop { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 50px; padding: 0 16px;
+        border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-tekst);
+        font: inherit; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.knop:hover { filter: brightness(1.07); }
+.knop:disabled { opacity: .5; cursor: default; }
+.knop.rand { background: transparent; border: 1px solid var(--lijn); color: var(--tekst); font-weight: 500; }
+.knop.rood { background: #c0473f; color: #fff; }
+.knop.klein { min-height: 42px; font-size: 14px; }
+.knoppen { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Formulieren */
+.veld { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; color: var(--zacht); margin-bottom: 5px; }
+input[type=text], input[type=email], input[type=tel], input[type=password], input[type=date], input[type=search], input[type=number], input[type=time], select, textarea {
+    width: 100%; height: 44px; border-radius: 10px; border: 1px solid var(--lijn); background: var(--veld);
+    padding: 0 12px; font: inherit; font-size: 14px; color: var(--tekst); color-scheme: dark; }
+input::placeholder { color: #8f8676; }
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.twee { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.akkoord { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--zacht); margin: 4px 0 16px; cursor: pointer; }
+.akkoord input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); flex: none; }
+.melding { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 16px 0; }
+.melding.fout { background: rgba(229, 115, 115, .12); border: 1px solid rgba(229, 115, 115, .45); color: #f2b8b8; }
+.melding.ok { background: rgba(123, 196, 127, .12); border: 1px solid rgba(123, 196, 127, .45); color: #bfe3c1; }
+.wachtwoord { position: relative; }
+.wachtwoord button { position: absolute; right: 8px; top: 8px; height: 28px; border: 0; background: transparent; color: var(--zacht); font: inherit; font-size: 12px; cursor: pointer; }
+
+/* Gegevensrijen (bevestiging, annuleren) */
+.details { border: 1px solid var(--lijn); border-radius: 14px; padding: 4px 18px; margin: 22px 0; }
+.details.goud { background: rgba(217, 164, 65, .08); border-color: rgba(217, 164, 65, .3); }
+.rij { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--lijn); }
+.rij:last-child { border-bottom: 0; }
+.rij span:first-child { color: var(--zacht); }
+.rij b { font-weight: 600; text-align: right; }
+/* Wijzig of annuleer: wijzigen en annuleren als losse delen onder elkaar */
+.deel { border-top: 1px solid var(--lijn); padding-top: 22px; margin-top: 22px; }
+.deelkop { margin-bottom: 14px; }
+.vink { width: 58px; height: 58px; border-radius: 50%; background: rgba(123, 196, 127, .15); border: 1px solid rgba(123, 196, 127, .5);
+        display: grid; place-items: center; color: var(--groen); font-size: 28px; margin-bottom: 16px; }
+
+/* Reserveringsformulier */
+.info { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--zacht); margin: 8px 0 22px; }
+.info b { color: var(--tekst); font-weight: 600; }
+.stap { margin-bottom: 22px; border: 0; padding: 0; }
+.stap legend, .stap h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0; }
+.stap .nr { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-tekst);
+            display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+.keuzes { display: grid; gap: 8px; }
+.keuzes.personen { grid-template-columns: repeat(8, minmax(0, 56px)); }
+.keuzes.dagen { grid-template-columns: repeat(7, 1fr); }
+.keuzes.tijden { grid-template-columns: repeat(4, 1fr); margin-bottom: 10px; }
+.keuze { min-height: 44px; border-radius: 10px; border: 1px solid var(--lijn); background: var(--veld); color: var(--tekst);
+         font: inherit; font-size: 14.5px; font-weight: 500; cursor: pointer; display: flex; flex-direction: column;
+         align-items: center; justify-content: center; line-height: 1.25; padding: 4px 2px; }
+.keuze:hover:not(:disabled) { border-color: rgba(255, 255, 255, .35); }
+.keuze small { font-size: 10.5px; color: var(--zacht); font-weight: 400; }
+.keuze b { font-size: 17px; }
+.keuze[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-tekst); font-weight: 700; }
+.keuze[aria-pressed=true] small { color: var(--accent-tekst); }
+.keuze:disabled { opacity: .38; cursor: default; }
+.keuze.bijna { border-color: rgba(217, 164, 65, .6); }
+.keuze.bijna small { color: var(--accent); }
+.groep { font-size: 11.5px; color: var(--zacht); margin: 4px 0 8px; text-transform: uppercase; letter-spacing: .6px; }
+.leeg { color: var(--zacht); font-size: 13px; padding: 10px 0; }
+.samenvatting { background: rgba(217, 164, 65, .1); border: 1px solid rgba(217, 164, 65, .35); border-radius: 12px;
+                padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
+.samenvatting small { display: block; color: var(--zacht); font-size: 12px; margin-top: 2px; }
+
+/* Privacy */
+.tekst h3 { margin: 28px 0 8px; }
+.tekst p, .tekst li { line-height: 1.7; color: #e3d9c9; }
+.tekst ul { padding-left: 18px; }
+.verwerkers { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 8px; }
+.verwerkers th { text-align: left; color: var(--zacht); font-weight: 500; font-size: 12px; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--lijn); }
+.verwerkers td { padding: 11px 8px 11px 0; border-bottom: 1px solid var(--lijn); vertical-align: top; }
+
+/* Personeel: overzicht */
+.dagnav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.dagnav h2 { font-size: 24px; margin-right: 8px; }
+.dagnav form { display: flex; gap: 8px; align-items: center; }
+.dagnav input[type=date] { height: 34px; width: auto; border-radius: 999px; font-size: 12.5px; }
+.dagnav form.zoek { margin-left: auto; }
+.dagnav input[type=search] { height: 34px; width: 220px; border-radius: 999px; font-size: 12.5px; padding: 0 14px; }
+.res.zoek { grid-template-columns: 44px 1fr; }
+.tijdkop a { margin-left: auto; font-size: 12.5px; }
+.datumkop { flex-wrap: wrap; row-gap: 2px; }
+.datumkop span, .datumkop a { white-space: nowrap; }
+.tellers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+.teller { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 14px; padding: 14px 16px; }
+.teller small { color: var(--zacht); font-size: 12px; }
+.teller b { display: block; font-size: 24px; margin-top: 4px; }
+.teller.let b { color: var(--accent); }
+.balk { height: 6px; border-radius: 3px; background: var(--veld); margin-top: 8px; overflow: hidden; }
+.balk i { display: block; height: 100%; background: var(--accent); }
+.lijst { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 16px; padding: 6px 18px 10px; }
+.tijdkop { display: flex; align-items: baseline; gap: 12px; padding: 16px 0 8px; border-bottom: 1px solid var(--lijn); }
+.tijdkop b { font-size: 18px; color: var(--accent); }
+.tijdkop span { color: var(--zacht); font-size: 12.5px; }
+.res { display: grid; grid-template-columns: 44px 1fr 160px auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.res:last-child { border-bottom: 0; }
+.aantal { width: 40px; height: 40px; border-radius: 10px; background: var(--veld); border: 1px solid var(--lijn); display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+.wie b { font-weight: 600; font-size: 15px; }
+.wie small { display: block; color: var(--zacht); font-size: 12.5px; margin-top: 3px; }
+.wie small a { color: var(--zacht); }
+.extra { margin-top: 14px; display: grid; gap: 12px; }
+.extra-kop { font-size: 13px; color: var(--tekst); }
+.extra-kop small { color: var(--zacht); }
+textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical; font: inherit; line-height: 1.4; }
+.extra .veld:has(select) { max-width: 180px; }
+.notities { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.notitie { font-size: 11.5px; color: var(--tekst); background: rgba(217, 164, 65, .12); border: 1px solid rgba(217, 164, 65, .35); border-radius: 999px; padding: 2px 9px; }
+.notitie.allergie { background: rgba(224, 108, 92, .14); border-color: rgba(224, 108, 92, .5); }
+.notitie.gewijzigd { background: rgba(110, 168, 230, .14); border-color: rgba(110, 168, 230, .5); }
+.klein-akkoord { margin: 8px 0 0; font-size: 12px; }
+.notitie.tekst { border-radius: 8px; white-space: normal; overflow-wrap: anywhere; }
+.label { margin-left: 8px; font-size: 11px; color: var(--zacht); border: 1px solid var(--lijn); border-radius: 999px; padding: 2px 8px; }
+.tafel { font-size: 13px; font-weight: 600; }
+.tafel.leeg { color: var(--accent); font-weight: 500; text-decoration: none; border: 1px dashed rgba(217, 164, 65, .6); border-radius: 8px; padding: 6px 10px; justify-self: start; }
+.acties { display: flex; gap: 6px; align-items: center; }
+.acties > a, .acties summary, .acties .status button { font-size: 12px; color: var(--zacht); border: 1px solid var(--lijn); border-radius: 8px; padding: 6px 10px; text-decoration: none; cursor: pointer; list-style: none; }
+.acties summary::-webkit-details-marker { display: none; }
+.acties .status { display: flex; gap: 6px; }
+.acties .status button { background: none; font-family: inherit; }
+.acties .status button[value="gearriveerd"] { color: var(--groen); border-color: var(--groen); }
+.res.aangekomen, .res.noshow { opacity: .55; }
+.res.noshow .wie > b { text-decoration: line-through; }
+.acties details { position: relative; }
+.acties details[open] .menu { display: block; }
+.menu { display: none; position: absolute; right: 0; top: 36px; z-index: 5; background: #1d1813; border: 1px solid var(--lijn); border-radius: 10px; padding: 6px; min-width: 180px; }
+.menu button { width: 100%; text-align: left; background: transparent; border: 0; color: var(--rood); font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.menu button:hover { background: rgba(229, 115, 115, .1); }
+
+/* Personeel: plattegrond */
+.tijdbalk { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.tijdbalk > small { color: var(--zacht); margin-right: 6px; }
+.tijdbalk .pil { padding: 6px 11px; }
+.tijdbalk .nu { border-color: var(--groen); color: var(--groen); }
+.indeling { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
+.paneel { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 16px; padding: 18px; }
+.vloer { overflow-x: auto; }
+.vloer svg { width: 100%; min-width: 640px; display: block; }
+.vloer .tafel { cursor: pointer; }
+.legenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--zacht); align-items: center; }
+.legenda i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; border: 1.5px solid rgba(255, 255, 255, .25); }
+.legenda .bezet { background: rgba(217, 164, 65, .22); border-color: var(--accent); }
+.legenda .straks { border: 1.5px dashed var(--accent); }
+.legenda .keuze-kleur { background: var(--groen); border-color: var(--groen); }
+.legenda .nog-niet { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 0; }
+.niet-gekomen { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 12px; margin-bottom: 4px; list-style: none; opacity: .55; }
+.niet-gekomen b { font-size: 13.5px; font-weight: 600; text-decoration: line-through; }
+.niet-gekomen small { color: var(--zacht); font-size: 12px; }
+.niet-gekomen .p { font-size: 12.5px; color: var(--zacht); text-align: right; }
+.legenda span:last-child { margin-left: auto; }
+.paneel .kop { font-size: 11.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--zacht); margin: 16px 0 6px; }
+.reservering { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; margin-bottom: 4px; cursor: pointer; list-style: none; }
+.reservering:hover { border-color: var(--lijn); }
+.reservering b { font-size: 13.5px; font-weight: 600; }
+.reservering small { color: var(--zacht); font-size: 12px; }
+.reservering .p { font-size: 12.5px; color: var(--zacht); text-align: right; }
+.reservering.nu-aan-tafel { background: rgba(217, 164, 65, .08); }
+.reservering.actief { border-color: var(--groen); background: rgba(123, 196, 127, .08); }
+.reservering.zonder-tafel small { color: var(--accent); }
+#reserveringen { padding: 0; list-style: none; }
+
+/* Personeel: accounts */
+.paneel-smal { max-width: 460px; }
+/* Cijfers (alleen beheerder) */
+.indeling.cijfers { grid-template-columns: 1fr 360px; }
+.cijfertabel { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 8px; }
+.cijfertabel th { text-align: right; font-weight: 500; color: var(--zacht); font-size: 12px; padding: 6px 4px; }
+.cijfertabel td { text-align: right; padding: 8px 4px; border-top: 1px solid var(--lijn); }
+.cijfertabel th:first-child, .cijfertabel td:first-child { text-align: left; }
+.cijfertabel tr.later td { color: var(--zacht); }
+.cijfertabel tr.vandaag td:first-child a { color: var(--accent); }
+.cijfertabel tfoot td { font-weight: 600; }
+.tussenkop { margin-top: 22px; }
+.staven { list-style: none; padding: 0; margin: 10px 0 0; }
+.staven li { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; font-size: 12.5px; padding: 3px 0; }
+.staven.smal li { grid-template-columns: 82px 1fr 36px; }
+.staven li span { color: var(--zacht); }
+.staven li.aan span { color: var(--accent); }
+.staven li b { text-align: right; font-weight: 600; }
+.staven .balk { margin-top: 0; }
+.accountlijst { list-style: none; padding: 0; margin-top: 12px; }
+.account { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.account:last-child { border-bottom: 0; }
+.account.uit .wie b { color: var(--zacht); text-decoration: line-through; }
+.account .wie small { display: block; color: var(--zacht); font-size: 12px; }
+.account form { margin: 0; }
+.account details { grid-column: 1 / -1; }
+.account summary { font-size: 12px; color: var(--zacht); cursor: pointer; }
+.account details form { display: flex; gap: 8px; margin-top: 8px; }
+.account details input { flex: 1; min-width: 0; }
+
+@media (max-width: 700px) {
+    .tellers { grid-template-columns: 1fr 1fr; }
+    .res { grid-template-columns: 40px 1fr; row-gap: 8px; }
+    .res .tafel, .res .acties { grid-column: 2; }
+    .dagnav h2 { width: 100%; }
+    .dagnav form.zoek { margin-left: 0; width: 100%; }
+    .dagnav input[type=search] { flex: 1; width: auto; min-width: 0; }
+    .indeling, .indeling.cijfers { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .kaart { padding: 18px; }
+    .logo h1 { font-size: 24px; }
+    .twee { grid-template-columns: 1fr; }
+    .keuzes.personen { grid-template-columns: repeat(8, 1fr); gap: 5px; }
+    .keuzes.dagen { gap: 5px; }
+    .keuzes.tijden { gap: 6px; }
+    .keuze b { font-size: 15px; }
+}
+
+</style>
+<style>
+    :root { --accent: #d9a441; --accent-tekst: #1a1306; }
+
+    /* Alleen voor dit voorbeeld */
+    .demo { position: relative; z-index: 2; text-align: center; font-size: 12px; padding: 7px 12px;
+            background: #2a2116; color: var(--zacht); border-bottom: 1px solid var(--lijn); }
+
+    /* Nieuw in dit ontwerp */
+    .kaart h2 { font-size: 22px; }
+    .intro { color: var(--zacht); font-size: 13px; margin-top: 6px; }
+    .blok { margin-top: 22px; }
+    .blok > .kop { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;
+                   font-size: 13px; font-weight: 600; }
+    .blok > .kop small { font-weight: 400; color: var(--zacht); font-size: 12px; }
+    .blok > .kop small a { color: var(--zacht); }
+
+    .select { position: relative; }
+    .select select { appearance: none; -webkit-appearance: none; padding-right: 38px; font-size: 15px; font-weight: 500; }
+    .select::after { content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; margin-top: -6px;
+                     border-right: 2px solid var(--zacht); border-bottom: 2px solid var(--zacht); transform: rotate(45deg); pointer-events: none; }
+
+    .dagrij { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scroll-snap-type: x proximity;
+              scrollbar-width: none; }
+    .dagrij::-webkit-scrollbar { display: none; }
+    .dag { flex: none; width: 66px; min-height: 66px; scroll-snap-align: start; }
+    .dag b { font-size: 18px; }
+    .dag.andere { width: 78px; }
+    .dag.andere svg { width: 20px; height: 20px; margin-bottom: 2px; }
+    #datumVeld { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+
+    .tijdraster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .tijdraster .keuze { min-height: 46px; }
+    .meld { color: var(--zacht); font-size: 13px; padding: 14px 0; }
+
+    .veld input.ongeldig, .veld textarea.ongeldig { border-color: var(--rood); }
+    .fout-tekst { color: #f2b8b8; font-size: 12px; margin-top: 5px; }
+    .hint { color: var(--zacht); font-size: 12px; margin-top: 5px; }
+
+    details.meer { margin-top: 4px; border-top: 1px solid var(--lijn); padding-top: 14px; }
+    details.meer > summary { cursor: pointer; list-style: none; color: var(--accent); font-size: 13.5px; font-weight: 500; }
+    details.meer > summary::-webkit-details-marker { display: none; }
+    details.meer > summary::before { content: "+ "; }
+    details.meer[open] > summary::before { content: "\2212  "; }
+    details.meer > summary small { color: var(--zacht); font-weight: 400; }
+    details.meer .inhoud { margin-top: 14px; display: grid; gap: 12px; }
+    details.meer .veld { margin-bottom: 0; }
+
+    .actiebalk { position: sticky; bottom: 0; margin: 22px -18px 0; padding: 14px 18px 12px;
+                 background: linear-gradient(to top, rgba(20, 16, 12, .98) 70%, rgba(20, 16, 12, 0)); }
+    .actiebalk { display: flex; align-items: center; gap: 14px; }
+    .actiebalk .samen { flex: 1; min-width: 0; line-height: 1.3; }
+    .actiebalk .samen b { display: block; font-size: 14.5px; }
+    .actiebalk .samen small { color: var(--zacht); font-size: 12px; }
+    .actiebalk .knop { width: auto; flex: none; min-width: 140px; min-height: 52px; font-size: 15.5px; }
+    .actiebalk .knop:disabled { filter: saturate(.4); }
+    .juridisch { text-align: center; font-size: 12px; color: var(--zacht); line-height: 1.55; margin-top: 10px; }
+
+    .voet .personeel { opacity: .7; }
+    @media (min-width: 481px) { .actiebalk { margin: 22px -28px 0; padding: 14px 28px 12px; } }
+    @media (max-width: 480px) { .dagrij { margin: 0 -18px; padding: 2px 18px 8px; } }
+</style>
+</head>
+<body class="gast">
+<div class="demo">Ontwerpvoorbeeld met nepgegevens: er wordt niets opgeslagen of verstuurd.</div>
+<div class="foto" aria-hidden="true"></div>
+<div class="wrap">
+    <header class="top">
+        <a class="logo" href="#">
+            <h1>Waroeng Padang Lapek</h1>
+            <p>Schoolstraat 35, Den Haag</p>
+        </a>
+        <div class="kop-rechts">
+            <nav class="talen" aria-label="Taal">
+                <a href="#" lang="nl" class="aan" aria-current="true">NL</a>
+                <a href="#" lang="en">EN</a>
+                <a href="#" lang="id">ID</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+    <div class="kaart" id="kaart">
+        <h2>Reserveer een tafel</h2>
+        <p class="intro">Tafel voor 1 uur &middot; bevestiging direct per e-mail</p>
+
+        <form id="form" novalidate>
+            <div class="blok">
+                <div class="kop"><label for="aantal">Aantal personen</label>
+                    <small>Meer dan 15? <a href="tel:0612345678">Bel 06 12345678</a></small></div>
+                <div class="select"><select id="aantal"></select></div>
+            </div>
+
+            <div class="blok" role="group" aria-labelledby="dag-kop">
+                <div class="kop"><span id="dag-kop">Dag</span></div>
+                <div class="dagrij" id="dagen"></div>
+                <input type="date" id="datumVeld" tabindex="-1" aria-hidden="true">
+            </div>
+
+            <div class="blok" role="group" aria-labelledby="tijd-kop">
+                <div class="kop"><span id="tijd-kop">Tijd</span></div>
+                <div id="tijden" aria-live="polite"></div>
+            </div>
+
+            <div class="blok">
+                <div class="kop"><span>Jouw gegevens</span></div>
+                <div class="veld">
+                    <label for="naam">Naam</label>
+                    <input type="text" id="naam" autocomplete="name" maxlength="100">
+                </div>
+                <div class="veld">
+                    <label for="email">E-mailadres</label>
+                    <input type="email" id="email" autocomplete="email" inputmode="email">
+                </div>
+                <div class="veld">
+                    <label for="telefoon">Telefoonnummer</label>
+                    <input type="tel" id="telefoon" autocomplete="tel" inputmode="tel" maxlength="20">
+                    <p class="hint">Alleen voor als we je moeten bereiken over je reservering.</p>
+                </div>
+
+                <details class="meer">
+                    <summary>Kinderstoel, allergie of opmerking <small>(niet verplicht)</small></summary>
+                    <div class="inhoud">
+                        <div class="veld" style="max-width: 200px">
+                            <label for="kinderstoelen">Kinderstoelen</label>
+                            <div class="select"><select id="kinderstoelen"><option>Geen</option><option>1</option><option>2</option></select></div>
+                        </div>
+                        <div class="veld">
+                            <label for="allergieen">Allergie&euml;n</label>
+                            <input type="text" id="allergieen" maxlength="200" autocomplete="off" placeholder="Bijvoorbeeld: pinda, gluten">
+                            <label class="akkoord klein-akkoord" id="allergieAkkoord" hidden style="margin-top: 10px">
+                                <input type="checkbox" id="allergieToestemming">
+                                <span>Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het, en we wissen het de dag na mijn bezoek.</span>
+                            </label>
+                            <p class="fout-tekst" id="fout-allergie" role="alert" hidden></p>
+                        </div>
+                        <div class="veld">
+                            <label for="opmerking">Opmerking</label>
+                            <textarea id="opmerking" rows="2" maxlength="300" placeholder="Bijvoorbeeld: we vieren een verjaardag"></textarea>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="actiebalk">
+                <div class="samen" id="samen" aria-live="polite"><b>Kies een tijd</b><small>om te reserveren</small></div>
+                <button type="submit" class="knop" id="cta" disabled>Reserveren</button>
+            </div>
+            <p class="juridisch">Door te reserveren ga je akkoord met onze <a href="#">privacyverklaring</a>.
+                Wijzigen of annuleren kan altijd via de link in je mail.</p>
+        </form>
+    </div>
+    </main>
+</div>
+<footer class="voet">
+    &copy; Waroeng Padang Lapek
+    &middot; <a href="#">info@restaurant.nl</a>
+    &middot; <a href="tel:0612345678">06 12345678</a>
+    &middot; <a href="#">Privacy</a>
+    &middot; <a href="#" class="personeel">Personeel</a>
+</footer>
+
+<script>
+(function () {
+    // ---- nepgegevens: openingstijden en beschikbaarheid zoals in wpl.toml, maar verzonnen ----
+    var DAGNAMEN = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
+    var DAGEN_LANG = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+    var MAANDEN = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    var MAX_PERSONEN = 15, VOORUIT_MIN = 60;
+    var keuze = { aantal: 2, datum: null, tijd: null };
+
+    function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function naarDatum(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2], 12); }
+    function kort(s) { var d = naarDatum(s); return DAGNAMEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()]; }
+    function hash(t) { var h = 7; for (var i = 0; i < t.length; i++) { h = (h * 31 + t.charCodeAt(i)) >>> 0; } return h; }
+
+    function tijdenVoor(datum) {
+        var d = naarDatum(datum);
+        if (d.getDay() === 1) { return []; }                       // maandag dicht
+        var lijst = [], nu = new Date(), grens = nu.getTime() + VOORUIT_MIN * 60000;
+        for (var m = 12 * 60; m <= 20 * 60; m += 30) {
+            var s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(m / 60), m % 60);
+            if (s.getTime() < grens) { continue; }
+            lijst.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'));
+        }
+        return lijst;
+    }
+    function vrij(datum, tijd) {
+        var uur = +tijd.slice(0, 2), piek = (uur >= 18 && uur <= 19) ? 16 : 0;
+        return Math.max(0, (hash(datum + tijd) % 48) - piek);
+    }
+
+    // ---- aantal ----
+    var aantalVeld = document.getElementById('aantal');
+    for (var n = 1; n <= MAX_PERSONEN; n++) {
+        var o = document.createElement('option'); o.value = n; o.textContent = n + (n === 1 ? ' persoon' : ' personen');
+        if (n === 2) { o.selected = true; }
+        aantalVeld.append(o);
+    }
+    aantalVeld.addEventListener('change', function () { keuze.aantal = +aantalVeld.value; tekenTijden(); updateCta(); });
+
+    // ---- dagen ----
+    var dagenVak = document.getElementById('dagen'), datumVeld = document.getElementById('datumVeld');
+    var vandaag = new Date(); vandaag.setHours(12, 0, 0, 0);
+    var strip = [];
+    for (var i = 0; i < 7; i++) { var dd = new Date(vandaag); dd.setDate(vandaag.getDate() + i); strip.push(iso(dd)); }
+    datumVeld.min = strip[0];
+    var eind = new Date(vandaag); eind.setDate(eind.getDate() + 90); datumVeld.max = iso(eind);
+    var eigenDatum = null;
+
+    function tekenDagen() {
+        dagenVak.replaceChildren();
+        strip.forEach(function (s, i) {
+            var d = naarDatum(s), open = tijdenVoor(s).length > 0;
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'keuze dag'; b.dataset.datum = s;
+            b.setAttribute('aria-pressed', String(keuze.datum === s));
+            if (!open) { b.disabled = true; }
+            var top = i === 0 ? 'Vandaag' : (i === 1 ? 'Morgen' : DAGNAMEN[d.getDay()]);
+            b.innerHTML = '<small>' + top + '</small><b>' + d.getDate() + '</b><small>' + (open ? MAANDEN[d.getMonth()] : 'gesloten') + '</small>';
+            dagenVak.append(b);
+        });
+        var a = document.createElement('button'); a.type = 'button'; a.className = 'keuze dag andere'; a.id = 'andere';
+        var gekozen = eigenDatum && keuze.datum === eigenDatum;
+        a.setAttribute('aria-pressed', String(!!gekozen));
+        a.innerHTML = gekozen
+            ? '<small>' + DAGNAMEN[naarDatum(eigenDatum).getDay()] + '</small><b>' + naarDatum(eigenDatum).getDate() + '</b><small>' + MAANDEN[naarDatum(eigenDatum).getMonth()] + '</small>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><small>Andere dag</small>';
+        dagenVak.append(a);
+    }
+    dagenVak.addEventListener('click', function (e) {
+        var k = e.target.closest('.keuze'); if (!k || k.disabled) { return; }
+        if (k.id === 'andere') { try { datumVeld.showPicker(); } catch (x) { datumVeld.focus(); datumVeld.click(); } return; }
+        kiesDatum(k.dataset.datum);
+    });
+    datumVeld.addEventListener('change', function () {
+        if (!datumVeld.value) { return; }
+        eigenDatum = strip.indexOf(datumVeld.value) === -1 ? datumVeld.value : null;
+        kiesDatum(datumVeld.value);
+    });
+    function kiesDatum(s) { keuze.datum = s; tekenDagen(); tekenTijden(); updateCta(); }
+
+    // ---- tijden ----
+    var tijdenVak = document.getElementById('tijden');
+    function tekenTijden() {
+        tijdenVak.replaceChildren();
+        var lijst = keuze.datum ? tijdenVoor(keuze.datum) : [];
+        if (!lijst.length) {
+            tijdenVak.innerHTML = '<p class="meld">' + (keuze.datum ? 'Op deze dag kun je niet online reserveren. Kies een andere dag.' : 'Kies eerst een dag.') + '</p>';
+            keuze.tijd = null; return;
+        }
+        var data = lijst.map(function (t) { return { t: t, v: vrij(keuze.datum, t) }; });
+        if (!data.some(function (x) { return x.t === keuze.tijd && x.v >= keuze.aantal; })) { keuze.tijd = null; }
+        [['Lunch', function (t) { return t < '16:00'; }], ['Diner', function (t) { return t >= '16:00'; }]].forEach(function (g) {
+            var deel = data.filter(function (x) { return g[1](x.t); });
+            if (!deel.length) { return; }
+            var kop = document.createElement('div'); kop.className = 'groep'; kop.textContent = g[0]; tijdenVak.append(kop);
+            var raster = document.createElement('div'); raster.className = 'tijdraster';
+            deel.forEach(function (x) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'keuze'; b.dataset.tijd = x.t; b.textContent = x.t;
+                b.setAttribute('aria-pressed', String(x.t === keuze.tijd));
+                if (x.v < keuze.aantal) { b.disabled = true; b.append(Object.assign(document.createElement('small'), { textContent: 'Vol' })); }
+                else if (x.v <= 10) { b.classList.add('bijna'); b.append(Object.assign(document.createElement('small'), { textContent: 'Nog ' + x.v })); }
+                raster.append(b);
+            });
+            tijdenVak.append(raster);
+        });
+        if (!data.some(function (x) { return x.v >= keuze.aantal; })) {
+            tijdenVak.insertAdjacentHTML('beforeend', '<p class="meld">Deze dag is vol voor ' + keuze.aantal + ' personen. Kies een andere dag of bel ons.</p>');
+        }
+    }
+    tijdenVak.addEventListener('click', function (e) {
+        var k = e.target.closest('.keuze'); if (!k || k.disabled) { return; }
+        keuze.tijd = k.dataset.tijd;
+        tijdenVak.querySelectorAll('.keuze').forEach(function (x) { x.setAttribute('aria-pressed', String(x === k)); });
+        updateCta();
+    });
+
+    // ---- knop met samenvatting ----
+    var cta = document.getElementById('cta'), samen = document.getElementById('samen');
+    function updateCta() {
+        samen.replaceChildren();
+        var b = document.createElement('b'), s = document.createElement('small');
+        if (!keuze.datum || !keuze.tijd) {
+            cta.disabled = true; b.textContent = 'Kies een tijd'; s.textContent = 'om te reserveren';
+        } else {
+            cta.disabled = false;
+            b.textContent = kort(keuze.datum) + ' · ' + keuze.tijd;
+            s.textContent = keuze.aantal + (keuze.aantal === 1 ? ' persoon' : ' personen') + ' · tafel voor 1 uur';
+        }
+        samen.append(b, s);
+    }
+
+    // ---- allergie: toestemming pas zichtbaar als er iets staat ----
+    var allergie = document.getElementById('allergieen'), akkoord = document.getElementById('allergieAkkoord');
+    allergie.addEventListener('input', function () {
+        akkoord.hidden = allergie.value.trim() === '';
+        if (akkoord.hidden) { document.getElementById('allergieToestemming').checked = false; }
+    });
+
+    // ---- controle per veld, bij verlaten en bij versturen ----
+    var regels = {
+        naam: function (v) { return v.trim().length >= 2 && /[A-Za-zÀ-ɏ]/.test(v) ? '' : 'Vul je naam in.'; },
+        email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Vul een geldig e-mailadres in.'; },
+        telefoon: function (v) {
+            var c = v.replace(/\D/g, '').length;
+            return /^\+?[0-9][0-9 \-]*$/.test(v.trim()) && c >= 9 && c <= 15 ? '' : 'Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678.';
+        }
+    };
+    function toon(id, tekst) {
+        var veld = document.getElementById(id), oud = document.getElementById('fout-' + id);
+        if (oud) { oud.remove(); }
+        veld.classList.toggle('ongeldig', !!tekst); veld.setAttribute('aria-invalid', tekst ? 'true' : 'false');
+        if (tekst) {
+            var p = document.createElement('p'); p.className = 'fout-tekst'; p.id = 'fout-' + id; p.setAttribute('role', 'alert'); p.textContent = tekst;
+            veld.insertAdjacentElement('afterend', p);
+        }
+        return !tekst;
+    }
+    Object.keys(regels).forEach(function (id) {
+        document.getElementById(id).addEventListener('blur', function () { if (this.value !== '') { toon(id, regels[id](this.value)); } });
+        document.getElementById(id).addEventListener('input', function () { if (this.classList.contains('ongeldig')) { toon(id, regels[id](this.value)); } });
+    });
+
+    // ---- versturen (nep) ----
+    document.getElementById('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var eerste = null;
+        Object.keys(regels).forEach(function (id) {
+            if (!toon(id, regels[id](document.getElementById(id).value)) && !eerste) { eerste = document.getElementById(id); }
+        });
+        var af = document.getElementById('fout-allergie');
+        af.hidden = true;
+        if (allergie.value.trim() && !document.getElementById('allergieToestemming').checked) {
+            af.textContent = 'Geef toestemming of laat het veld leeg.'; af.hidden = false;
+            document.querySelector('details.meer').open = true; if (!eerste) { eerste = allergie; }
+        }
+        if (eerste) { eerste.focus(); return; }
+        var voornaam = document.getElementById('naam').value.trim().split(/\s+/)[0];
+        var d = naarDatum(keuze.datum), uur = +keuze.tijd.slice(0, 2), min = keuze.tijd.slice(3);
+        var eindT = String((uur + 1) % 24).padStart(2, '0') + ':' + min;
+        var kaart = document.getElementById('kaart');
+        var mailadres = document.getElementById('email').value;  // eerst lezen: het formulier verdwijnt hieronder
+        var html = (
+            '<div class="vink" aria-hidden="true">✓</div>' +
+            '<h2>Je tafel staat klaar, ' + voornaam.replace(/[<>&"]/g, '') + '!</h2>' +
+            '<p class="sub">We hebben een bevestiging gestuurd naar <b>' + mailadres.replace(/[<>&"]/g, '') + '</b>. Geen mail gezien? Kijk even in je spam.</p>');
+        kaart.replaceChildren();
+        kaart.insertAdjacentHTML('beforeend', html +
+            '<div class="details goud">' +
+            '<div class="rij"><span>Datum</span><b>' + DAGEN_LANG[d.getDay()].replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()] + '</b></div>' +
+            '<div class="rij"><span>Tijd</span><b>' + keuze.tijd + ' – ' + eindT + '</b></div>' +
+            '<div class="rij"><span>Personen</span><b>' + keuze.aantal + '</b></div>' +
+            '<div class="rij"><span>Adres</span><b>Schoolstraat 35, 2511 AW Den Haag</b></div></div>' +
+            '<div class="knoppen" style="margin-bottom: 18px"><a class="knop rand" href="#">Zet in agenda</a><a class="knop rand" href="#">Route</a></div>' +
+            '<p class="klein">Kun je toch niet komen? Wijzig of annuleer via de link in je mail, of bel <a href="tel:0612345678">06 12345678</a>.</p>' +
+            '<p style="margin-top: 18px"><a href="">Nog een reservering maken (herlaad dit voorbeeld)</a></p>');
+        window.scrollTo(0, 0);
+    });
+
+    // Begin op de eerste dag waarop nog iets kan, niet blind op vandaag.
+    var eerste = strip.filter(function (s) { return tijdenVoor(s).length > 0; })[0];
+    tekenDagen(); if (eerste) { kiesDatum(eerste); } else { tekenTijden(); }
+    updateCta();
+})();
+</script>
+</body>
+</html>

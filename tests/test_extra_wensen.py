@@ -73,7 +73,8 @@ class FormulierTests(Basis):
     def test_velden_op_het_formulier(self):
         html = self.client.get("/").get_data(as_text=True)
         self.assertIn('<select id="kinderstoelen">', html)
-        self.assertEqual(html.count("<option value="), 3)  # Geen, 1, 2
+        kinderstoelen = html.split('<select id="kinderstoelen">')[1].split("</select>")[0]
+        self.assertEqual(kinderstoelen.count("<option value="), 3)  # Geen, 1, 2
         self.assertIn('<textarea id="opmerking"', html)
         self.assertIn('maxlength="300"', html)
 

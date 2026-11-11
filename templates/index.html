@@ -1,12 +1,8 @@
 {% extends "basis.html" %}
-{% block kop_rechts %}<a class="pil" href="/login">{{ t("Personeel") }}</a>{% endblock %}
 {% block inhoud %}
 <div class="kaart">
     <h2>{{ t("Reserveer een tafel") }}</h2>
-    <div class="info">
-        <span>{{ t("Tafel voor") }} <b>{{ zitduur_tekst }}</b></span>
-        <span>{{ t("Online tot") }} <b>{{ t("{aantal} personen", aantal=regels.max_personen_per_boeking) }}</b></span>
-    </div>
+    <p class="intro">{{ t("Tafel voor") }} {{ zitduur_tekst }} &middot; {{ t("Bevestiging direct per e-mail") }}</p>
 
     <form id="reserveringsForm" novalidate>
         <!-- HONEYPOT (anti-spam, onzichtbaar voor mensen) -->
@@ -15,17 +11,24 @@
             <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
         </div>
 
-        <fieldset class="stap">
-            <legend><span class="nr">1</span>{{ t("Met hoeveel personen?") }}</legend>
-            <div class="keuzes personen" id="personen">
-                {% for n in range(1, regels.max_personen_per_boeking + 1) %}
-                <button type="button" class="keuze" data-aantal="{{ n }}" aria-pressed="{{ 'true' if n == 2 else 'false' }}">{{ n }}</button>
-                {% endfor %}
+        <div class="stap">
+            <label class="kop-label" for="aantal">{{ t("Met hoeveel personen?") }}</label>
+            <div class="kiezer-select">
+                <select id="aantal">
+                    {% for n in range(1, regels.max_personen_per_boeking + 1) %}
+                    <option value="{{ n }}"{{ ' selected' if n == 2 }}>{{ n }} {{ t('persoon') if n == 1 else t('personen') }}</option>
+                    {% endfor %}
+                </select>
             </div>
-        </fieldset>
+            <p class="hint">
+                {{ t("Met meer dan {aantal} personen? Bel", aantal=regels.max_personen_per_boeking) }}
+                <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
+                {{ t("Dan kun je ook meteen vooraf bestellen.") }}
+            </p>
+        </div>
 
         <fieldset class="stap">
-            <legend><span class="nr">2</span>{{ t("Welke dag?") }}</legend>
+            <legend>{{ t("Welke dag?") }}</legend>
             <div class="keuzes dagen" id="dagen">
                 {% for d in dagen %}
                 <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
@@ -40,57 +43,64 @@
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">3</span>{{ t("Hoe laat?") }}</legend>
+            <legend>{{ t("Hoe laat?") }}</legend>
             <div id="tijden" aria-live="polite"><p class="leeg">{{ t("Kies eerst een dag.") }}</p></div>
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">4</span>{{ t("Je gegevens") }}</legend>
+            <legend>{{ t("Je gegevens") }}</legend>
             <div class="veld">
                 <label for="naam">{{ t("Naam") }}</label>
-                <input type="text" id="naam" required minlength="2" maxlength="100" autocomplete="name" placeholder="{{ t('Jan Jansen') }}">
+                <input type="text" id="naam" required minlength="2" maxlength="100" autocomplete="name">
+                <p class="fout-tekst" id="fout-naam" role="alert" hidden></p>
             </div>
             <div class="twee">
                 <div class="veld">
                     <label for="email">{{ t("E-mailadres") }}</label>
-                    <input type="email" id="email" required autocomplete="email" placeholder="{{ t('naam@voorbeeld.nl') }}">
+                    <input type="email" id="email" required autocomplete="email" inputmode="email">
+                    <p class="fout-tekst" id="fout-email" role="alert" hidden></p>
                 </div>
                 <div class="veld">
                     <label for="telefoon">{{ t("Telefoonnummer") }}</label>
-                    <input type="tel" id="telefoon" required minlength="9" maxlength="20" placeholder="06 12345678"
+                    <input type="tel" id="telefoon" required minlength="9" maxlength="20"
                            inputmode="tel" autocomplete="tel" pattern="\+?[0-9][0-9 \-]*"
                            title="{{ t('Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.') }}">
+                    <p class="fout-tekst" id="fout-telefoon" role="alert" hidden></p>
+                    <p class="hint">{{ t("Alleen voor als we je moeten bereiken over je reservering.") }}</p>
                 </div>
             </div>
-            <div class="extra">
-                <p class="extra-kop">{{ t("Nog iets dat we moeten weten?") }} <small>({{ t("niet verplicht") }})</small></p>
-                {% if regels.kinderstoelen %}
-                <div class="veld">
-                    <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
-                    <select id="kinderstoelen">
-                        {% for n in range(0, regels.kinderstoelen + 1) %}
-                        <option value="{{ n }}">{{ t('Geen') if n == 0 else n }}</option>
-                        {% endfor %}
-                    </select>
+            <details class="meer" id="meer">
+                <summary>{{ t("Nog iets dat we moeten weten?") }} <small>({{ t("niet verplicht") }})</small></summary>
+                <div class="extra">
+                    {% if regels.kinderstoelen %}
+                    <div class="veld">
+                        <label for="kinderstoelen">{{ t("Kinderstoelen") }}</label>
+                        <select id="kinderstoelen">
+                            {% for n in range(0, regels.kinderstoelen + 1) %}
+                            <option value="{{ n }}">{{ t('Geen') if n == 0 else n }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    {% if regels.vraag_allergieen %}
+                    <div class="veld">
+                        <label for="allergieen">{{ t("Allergieën") }}</label>
+                        <input type="text" id="allergieen" maxlength="200" autocomplete="off"
+                               placeholder="{{ t('Bijvoorbeeld: pinda, gluten') }}">
+                        <label class="akkoord klein-akkoord" id="allergie_akkoord" hidden>
+                            <input type="checkbox" id="allergie_toestemming">
+                            <span>{{ t("Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het, en we wissen het de dag na mijn bezoek.") }}</span>
+                        </label>
+                        <p class="fout-tekst" id="fout-allergie" role="alert" hidden></p>
+                    </div>
+                    {% endif %}
+                    <div class="veld">
+                        <label for="opmerking">{{ t("Opmerking") }}</label>
+                        <textarea id="opmerking" rows="2" maxlength="300"
+                                  placeholder="{{ t('Bijvoorbeeld: we vieren een verjaardag, of we bestellen graag vooraf') }}"></textarea>
+                    </div>
                 </div>
-                {% endif %}
-                {% if regels.vraag_allergieen %}
-                <div class="veld">
-                    <label for="allergieen">{{ t("Allergieën") }}</label>
-                    <input type="text" id="allergieen" maxlength="200" autocomplete="off"
-                           placeholder="{{ t('Bijvoorbeeld: pinda, gluten') }}">
-                    <label class="akkoord klein-akkoord" id="allergie_akkoord" hidden>
-                        <input type="checkbox" id="allergie_toestemming">
-                        <span>{{ t("Ik geef toestemming om deze allergie-informatie te bewaren. Alleen ons personeel ziet het, en we wissen het de dag na mijn bezoek.") }}</span>
-                    </label>
-                </div>
-                {% endif %}
-                <div class="veld">
-                    <label for="opmerking">{{ t("Opmerking") }}</label>
-                    <textarea id="opmerking" rows="2" maxlength="300"
-                              placeholder="{{ t('Bijvoorbeeld: we vieren een verjaardag, of we bestellen graag vooraf') }}"></textarea>
-                </div>
-            </div>
+            </details>
         </fieldset>
 
         <label class="akkoord">
@@ -100,13 +110,10 @@
         </label>
 
         <div id="alertBox" class="melding fout" role="alert" hidden></div>
-        <div id="samenvatting" class="samenvatting" hidden></div>
-        <button type="submit" id="submitBtn" class="knop">{{ t("Reservering bevestigen") }}</button>
-        <p class="klein" style="text-align: center; margin-top: 12px">
-            {{ t("Met meer dan {aantal} personen? Bel", aantal=regels.max_personen_per_boeking) }}
-            <a href="tel:{{ config.RESTAURANT_TELEFOON }}">{{ config.RESTAURANT_TELEFOON }}</a>.
-            {{ t("Dan kun je ook meteen vooraf bestellen.") }}
-        </p>
+        <div class="actiebalk">
+            <div class="samen" id="samen" aria-live="polite"><b>{{ t("Kies een tijd") }}</b></div>
+            <button type="submit" id="submitBtn" class="knop" disabled>{{ t("Reservering bevestigen") }}</button>
+        </div>
     </form>
 </div>
 {% endblock %}
@@ -115,28 +122,31 @@
 <script>
 (function () {
     const ZITDUUR = {{ regels.zitduur_minuten | int }};
-    const DAGEN = {{ dagnamen | tojson }};  // zondag eerst, zoals Date.getDay()
-    const MAANDEN = {{ maandnamen | tojson }};
     const T = {{ {
         'persoon': t('persoon'), 'personen': t('personen'), 'tot': t('tot'), 'lunch': t('Lunch'),
         'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'),
         'dag_vol': t('Deze dag is vol voor {aantal} personen. Kies een andere dag of bel ons.'),
         'laden': t('Tijden laden…'), 'laden_mislukt': t('Tijden laden lukte niet.'),
         'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'), 'kalender': t('Kies een datum in de kalender.'),
-        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'verwerken': t('Verwerken…'),
+        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'kies_tijd': t('Kies een tijd'), 'verwerken': t('Verwerken…'),
         'fout': t('Er is een fout opgetreden bij het verzenden.'),
         'netwerk': t('Netwerkfout: kan geen verbinding maken met de server.'),
         'bevestigen': t('Reservering bevestigen'),
+        'naam_fout': t('Vul je naam in.'), 'email_fout': t('Vul een geldig e-mailadres in.'),
+        'telefoon_fout': t('Vul een geldig telefoonnummer in, bijvoorbeeld 0612345678 of +31 6 12345678.'),
+        'allergie_fout': t('Vink aan dat we je allergie-informatie mogen bewaren, of laat het veld leeg. Je kunt het ook bij aankomst aan ons doorgeven.'),
     } | tojson }};
     const keuze = { aantal: 2, datum: null, tijd: null };
 
     const form = document.getElementById('reserveringsForm');
     const tijdenVak = document.getElementById('tijden');
     const alertBox = document.getElementById('alertBox');
-    const samenvatting = document.getElementById('samenvatting');
+    const samen = document.getElementById('samen');
     const submitBtn = document.getElementById('submitBtn');
     const datumVeld = document.getElementById('datum');
+    const aantalVeld = document.getElementById('aantal');
     let verzoek = 0;  // alleen het laatste antwoord van /beschikbaarheid telt
+    let bezig = false;
 
     function druk(groep, knop) {
         document.querySelectorAll('#' + groep + ' .keuze').forEach(function (k) {
@@ -144,10 +154,9 @@
         });
     }
 
-    function leesbareDatum(iso) {
-        const d = new Date(iso + 'T12:00:00');
-        const tekst = DAGEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()];
-        return tekst.charAt(0).toUpperCase() + tekst.slice(1);
+    // Kort, in de taal van de pagina: "wo 11 nov" / "Wed, 11 Nov" / "Rab, 11 Nov".
+    function korteDatum(iso) {
+        return new Date(iso + 'T12:00:00').toLocaleDateString(document.documentElement.lang, { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     function plus(tijd, minuten) {
@@ -156,23 +165,30 @@
         return String(Math.floor(totaal / 60)).padStart(2, '0') + ':' + String(totaal % 60).padStart(2, '0');
     }
 
-    function toonSamenvatting() {
-        if (!keuze.datum || !keuze.tijd) { samenvatting.hidden = true; return; }
-        samenvatting.replaceChildren();
+    // De vaste balk onderaan: wat je gekozen hebt, en de knop die pas aan gaat als er een tijd is.
+    function updateBalk() {
+        samen.replaceChildren();
         const regel = document.createElement('b');
-        regel.textContent = leesbareDatum(keuze.datum) + ' · ' + keuze.tijd;
-        const onder = document.createElement('small');
-        onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
-        samenvatting.append(regel, onder);
-        samenvatting.hidden = false;
+        if (!keuze.datum || !keuze.tijd) {
+            regel.textContent = T.kies_tijd;
+            samen.append(regel);
+        } else {
+            regel.textContent = korteDatum(keuze.datum) + ' · ' + keuze.tijd;
+            const onder = document.createElement('small');
+            onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
+            samen.append(regel, onder);
+        }
+        submitBtn.disabled = bezig || !keuze.datum || !keuze.tijd;
     }
 
     function melding(tekst) {
+        keuze.tijd = null;  // zonder tijden is er ook niets gekozen
         tijdenVak.replaceChildren();
         const p = document.createElement('p');
         p.className = 'leeg';
         p.textContent = tekst;
         tijdenVak.append(p);
+        updateBalk();
     }
 
     function tekenTijden(data) {
@@ -220,7 +236,7 @@
             p.textContent = T.dag_vol.replace('{aantal}', keuze.aantal);
             tijdenVak.append(p);
         }
-        toonSamenvatting();
+        updateBalk();
     }
 
     async function laadTijden() {
@@ -242,15 +258,12 @@
         keuze.datum = iso;
         druk('dagen', knop);
         if (knop) { datumVeld.value = ''; }
-        toonSamenvatting();
+        updateBalk();
         laadTijden();
     }
 
-    document.getElementById('personen').addEventListener('click', function (e) {
-        const knop = e.target.closest('.keuze');
-        if (!knop) { return; }
-        keuze.aantal = Number(knop.dataset.aantal);
-        druk('personen', knop);
+    aantalVeld.addEventListener('change', function () {
+        keuze.aantal = Number(aantalVeld.value);
         laadTijden();
     });
     document.getElementById('dagen').addEventListener('click', function (e) {
@@ -269,7 +282,7 @@
         tijdenVak.querySelectorAll('.keuze').forEach(function (k) {
             k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
         });
-        toonSamenvatting();
+        updateBalk();
     });
 
     // Begin met de eerste open dag.
@@ -281,6 +294,33 @@
         alertBox.hidden = false;
     }
 
+    // Een melding onder één veld; een lege tekst haalt de melding weg. Geeft true als het veld goed is.
+    function veldMelding(id, tekst) {
+        const veld = document.getElementById(id);
+        const plek = document.getElementById('fout-' + id);
+        if (!veld || !plek) { return !tekst; }
+        plek.textContent = tekst;  // textContent, zoals bij alle meldingen
+        plek.hidden = !tekst;
+        veld.classList.toggle('ongeldig', !!tekst);
+        veld.setAttribute('aria-invalid', tekst ? 'true' : 'false');
+        return !tekst;
+    }
+
+    // Dezelfde eisen als de server (app/schemas.py); de server blijft de baas.
+    const CONTROLES = {
+        naam: function (w) { return w.trim().length >= 2 && /\p{L}/u.test(w) ? '' : T.naam_fout; },
+        email: function (w) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(w.trim()) ? '' : T.email_fout; },
+        telefoon: function (w) {
+            const cijfers = w.replace(/\D/g, '').length;
+            return /^\+?[0-9][0-9 \-]*$/.test(w.trim()) && cijfers >= 9 && cijfers <= 15 ? '' : T.telefoon_fout;
+        }
+    };
+    Object.keys(CONTROLES).forEach(function (id) {
+        const veld = document.getElementById(id);
+        veld.addEventListener('blur', function () { if (veld.value !== '') { veldMelding(id, CONTROLES[id](veld.value)); } });
+        veld.addEventListener('input', function () { if (veld.classList.contains('ongeldig')) { veldMelding(id, CONTROLES[id](veld.value)); } });
+    });
+
     const kinderstoelVeld = document.getElementById('kinderstoelen');  // ontbreekt als het restaurant er geen heeft
     const allergieVeld = document.getElementById('allergieen');        // ontbreekt als het restaurant er niet naar vraagt
     if (allergieVeld) {
@@ -291,7 +331,7 @@
             const ingevuld = allergieVeld.value.trim() !== '';
             akkoord.hidden = !ingevuld;
             vinkje.required = ingevuld;
-            if (!ingevuld) { vinkje.checked = false; }
+            if (!ingevuld) { vinkje.checked = false; veldMelding('allergie', ''); }
         });
     }
 
@@ -299,9 +339,22 @@
         e.preventDefault();
         alertBox.hidden = true;
         if (!keuze.datum || !keuze.tijd) { fout(T.kies_dag_tijd); return; }
-        if (!form.reportValidity()) { return; }
 
-        submitBtn.disabled = true;
+        let eersteFout = null;
+        Object.keys(CONTROLES).forEach(function (id) {
+            const veld = document.getElementById(id);
+            if (!veldMelding(id, CONTROLES[id](veld.value)) && !eersteFout) { eersteFout = veld; }
+        });
+        if (allergieVeld && allergieVeld.value.trim() !== '' && !document.getElementById('allergie_toestemming').checked) {
+            veldMelding('allergie', T.allergie_fout);
+            document.getElementById('meer').open = true;
+            if (!eersteFout) { eersteFout = allergieVeld; }
+        }
+        if (eersteFout) { eersteFout.focus(); return; }
+        if (!form.reportValidity()) { return; }  // o.a. het vinkje voor de privacyverklaring
+
+        bezig = true;
+        updateBalk();
         submitBtn.textContent = T.verwerken;
         const payload = {
             naam: document.getElementById('naam').value.trim(),
@@ -332,12 +385,17 @@
                 return;
             }
             fout(result.bericht || T.fout);
+            (result.velden || []).forEach(function (id) {
+                const veld = document.getElementById(id);
+                if (veld && CONTROLES[id]) { veld.classList.add('ongeldig'); veld.setAttribute('aria-invalid', 'true'); }
+            });
             laadTijden();  // misschien is de tijd net vol geraakt
         } catch (err) {
             fout(T.netwerk);
         } finally {
-            submitBtn.disabled = false;
+            bezig = false;
             submitBtn.textContent = T.bevestigen;
+            updateBalk();
         }
     });
 })();

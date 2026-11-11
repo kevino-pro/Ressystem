@@ -1,3 +1,4 @@
+import re
 import unittest
 from datetime import timedelta
 
@@ -27,7 +28,7 @@ class FormulierTests(unittest.TestCase):
                       'id="tijden"', "/beschikbaarheid?datum=", "Reservering bevestigen"):
             with self.subTest(tekst=tekst):
                 self.assertIn(tekst, self.html)
-        self.assertEqual(self.html.count('class="keuze" data-aantal='), 8)
+        self.assertEqual(len(re.findall(r'<option value="\d+"', self.html.split('id="aantal"')[1].split("</select>")[0])), 8)
 
     def test_zeven_dagen_met_gesloten_maandag(self):
         self.assertEqual(self.html.count('class="keuze" data-datum='), 7)
