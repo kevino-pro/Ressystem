@@ -62,8 +62,8 @@ class CompactFormulierTests(unittest.TestCase):
         self.assertIn("Met meer dan 8 personen? Bel", self.html)
         self.assertNotIn("Online tot", self.html)
 
-    def test_privacyvinkje_blijft_in_deze_fase(self):
-        self.assertIn('id="privacy_akkoord"', self.html)
+    def test_geen_privacyvinkje_meer(self):
+        self.assertNotIn('id="privacy_akkoord"', self.html)
 
 
 class MeertaligFormulierTests(unittest.TestCase):
