@@ -5,11 +5,14 @@
 <div class="wrap breed">
     <nav class="staf">
         <a class="logo" href="/overzicht"><h1>{{ config.RESTAURANT_NAAM }}</h1></a>
+        <button type="button" class="pil menuknop" id="menuknop" aria-expanded="false" aria-controls="menu">{{ t("Menu") }}</button>
         <div class="tabs">
             <a class="pil {{ 'aan' if actief == 'overzicht' }}" href="/overzicht{{ '?datum=' ~ datum if datum }}">{{ t("Reserveringen") }}</a>
             {% if config.PLATTEGROND %}
             <a class="pil {{ 'aan' if actief == 'plattegrond' }}" href="/plattegrond{{ '?datum=' ~ datum if datum }}">{{ t("Plattegrond") }}</a>
             {% endif %}
+            {# Op een telefoon staat de rest onder de knop Menu; vanaf 700 px staat alles naast elkaar. #}
+            <div class="menu-lijst" id="menu">
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">{{ t("Medewerkers") }}</a>
             <a class="pil {{ 'aan' if actief == 'cijfers' }}" href="/cijfers">{{ t("Cijfers") }}</a>
@@ -30,8 +33,18 @@
                 {% endfor %}
             </nav>
             {% endif %}
+            </div>
         </div>
     </nav>
+    <script>
+    (function () {
+        const knop = document.getElementById('menuknop');
+        const menu = document.getElementById('menu');
+        function zet(open) { menu.classList.toggle('open', open); knop.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        knop.addEventListener('click', function () { zet(!menu.classList.contains('open')); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { zet(false); } });
+    })();
+    </script>
     <main>
         {% block inhoud %}{% endblock %}
     </main>
