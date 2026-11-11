@@ -53,6 +53,10 @@ nav.staf { display: flex; justify-content: space-between; align-items: center; g
 nav.staf .logo h1 { font-size: 21px; }
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .tabs form { display: inline; }
+/* Personeelsmenu: vanaf 700 px staat alles in een rij; op een telefoon alleen de twee hoofdpagina's, de rest onder Menu. */
+/* nav.staf ervoor: .pil (verderop) zet display anders weer aan */
+nav.staf .menuknop { display: none; cursor: pointer; }
+.menu-lijst { display: contents; }
 
 /* Bouwstenen */
 .kaart { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 18px; padding: 28px;
@@ -302,6 +306,16 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
 @media (max-width: 480px) { .actiebalk { gap: 10px; margin-left: -18px; margin-right: -18px; padding-left: 18px; padding-right: 18px; } }
 
 @media (max-width: 700px) {
+    nav.staf { gap: 10px; padding-bottom: 14px; margin-bottom: 16px; }
+    nav.staf .logo { flex: 1; min-width: 0; }
+    nav.staf .menuknop { display: inline-flex; min-height: 38px; padding: 0 14px; }
+    nav.staf .tabs { flex-basis: 100%; }
+    .menu-lijst { display: none; flex-basis: 100%; flex-direction: column; align-items: stretch; gap: 6px;
+                  margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--lijn); }
+    .menu-lijst.open { display: flex; }
+    .menu-lijst > .pil, .menu-lijst > form .pil { min-height: 44px; width: 100%; justify-content: flex-start; padding: 0 14px; font-size: 14px; }
+    .menu-lijst > form { display: block; }
+    .menu-lijst .talen { padding: 4px 0 2px; }
     .tellers { grid-template-columns: 1fr 1fr; }
     .res { grid-template-columns: 40px 1fr; row-gap: 8px; }
     .res .tafel, .res .acties { grid-column: 2; }
