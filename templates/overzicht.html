@@ -3,9 +3,9 @@
 {% block inhoud %}
 <div class="dagnav">
     <h2>{{ dag | datum_tekst(met_jaar=dag.year != vandaag.year) | hoofdletter }}</h2>
-    <a class="pil" href="/overzicht?datum={{ vorige }}">‹ {{ t("Vorige dag") }}</a>
+    <a class="pil" href="/overzicht?datum={{ vorige }}" aria-label="{{ t('Vorige dag') }}">‹<span class="alleen-breed"> {{ t("Vorige dag") }}</span></a>
     <a class="pil {{ 'aan' if dag == vandaag }}" href="/overzicht">{{ t("Vandaag") }}</a>
-    <a class="pil" href="/overzicht?datum={{ volgende }}">{{ t("Volgende dag") }} ›</a>
+    <a class="pil" href="/overzicht?datum={{ volgende }}" aria-label="{{ t('Volgende dag') }}"><span class="alleen-breed">{{ t("Volgende dag") }} </span>›</a>
     <form action="/overzicht" method="GET">
         <label for="datum" class="verborgen">{{ t("Kies datum") }}</label>
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
@@ -51,7 +51,7 @@
         <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
         <div class="wie">
             <b>{{ r.naam }}</b>
-            <small>{% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %} · {% endif %}{% if r.email %}<a href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
+            <small>{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %}<span class="scheiding"> · </span>{% endif %}{% if r.email %}<a class="mailtekst" href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
             {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' or r.herinnering_verstuurd or r.gewijzigd_op %}
             <div class="notities">
                 {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
@@ -85,8 +85,8 @@
                 {% endif %}
             </form>
             {% endif %}
-            {% if r.telefoon %}<a href="tel:{{ r.telefoon }}">{{ t("Bel") }}</a>{% endif %}
-            {% if r.email %}<a href="mailto:{{ r.email }}">{{ t("Mail") }}</a>{% endif %}
+            {% if r.telefoon %}<a class="bel" href="tel:{{ r.telefoon }}">{{ t("Bel") }}</a>{% endif %}
+            {% if r.email %}<a class="mail" href="mailto:{{ r.email }}">{{ t("Mail") }}</a>{% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <details>
                 <summary aria-label="{{ t('Meer acties') }}">⋯</summary>
