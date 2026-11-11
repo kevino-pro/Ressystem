@@ -6,9 +6,9 @@
 {% macro kenmerken_tekst(r) %}{% if r.status == 'gearriveerd' %} · {{ t("is er") }}{% elif dag == vandaag and r.tijd <= nu_tijd %} · {{ t("nog niet binnen") }}{% endif %}{% if r.bron == 'binnenloper' %} · {{ t("binnenloper") }}{% elif r.bron == 'telefoon' %} · {{ t("telefonisch") }}{% endif %}{% if r.allergieen %} · {{ t("allergie") }}{% endif %}{% if r.kinderstoelen %} · {{ t('{aantal} kinderstoel', aantal=r.kinderstoelen) if r.kinderstoelen == 1 else t('{aantal} kinderstoelen', aantal=r.kinderstoelen) }}{% endif %}{% if r.opmerking %} · {{ t("opmerking") }}{% endif %}{% endmacro %}
 <div class="dagnav">
     <h2>{{ dag | datum_tekst(met_jaar=dag.year != vandaag.year) | hoofdletter }}</h2>
-    <a class="pil" href="/plattegrond?datum={{ vorige }}">‹ {{ t("Vorige dag") }}</a>
+    <a class="pil" href="/plattegrond?datum={{ vorige }}" aria-label="{{ t('Vorige dag') }}">‹<span class="alleen-breed"> {{ t("Vorige dag") }}</span></a>
     <a class="pil {{ 'aan' if dag == vandaag }}" href="/plattegrond">{{ t("Vandaag") }}</a>
-    <a class="pil" href="/plattegrond?datum={{ volgende }}">{{ t("Volgende dag") }} ›</a>
+    <a class="pil" href="/plattegrond?datum={{ volgende }}" aria-label="{{ t('Volgende dag') }}"><span class="alleen-breed">{{ t("Volgende dag") }} </span>›</a>
     <form action="/plattegrond" method="GET">
         <label for="datum" class="verborgen">{{ t("Kies datum") }}</label>
         <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
@@ -54,7 +54,7 @@
             {% set b = t.breedte * hokje - 8 %}{% set h = t.hoogte * hokje - 8 %}
             {% set vulling = accent ~ '38' if gast else 'rgba(255,255,255,.06)' %}
             {% set rand = accent if gast or later else 'rgba(255,255,255,.28)' %}
-            <g class="tafel" data-tafel="{{ t.nummer }}" data-stoelen="{{ t.stoelen }}">
+            <g class="tafel" data-tafel="{{ t.nummer }}" data-stoelen="{{ t.stoelen }}" data-bezet="{{ kenmerken[gast.id] if gast else '' }}">
                 <title>{{ _t('Tafel {nummer}, {stoelen} stoelen', nummer=t.nummer, stoelen=t.stoelen) }}{% if gast %}, {{ gast.naam }} ({{ gast.aantal }} p., {{ gast.tijd }}){% elif later %}, {{ _t('vanaf {tijd}', tijd=later.tijd) }} {{ later.naam }}{% endif %}</title>
                 {% if t.vorm == "rond" %}
                 <ellipse cx="{{ x + b / 2 }}" cy="{{ y + h / 2 }}" rx="{{ b / 2 }}" ry="{{ h / 2 }}"
@@ -110,11 +110,12 @@
             {% endfor %}
             {% if not reserveringen and not niet_gekomen %}<li class="leeg">{{ t("Geen reserveringen op deze dag.") }}</li>{% endif %}
         </ul>
-        <div id="toewijzen" hidden style="margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px">
+        <div id="toewijzen" class="toewijzen" hidden>
             <p><b id="toewijzen-titel"></b></p>
             <p class="klein">{{ t("Tik op tafels om ze aan of uit te zetten.") }}</p>
-            <p id="toewijzen-keuze" style="margin-top: 4px; font-size: 13px"></p>
-            <p id="toewijzen-melding" role="alert" style="color: var(--rood); margin-top: 4px; font-size: 13px"></p>
+            <div class="tafelkeuze" id="tafelkeuze" role="group" aria-label="{{ t('Tafel') }}"></div>
+            <p id="toewijzen-keuze" class="toewijzen-keuze"></p>
+            <p id="toewijzen-melding" class="toewijzen-melding" role="alert"></p>
             <div class="knoppen" style="margin-top: 10px">
                 <button type="button" id="toewijzen-opslaan" class="knop klein">{{ t("Tafels opslaan") }}</button>
                 <button type="button" id="toewijzen-annuleren" class="knop klein rand">{{ t("Annuleren") }}</button>
@@ -142,10 +143,33 @@
     const keuze = document.getElementById('toewijzen-keuze');
     const melding = document.getElementById('toewijzen-melding');
     const opslaan = document.getElementById('toewijzen-opslaan');
+    const tafelkeuze = document.getElementById('tafelkeuze');
+    const tafels = {};      // tafelnummer -> het element op de tekening
     let actief = null;      // het <li> van de gekozen reservering
     let gekozen = new Set();  // tafelnummers
 
     function vorm(tafel) { return tafel.querySelector('rect, ellipse'); }
+
+    // Tafelknoppen: op een telefoon zijn de tafeltjes op de tekening te klein om op te tikken.
+    // De knoppen doen hetzelfde als tikken op de tekening en laten tafels die nu bezet zijn niet toe.
+    function wissel(nummer) {
+        if (gekozen.has(nummer)) { gekozen.delete(nummer); } else { gekozen.add(nummer); }
+        teken();
+    }
+    document.querySelectorAll('#plattegrond .tafel').forEach(function (tafel) {
+        const knop = document.createElement('button');
+        knop.type = 'button';
+        knop.className = 'tafelknop';
+        knop.dataset.tafel = tafel.dataset.tafel;
+        const nummer = document.createElement('b');
+        nummer.textContent = tafel.dataset.tafel;
+        const stoelen = document.createElement('small');
+        stoelen.textContent = tafel.dataset.stoelen;
+        knop.append(nummer, stoelen);
+        knop.addEventListener('click', function () { wissel(tafel.dataset.tafel); });
+        tafelkeuze.append(knop);
+        tafels[tafel.dataset.tafel] = tafel;
+    });
 
     function teken() {
         let stoelen = 0;
@@ -160,6 +184,12 @@
         document.querySelectorAll('#reserveringen .reservering').forEach(function (li) {
             li.classList.toggle('actief', li === actief);
         });
+        tafelkeuze.querySelectorAll('.tafelknop').forEach(function (knop) {
+            const bezetDoor = tafels[knop.dataset.tafel].dataset.bezet;
+            knop.setAttribute('aria-pressed', gekozen.has(knop.dataset.tafel) ? 'true' : 'false');
+            knop.disabled = !actief || (bezetDoor !== '' && bezetDoor !== actief.dataset.kenmerk);  // bezet door een andere reservering
+        });
+        document.body.classList.toggle('toewijzen-open', !!actief);
         if (!actief) { paneel.hidden = true; return; }
         paneel.hidden = false;
         const lijst = Array.from(gekozen);
@@ -179,9 +209,7 @@
         tafel.style.cursor = 'pointer';
         tafel.addEventListener('click', function () {
             if (!actief) { melding.textContent = ''; return; }
-            const nummer = tafel.dataset.tafel;
-            if (gekozen.has(nummer)) { gekozen.delete(nummer); } else { gekozen.add(nummer); }
-            teken();
+            wissel(tafel.dataset.tafel);
         });
     });
 
@@ -195,6 +223,12 @@
             teken();
         });
     });
+
+    // Op een telefoon is de tijdenbalk een strook: laat de gekozen tijd zien.
+    const gekozenTijd = document.querySelector('.tijdbalk .aan');
+    if (gekozenTijd) { gekozenTijd.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+
+    teken();  // zet de tafelknoppen in de beginstand
 
     document.getElementById('toewijzen-annuleren').addEventListener('click', function () {
         actief = null;
