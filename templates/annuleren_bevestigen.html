@@ -24,41 +24,50 @@
         <input type="hidden" name="datum" id="veld_datum" value="{{ keuze.datum }}">
         <input type="hidden" name="tijd" id="veld_tijd" value="{{ keuze.tijd }}">
 
-        <fieldset class="stap">
-            <legend><span class="nr">1</span>{{ t("Met hoeveel personen?") }}</legend>
-            <div class="keuzes personen" id="personen">
-                {% for n in range(1, regels.max_personen_per_boeking + 1) %}
-                <button type="button" class="keuze" data-aantal="{{ n }}" aria-pressed="{{ 'true' if n == keuze.aantal else 'false' }}">{{ n }}</button>
-                {% endfor %}
+        <div class="stap">
+            <label class="kop-label" for="aantal">{{ t("Met hoeveel personen?") }}</label>
+            <div class="kiezer-select">
+                <select id="aantal">
+                    {% for n in range(1, regels.max_personen_per_boeking + 1) %}
+                    <option value="{{ n }}"{{ ' selected' if n == keuze.aantal }}>{{ n }} {{ t('persoon') if n == 1 else t('personen') }}</option>
+                    {% endfor %}
+                </select>
             </div>
-        </fieldset>
+        </div>
 
         <fieldset class="stap">
-            <legend><span class="nr">2</span>{{ t("Welke dag?") }}</legend>
-            <div class="keuzes dagen" id="dagen">
+            <legend>{{ t("Welke dag?") }}</legend>
+            <div class="dagrij" id="dagen">
                 {% for d in dagen %}
                 <button type="button" class="keuze" data-datum="{{ d.datum }}" aria-pressed="false" {{ 'disabled' if not d.open }}>
-                    <small>{{ d.dag | dag_kort }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
+                    <small>{{ t('Vandaag') if loop.first else (t('Morgen') if loop.index == 2 else d.dag | dag_kort) }}</small><b>{{ d.dag.day }}</b><small>{{ t('dicht') if not d.open else d.dag | maand_kort }}</small>
                 </button>
                 {% endfor %}
+                <div class="andere-wrap">
+                    <button type="button" class="keuze" id="andere" aria-pressed="false" tabindex="-1">
+                        <span id="andere-leeg">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+                            <small>{{ t("Andere dag") }}</small>
+                        </span>
+                        <span id="andere-gekozen" hidden><small id="andere-dag"></small><b id="andere-nr"></b><small id="andere-maand"></small></span>
+                    </button>
+                    {# Het echte datumveld ligt onzichtbaar over de knop: een tik opent de kalender, ook op iPhone. #}
+                    <input type="date" id="datum" class="datumveld" min="{{ vandaag }}" max="{{ laatste }}" aria-label="{{ t('Andere datum?') }}">
+                </div>
             </div>
-            <p class="klein" style="margin-top: 8px">
-                <label for="datum" style="display: inline">{{ t("Andere datum?") }}</label>
-                <input type="date" id="datum" min="{{ vandaag }}" max="{{ laatste }}" style="width: auto; height: 34px; margin-left: 6px">
-            </p>
         </fieldset>
 
         <fieldset class="stap">
-            <legend><span class="nr">3</span>{{ t("Hoe laat?") }}</legend>
+            <legend>{{ t("Hoe laat?") }}</legend>
             <div id="tijden" aria-live="polite"><p class="leeg">{{ t("Kies eerst een dag.") }}</p></div>
         </fieldset>
 
         <div id="alertBox" class="melding fout" role="alert" {{ '' if fout else 'hidden' }}>{{ fout or '' }}</div>
-        <div id="samenvatting" class="samenvatting" hidden></div>
-        <button type="submit" id="submitBtn" class="knop">{{ t("Wijziging opslaan") }}</button>
-        <p class="klein" style="margin-top: 10px">
-            {{ t("Wijzigen kan tot {duur} van tevoren.", duur=wijzigen_tot) }}
-        </p>
+        <div class="actiebalk">
+            <div class="samen" id="samen" aria-live="polite"><b>{{ t("Nog niets veranderd") }}</b></div>
+            <button type="submit" id="submitBtn" class="knop" disabled>{{ t("Wijziging opslaan") }}</button>
+        </div>
+        <p class="juridisch">{{ t("Wijzigen kan tot {duur} van tevoren.", duur=wijzigen_tot) }}</p>
     </form>
     {% endif %}
 
@@ -81,30 +90,31 @@
 {% if not niet_wijzigen %}
 <script>
 (function () {
-    // Dezelfde knoppen als op het reserveringsformulier (index.html); de eigen reservering telt niet mee
+    // Dezelfde keuzes als op het reserveringsformulier (index.html); de eigen reservering telt niet mee
     // voor de vrije plekken. /wijzigen controleert alles opnieuw.
     const ZITDUUR = {{ regels.zitduur_minuten | int }};
     const RESERVERING = {{ reservering.id | tojson }};
     const HUIDIG = {{ {'datum': reservering.datum, 'tijd': reservering.tijd, 'aantal': reservering.aantal} | tojson }};
-    const DAGEN = {{ dagnamen | tojson }};  // zondag eerst, zoals Date.getDay()
-    const MAANDEN = {{ maandnamen | tojson }};
     const T = {{ {
         'persoon': t('persoon'), 'personen': t('personen'), 'tot': t('tot'), 'lunch': t('Lunch'),
         'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'), 'jouw_tijd': t('Jouw tijd'),
         'dag_vol': t('Deze dag is vol voor {aantal} personen. Kies een andere dag of bel ons.'),
         'laden': t('Tijden laden…'), 'laden_mislukt': t('Tijden laden lukte niet.'),
         'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'),
-        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'verwerken': t('Verwerken…'),
+        'kies_dag_tijd': t('Kies een dag en een tijd.'), 'kies_tijd': t('Kies een tijd'), 'verwerken': t('Verwerken…'),
         'niets': t('Je hebt niets veranderd. Kies een andere dag, tijd of aantal personen.'),
+        'niets_veranderd': t('Nog niets veranderd'),
     } | tojson }};
     const keuze = {{ keuze | tojson }};
 
     const form = document.getElementById('wijzigForm');
     const tijdenVak = document.getElementById('tijden');
     const alertBox = document.getElementById('alertBox');
-    const samenvatting = document.getElementById('samenvatting');
+    const samen = document.getElementById('samen');
     const submitBtn = document.getElementById('submitBtn');
     const datumVeld = document.getElementById('datum');
+    const aantalVeld = document.getElementById('aantal');
+    const andere = document.getElementById('andere');
     let verzoek = 0;  // alleen het laatste antwoord van /beschikbaarheid telt
 
     function druk(groep, knop) {
@@ -113,10 +123,9 @@
         });
     }
 
-    function leesbareDatum(iso) {
-        const d = new Date(iso + 'T12:00:00');
-        const tekst = DAGEN[d.getDay()] + ' ' + d.getDate() + ' ' + MAANDEN[d.getMonth()];
-        return tekst.charAt(0).toUpperCase() + tekst.slice(1);
+    // Kort, in de taal van de pagina: "wo 11 nov" / "Wed, 11 Nov" / "Rab, 11 Nov".
+    function korteDatum(iso) {
+        return new Date(iso + 'T12:00:00').toLocaleDateString(document.documentElement.lang, { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     function plus(tijd, minuten) {
@@ -129,15 +138,23 @@
         return keuze.datum !== HUIDIG.datum || keuze.tijd !== HUIDIG.tijd || keuze.aantal !== HUIDIG.aantal;
     }
 
-    function toonSamenvatting() {
-        if (!keuze.datum || !keuze.tijd || !veranderd()) { samenvatting.hidden = true; return; }
-        samenvatting.replaceChildren();
+    // De vaste balk onderaan: wat je nu kiest, en de knop die pas aan gaat als er echt iets anders is gekozen.
+    function updateBalk() {
+        samen.replaceChildren();
         const regel = document.createElement('b');
-        regel.textContent = leesbareDatum(keuze.datum) + ' · ' + keuze.tijd;
-        const onder = document.createElement('small');
-        onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
-        samenvatting.append(regel, onder);
-        samenvatting.hidden = false;
+        if (!keuze.datum || !keuze.tijd) {
+            regel.textContent = T.kies_tijd;
+            samen.append(regel);
+        } else if (!veranderd()) {
+            regel.textContent = T.niets_veranderd;
+            samen.append(regel);
+        } else {
+            regel.textContent = korteDatum(keuze.datum) + ' · ' + keuze.tijd;
+            const onder = document.createElement('small');
+            onder.textContent = keuze.aantal + ' ' + (keuze.aantal === 1 ? T.persoon : T.personen) + ' · ' + T.tot + ' ' + plus(keuze.tijd, ZITDUUR);
+            samen.append(regel, onder);
+        }
+        submitBtn.disabled = !keuze.datum || !keuze.tijd || !veranderd();
     }
 
     function melding(tekst) {
@@ -150,7 +167,7 @@
 
     function tekenTijden(data) {
         tijdenVak.replaceChildren();
-        if (!data.open) { melding(data.bericht); keuze.tijd = null; toonSamenvatting(); return; }
+        if (!data.open) { melding(data.bericht); keuze.tijd = null; updateBalk(); return; }
         let groep = null;
         let raster = null;
         if (!data.tijden.some(function (t) { return t.tijd === keuze.tijd && t.beschikbaar; })) { keuze.tijd = null; }
@@ -193,7 +210,7 @@
             p.textContent = T.dag_vol.replace('{aantal}', keuze.aantal);
             tijdenVak.append(p);
         }
-        toonSamenvatting();
+        updateBalk();
     }
 
     async function laadTijden() {
@@ -205,31 +222,43 @@
                 + '&behalve=' + encodeURIComponent(RESERVERING));
             const data = await antwoord.json();
             if (nummer !== verzoek) { return; }
-            if (!antwoord.ok) { melding(data.bericht || T.laden_mislukt); return; }
+            if (!antwoord.ok) { melding(data.bericht || T.laden_mislukt); keuze.tijd = null; updateBalk(); return; }
             tekenTijden(data);
         } catch (fout) {
-            if (nummer === verzoek) { melding(T.geen_verbinding); }
+            if (nummer === verzoek) { melding(T.geen_verbinding); keuze.tijd = null; updateBalk(); }
         }
+    }
+
+    // De knop "Andere dag" toont de gekozen datum als die niet bij de dagen ernaast hoort.
+    function toonAndere(iso) {
+        document.getElementById('andere-leeg').hidden = !!iso;
+        document.getElementById('andere-gekozen').hidden = !iso;
+        if (!iso) { return; }
+        const d = new Date(iso + 'T12:00:00');
+        const taal = document.documentElement.lang;
+        document.getElementById('andere-dag').textContent = d.toLocaleDateString(taal, { weekday: 'short' });
+        document.getElementById('andere-nr').textContent = d.getDate();
+        document.getElementById('andere-maand').textContent = d.toLocaleDateString(taal, { month: 'short' });
     }
 
     function kiesDatum(iso, knop) {
         keuze.datum = iso;
-        druk('dagen', knop);
-        datumVeld.value = knop ? '' : iso;
-        toonSamenvatting();
+        druk('dagen', knop || andere);
+        toonAndere(knop ? null : iso);
+        if (knop) { datumVeld.value = ''; } else { datumVeld.value = iso; andere.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
+        updateBalk();
         laadTijden();
     }
 
-    document.getElementById('personen').addEventListener('click', function (e) {
-        const knop = e.target.closest('.keuze');
-        if (!knop) { return; }
-        keuze.aantal = Number(knop.dataset.aantal);
-        druk('personen', knop);
+    aantalVeld.addEventListener('change', function () {
+        keuze.aantal = Number(aantalVeld.value);
+        updateBalk();
         laadTijden();
     });
     document.getElementById('dagen').addEventListener('click', function (e) {
         const knop = e.target.closest('.keuze');
-        if (knop && !knop.disabled) { kiesDatum(knop.dataset.datum, knop); }
+        if (!knop || knop.disabled || knop === andere) { return; }  // "Andere dag" regelt het datumveld zelf
+        kiesDatum(knop.dataset.datum, knop);
     });
     datumVeld.addEventListener('change', function () {
         if (!datumVeld.value) { return; }
@@ -243,10 +272,11 @@
         tijdenVak.querySelectorAll('.keuze').forEach(function (k) {
             k.setAttribute('aria-pressed', k === knop ? 'true' : 'false');
         });
-        toonSamenvatting();
+        updateBalk();
     });
 
-    // Begin bij de dag van de reservering (of wat de gast net probeerde).
+    // Begin bij de dag van de reservering (of wat de gast net probeerde). Staat die dag niet bij de knoppen,
+    // of is hij dicht (bijvoorbeeld vandaag, als er niets meer te boeken valt), dan toont "Andere dag" hem.
     const eigen = document.querySelector('#dagen .keuze[data-datum="' + keuze.datum + '"]:not(:disabled)');
     kiesDatum(keuze.datum, eigen);
 
