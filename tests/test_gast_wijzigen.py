@@ -185,7 +185,7 @@ class WijzigPaginaTests(Basis):
         self.assertIn("Wijzig of annuleer", html)
         self.assertIn(f'action="/wijzigen/{rid}"', html)
         self.assertIn('name="tijd" id="veld_tijd" value="18:30"', html)
-        self.assertIn('data-aantal="3" aria-pressed="true"', html)
+        self.assertIn('<option value="3" selected>', html)
         self.assertIn("&behalve=", html)
         self.assertIn("Ja, annuleer mijn reservering", html)
         self.assertIn("Wijzigen kan tot 2 uur van tevoren.", html)
@@ -238,7 +238,7 @@ class WijzigPaginaTests(Basis):
         rid = self.voeg_toe()
         html = self.post(rid, datum=MAANDAG, tijd="19:00", aantal="4").get_data(as_text=True)
         self.assertIn('"datum": "2030-01-07"', html)
-        self.assertIn('data-aantal="4" aria-pressed="true"', html)
+        self.assertIn('<option value="4" selected>', html)
 
     def test_annuleerknop_na_mislukte_poging_post_naar_annuleren(self):
         # Dezelfde pagina komt terug op /wijzigen/<id>; een formulier zonder action zou daarheen posten en
