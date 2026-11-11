@@ -324,6 +324,19 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .dagnav input[type=search] { flex: 1; width: auto; min-width: 0; }
     .indeling, .indeling.cijfers { grid-template-columns: 1fr; }
 }
+/* Plattegrond: het paneel om tafels toe te wijzen. Op een telefoon is het een vaste balk met tafelknoppen. */
+.toewijzen { margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px; }
+.toewijzen-keuze { margin-top: 4px; font-size: 13px; }
+.toewijzen-melding { color: var(--rood); margin-top: 4px; font-size: 13px; }
+.tafelkeuze { display: none; }
+.tafelknop { flex: none; min-width: 52px; min-height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+             border-radius: 10px; border: 1px solid var(--lijn); background: var(--veld); color: var(--tekst); font: inherit; cursor: pointer; }
+.tafelknop b { font-size: 15px; }
+.tafelknop small { font-size: 10.5px; color: var(--zacht); }
+.tafelknop[aria-pressed=true] { background: var(--groen); border-color: var(--groen); color: #0f1a10; }
+.tafelknop[aria-pressed=true] small { color: #0f1a10; }
+.tafelknop:disabled { opacity: .35; cursor: default; }
+
 /* Personeel op een telefoon: de reserveringen eerst, niet de knoppen en tellers. Bellen kan met het nummer, mailen met Mail. */
 @media (max-width: 700px) {
     .alleen-breed { display: none; }
@@ -344,6 +357,18 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .res .wie .mailtekst, .res .wie .scheiding, .acties .bel { display: none; }
     .res .wie .tel { display: inline-block; padding: 4px 0; font-size: 14px; color: var(--tekst); }
     .res .wie small { margin-top: 0; }
+
+    /* Plattegrond: tijden in een strook, tafelknoppen in een vaste balk onderaan */
+    .indeling > .paneel { min-width: 0; }  /* anders rekt de tekening (640 px) de hele pagina op in plaats van in de vloer te scrollen */
+    .tijdbalk { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 14px; padding: 0 16px 6px; }
+    .tijdbalk::-webkit-scrollbar { display: none; }
+    .tijdbalk > * { flex: none; }
+    .toewijzen { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0; padding: 10px 14px 12px; max-height: 60vh; overflow-y: auto;
+                 background: #1d1813; border-top: 1px solid var(--lijn); box-shadow: 0 -10px 30px rgba(0, 0, 0, .5); }
+    .toewijzen p.klein { display: none; }  /* alleen de hintregel; de knoppen hebben ook de klasse klein */
+    .tafelkeuze { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px; scrollbar-width: none; }
+    .tafelkeuze::-webkit-scrollbar { display: none; }
+    body.toewijzen-open { padding-bottom: 260px; }
 }
 @media (max-width: 480px) {
     .kaart { padding: 18px; }

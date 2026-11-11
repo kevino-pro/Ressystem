@@ -63,6 +63,8 @@ class DagstrookTests(unittest.TestCase):
         html = self.pagina(datetime(2030, 1, 1, 10, 0, tzinfo=AMS))
         self.assertIn('id="andere"', html)
         self.assertIn('id="datum" class="datumveld"', html)
+        self.assertIn('class="andere-wrap"', html)
+        self.assertNotIn("showPicker", html)  # werkt niet op iPhone: het veld ligt zelf over de knop
         self.assertIn('min="2030-01-01"', html)
         self.assertNotIn("innerHTML", html)
         self.assertNotIn('class="keuzes dagen"', html)
