@@ -7,7 +7,7 @@ from app.database import get_db, metadata, reserveringen, verwerk_reservering
 from app.security import reset_rate_limits
 from tests.hulp import log_in
 
-KWAADAARDIGE_NAAM = "x'+(window.GEHACKT=1)+'"
+KWAADAARDIGE_NAAM = "<script>x'+(window.GEHACKT=1)+'</script>"
 
 
 class TestConfig(Config):
@@ -38,11 +38,11 @@ class OverzichtXssTests(unittest.TestCase):
 
     def test_naam_staat_niet_in_javascript(self):
         html = self.client.get("/overzicht?datum=2030-01-01").get_data(as_text=True)
-        handlers = re.findall(r'onsubmit="([^"]*)"', html)
-        self.assertTrue(handlers)
-        for handler in handlers:
-            self.assertEqual(handler, "return confirm(this.dataset.bericht);")
+        # De bevestigingsvraag staat als data-bericht op het formulier; het script in personeel.html leest hem daar.
+        self.assertEqual(len(re.findall(r'<form action="/verwijder/[^"]*" method="POST"\s+data-bericht="[^"]*">', html)), 1)
+        self.assertIn("confirm(bericht)", html)
         self.assertNotIn("GEHACKT=1)+'", html)  # de ruwe ' mag nergens onge-escaped staan
+        self.assertNotIn("<script>x'", html)  # naast de bestaande assertNotIn op GEHACKT=1)+'
 
     def test_uitloggen_alleen_via_post(self):
         self.assertEqual(self.client.get("/logout").status_code, 405)

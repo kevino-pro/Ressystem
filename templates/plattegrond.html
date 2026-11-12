@@ -11,7 +11,7 @@
     <a class="pil" href="/plattegrond?datum={{ volgende }}" aria-label="{{ t('Volgende dag') }}"><span class="alleen-breed">{{ t("Volgende dag") }} </span>›</a>
     <form action="/plattegrond" method="GET">
         <label for="datum" class="verborgen">{{ t("Kies datum") }}</label>
-        <input type="date" id="datum" name="datum" value="{{ datum }}" onchange="this.form.submit()">
+        <input type="date" id="datum" name="datum" value="{{ datum }}" data-verstuur-bij-keuze>
         <noscript><button type="submit" class="pil">{{ t("Tonen") }}</button></noscript>
     </form>
     {% if dag == vandaag %}<a class="pil aan" href="/reservering/nieuw?bron=binnenloper">+ {{ t("Binnenloper") }}</a>{% endif %}

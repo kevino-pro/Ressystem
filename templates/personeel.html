@@ -43,6 +43,15 @@
         function zet(open) { menu.classList.toggle('open', open); knop.setAttribute('aria-expanded', open ? 'true' : 'false'); }
         knop.addEventListener('click', function () { zet(!menu.classList.contains('open')); });
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { zet(false); } });
+        // Geen onchange= of onsubmit= in de HTML: zo kan een Content-Security-Policy inline handlers verbieden.
+        // Een datumveld met data-verstuur-bij-keuze verstuurt zijn formulier; een formulier met data-bericht vraagt eerst om bevestiging.
+        document.addEventListener('change', function (e) {
+            if (e.target.matches('input[data-verstuur-bij-keuze]')) { e.target.form.submit(); }
+        });
+        document.addEventListener('submit', function (e) {
+            const bericht = e.target.dataset.bericht;
+            if (bericht && !confirm(bericht)) { e.preventDefault(); }
+        });
     })();
     </script>
     <main>
