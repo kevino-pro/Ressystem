@@ -28,6 +28,12 @@ Zet `ALLOW_PROD_MIGRATE` niet als permanente Render- of `.env`-variabele; de Bui
 
 `flask init-db` is alleen een handmatig lokaal hulpprogramma. Productieschemawijzigingen verlopen uitsluitend via Alembic.
 
+## Nieuw restaurant of nieuwe vestiging
+
+Volg `docs/NIEUW-RESTAURANT.md`. Controleer een restaurantbestand vóór de eerste deploy met
+`python -m app.controle restaurants/<naam>.toml` (geen database, geen geheimen nodig). De geplande taken in
+GitHub Actions draaien voor elke installatie in `installaties.json`; de export van de n8n-workflow staat in `n8n/`.
+
 ## Restaurantconfiguratie
 
 Elke installatie leest zijn openingstijden en boekingsregels uit één TOML-bestand in
