@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from app import create_app
+from tests.hulp import scripts
 from tests.test_formulier import TestConfig
 from tests.test_toegang import TestConfig as TalenConfig
 
@@ -89,7 +90,7 @@ class MeertaligFormulierTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "node is niet geïnstalleerd")
     def test_script_is_geldig_javascript(self):
         for taal in ("nl", "en", "id"):
-            script = self.pagina(taal).split("<script>")[-1].split("</script>")[0]
+            script = scripts(self.pagina(taal))[-1]
             with tempfile.TemporaryDirectory() as map_:
                 pad = Path(map_) / "formulier.js"
                 pad.write_text(script, encoding="utf-8")

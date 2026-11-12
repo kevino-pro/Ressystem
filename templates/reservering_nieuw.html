@@ -108,7 +108,7 @@
         {% endif %}
     </form>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Wie na de waarschuwing iets verandert, krijgt opnieuw de controle: "Toch opslaan" geldt alleen voor wat er stond.
 (function () {
     const vlag = document.getElementById('bevestigd');

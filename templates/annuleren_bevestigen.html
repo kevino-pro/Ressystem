@@ -88,7 +88,7 @@
 
 {% block scripts %}
 {% if not niet_wijzigen %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     // Dezelfde keuzes als op het reserveringsformulier (index.html); de eigen reservering telt niet mee
     // voor de vrije plekken. /wijzigen controleert alles opnieuw.
