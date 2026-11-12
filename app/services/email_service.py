@@ -6,6 +6,7 @@ import logging
 import urllib.error
 import urllib.request
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from email.mime.multipart import MIMEMultipart
 from flask import current_app
 
@@ -15,15 +16,32 @@ logger = logging.getLogger(__name__)
 
 RESEND_URL = "https://api.resend.com/emails"
 
+def _afzender(app_config):
+    """'Naam <adres>': de gast ziet de naam van het restaurant als afzender in plaats van alleen het adres."""
+    return formataddr((app_config['RESTAURANT_NAAM'], app_config['VERZENDER_EMAIL']))
+
+def _kop(app_config, ontvanger_email, onderwerp, tekst):
+    """Afzender, ontvanger, onderwerp en tekst van een mail; antwoorden gaan naar het e-mailadres van het restaurant."""
+    return {
+        'from': _afzender(app_config),
+        'antwoord_aan': app_config['RESTAURANT_EMAIL'],
+        'to': ontvanger_email,
+        'subject': onderwerp,
+        'tekst': tekst,
+    }
+
 def _verstuur_via_resend(app_config, bericht):
+    inhoud = {
+        "from": bericht['from'],
+        "to": [bericht['to']],
+        "subject": bericht['subject'],
+        "text": bericht['tekst'],
+    }
+    if bericht.get('antwoord_aan'):
+        inhoud["reply_to"] = [bericht['antwoord_aan']]
     verzoek = urllib.request.Request(
         RESEND_URL,
-        data=json.dumps({
-            "from": bericht['from'],
-            "to": [bericht['to']],
-            "subject": bericht['subject'],
-            "text": bericht['tekst'],
-        }).encode('utf-8'),
+        data=json.dumps(inhoud).encode('utf-8'),
         headers={
             "Authorization": f"Bearer {app_config['RESEND_API_KEY']}",
             "Content-Type": "application/json",
@@ -40,6 +58,8 @@ def _verstuur_via_smtp(app_config, bericht):
     msg['From'] = bericht['from']
     msg['To'] = bericht['to']
     msg['Subject'] = bericht['subject']
+    if bericht.get('antwoord_aan'):
+        msg['Reply-To'] = bericht['antwoord_aan']
     msg.attach(MIMEText(bericht['tekst'], 'plain'))
     with smtplib.SMTP(app_config['SMTP_SERVER'], app_config['SMTP_PORT'], timeout=10) as server:
         server.starttls()
@@ -94,13 +114,7 @@ def _bouw_bevestigingsmail(app_config, ontvanger_email, naam, datum, tijd, aanta
         vertaal("Met vriendelijke groet,", taal=taal),
         vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
     ]
-    bericht_inhoud = "\n".join(regels) + "\n"
-    return {
-        'from': app_config['VERZENDER_EMAIL'],
-        'to': ontvanger_email,
-        'subject': onderwerp,
-        'tekst': bericht_inhoud,
-    }
+    return _kop(app_config, ontvanger_email, onderwerp, "\n".join(regels) + "\n")
 
 def stuur_bevestigingsmail_async(ontvanger_email, naam, datum, tijd, aantal, reservering_id, taal=BRONTAAL):
     app_config = current_app.config.copy()
@@ -142,12 +156,7 @@ def _bouw_herinneringsmail(app_config, reservering):
         vertaal("Met vriendelijke groet,", taal=taal),
         vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
     ]
-    return {
-        'from': app_config['VERZENDER_EMAIL'],
-        'to': reservering['email'],
-        'subject': onderwerp,
-        'tekst': "\n".join(regels) + "\n",
-    }
+    return _kop(app_config, reservering['email'], onderwerp, "\n".join(regels) + "\n")
 
 def _bouw_wijzigingsmail(app_config, reservering):
     """Bevestiging van een wijziging door de gast, in de taal van de gast (kolom `taal`), met de nieuwe gegevens."""
@@ -173,12 +182,9 @@ def _bouw_wijzigingsmail(app_config, reservering):
         vertaal("Met vriendelijke groet,", taal=taal),
         vertaal("Het team van {restaurant}", taal=taal, restaurant=restaurant),
     ]
-    return {
-        'from': app_config['VERZENDER_EMAIL'],
-        'to': reservering['email'],
-        'subject': vertaal("Je reservering is gewijzigd - {restaurant}", taal=taal, restaurant=restaurant),
-        'tekst': "\n".join(regels) + "\n",
-    }
+    return _kop(app_config, reservering['email'],
+                vertaal("Je reservering is gewijzigd - {restaurant}", taal=taal, restaurant=restaurant),
+                "\n".join(regels) + "\n")
 
 def stuur_wijzigingsmail_async(reservering):
     """Verstuurt de wijzigingsmail op een losse thread, zoals de bevestiging. Zonder e-mailadres: niets."""
