@@ -38,3 +38,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Planbestanden en ontwerpen staan in C:\Codes\WPL-plan, niet in de repo
+Fasenplan*.md
+ontwerp/
