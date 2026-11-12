@@ -22,7 +22,7 @@ from app.privacy import laad_privacy
 from app.restaurant import laad_restaurant
 from app.herinnering import laad_herinnering, morgen_en_grens, verstuur_herinneringen
 from app.huisstijl import laad_huisstijl
-from app import taal, weergave
+from app import kopregels, taal, weergave
 
 def create_app(config_class=Config):
     # Enige plek die dit configureert: geldt zo voor run.py, wsgi.py (gunicorn) en `flask` CLI-commands.
@@ -72,6 +72,7 @@ def create_app(config_class=Config):
     app.context_processor(lambda: {'gebruiker': huidige_gebruiker() if has_request_context() else None})
     weergave.registreer(app)
     taal.registreer(app)
+    kopregels.registreer(app)
 
     from app.routes.web import web_bp
     from app.routes.api import api_bp
