@@ -39,7 +39,6 @@ class TestConfig(Config):
     RESTAURANT_CONFIG = "restaurants/wpl.toml"
     RESEND_API_KEY = "test-resend"
     APP_BASE_URL = "https://reserveren.example"
-    RESTAURANT_TELEFOON = "070-0000000"
 
 
 class ZonderHerinneringConfig(TestConfig):
@@ -216,7 +215,7 @@ class MailTests(Basis):
         self.assertEqual(mail["subject"], "Herinnering: je reservering morgen om 19:00 - " + self.app.config["RESTAURANT_NAAM"])
         for tekst in ("Beste Gast a,", "Woensdag 18 november 2026", "Tijdstip: 19:00", "Aantal personen: 2",
                       "Adres: Schoolstraat 35, 2511 AW Den Haag", "https://reserveren.example/annuleren/a",
-                      "Bel ons op 070-0000000."):
+                      "Bel ons op " + self.app.config["RESTAURANT_TELEFOON"] + "."):
             with self.subTest(tekst=tekst):
                 self.assertIn(tekst, mail["tekst"])
 

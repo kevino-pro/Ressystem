@@ -1,6 +1,12 @@
 # Voorbeeldconfiguratie voor een restaurant. Kopieer dit bestand naar restaurants/<naam>.toml
 # en zet RESTAURANT_CONFIG=restaurants/<naam>.toml in Render.
 
+# Naam, e-mail en telefoon in de kop, de voet, de mails en de agenda. Verplicht als APP_ENV=production.
+[restaurant]
+naam = "Mijn Restaurant"
+email = "info@restaurant.nl"
+telefoon = "0612345678"
+
 [reserveringen]
 tijdzone = "Europe/Amsterdam"
 slot_minuten = 15              # gasten kiezen een tijd per 15 minuten

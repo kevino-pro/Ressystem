@@ -73,13 +73,15 @@ class PrivacyInDrieTalenTests(unittest.TestCase):
         self.assertIn("European Union", html)
 
     def test_links_blijven_links_en_tekst_wordt_ge_escaped(self):
-        p = create_app(TestConfig).config["PRIVACY"].model_copy(update={"verantwoordelijke": KWAADAARDIG})
+        config = create_app(TestConfig).config
+        p = config["PRIVACY"].model_copy(update={"verantwoordelijke": KWAADAARDIG})
+        mail = config["RESTAURANT_EMAIL"]  # uit [restaurant] in restaurants/wpl.toml
         for taal in ("en", "nl", "id"):
             with self.subTest(taal=taal):
                 _, html = pagina(TestConfig, taal, p)
                 self.assertNotIn(KWAADAARDIG, html)
                 self.assertIn("&lt;script&gt;", html)
-                self.assertIn('<a href="mailto:info@example.com">info@example.com</a>', html)
+                self.assertIn(f'<a href="mailto:{mail}">{mail}</a>', html)
                 self.assertIn('<a href="https://www.autoriteitpersoonsgegevens.nl" rel="noopener">', html)
                 self.assertIn("<strong>", html)
 

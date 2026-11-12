@@ -1,6 +1,13 @@
 # Waroeng Padang Lapek, vestiging Den Haag (Schoolstraat 35).
 # Render: RESTAURANT_CONFIG=restaurants/wpl.toml
 
+# Naam, e-mail en telefoon in de kop, de voet, de mails en de agenda. Vervangt de Render-variabelen
+# RESTAURANT_NAAM, RESTAURANT_EMAIL en RESTAURANT_TELEFOON.
+[restaurant]
+naam = "Waroeng Padang Lapek"
+email = "reserveringen@waroengpadang.nl"
+telefoon = "070-406 2928"
+
 [reserveringen]
 tijdzone = "Europe/Amsterdam"
 slot_minuten = 15              # gasten kiezen een tijd per 15 minuten

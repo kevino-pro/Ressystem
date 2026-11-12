@@ -16,7 +16,6 @@ class TestConfig(Config):
     SESSION_COOKIE_SECURE = False
     TRUSTED_PROXY_COUNT = 0
     RESTAURANT_CONFIG = "restaurants/wpl.toml"
-    RESTAURANT_EMAIL = "info@example.com"
     RETENTIE_DAGEN_AVG = 60
 
 
@@ -36,9 +35,10 @@ class PrivacyPaginaTests(unittest.TestCase):
     def test_toont_gegevens_uit_restaurantbestand(self):
         status, html = pagina(TestConfig)
         self.assertEqual(status, 200)
-        p = create_app(TestConfig).config["PRIVACY"]  # wat er in restaurants/wpl.toml staat
+        config = create_app(TestConfig).config  # wat er in restaurants/wpl.toml staat
+        p = config["PRIVACY"]
         verwacht = [p.verantwoordelijke, p.adres, *(v.naam for v in p.verwerkers),
-                    "60 dagen", "info@example.com", "Autoriteit Persoonsgegevens"]
+                    "60 dagen", config["RESTAURANT_EMAIL"], "Autoriteit Persoonsgegevens"]
         for tekst in verwacht:
             with self.subTest(tekst=tekst):
                 self.assertIn(tekst, html)
