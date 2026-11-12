@@ -19,6 +19,7 @@ from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
 from app.privacy import laad_privacy
+from app.restaurant import laad_restaurant
 from app.herinnering import laad_herinnering, morgen_en_grens, verstuur_herinneringen
 from app.huisstijl import laad_huisstijl
 from app import taal, weergave
@@ -47,6 +48,14 @@ def create_app(config_class=Config):
     app.config['PRIVACY'] = laad_privacy(regels_pad)  # None als het bestand geen [privacy] heeft
     if app.config.get('APP_ENV') == 'production' and app.config['PRIVACY'] is None:
         raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
+    restaurant = laad_restaurant(regels_pad)  # None als het bestand geen [restaurant] heeft
+    if app.config.get('APP_ENV') == 'production' and restaurant is None:
+        raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [restaurant]; zet daar naam, email en telefoon.")
+    if restaurant is not None:
+        # Het restaurantbestand wint van RESTAURANT_NAAM/-EMAIL/-TELEFOON uit de omgeving: één bron per installatie.
+        app.config['RESTAURANT_NAAM'] = restaurant.naam
+        app.config['RESTAURANT_EMAIL'] = restaurant.email
+        app.config['RESTAURANT_TELEFOON'] = restaurant.telefoon
     app.config['HUISSTIJL'] = laad_huisstijl(regels_pad, app.static_folder)
     app.config['TALEN'] = taal.laad_talen(regels_pad)  # zonder [talen] alleen Nederlands
     app.config['HERINNERING'] = laad_herinnering(regels_pad)  # None: geen herinneringsmails

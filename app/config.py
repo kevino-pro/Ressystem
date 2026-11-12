@@ -20,6 +20,8 @@ class Config:
     # ==========================================
     # 1. BRANDING & RESTAURANT GEGEVENS
     # ==========================================
+    # Naam, e-mail en telefoon staan in [restaurant] van het restaurantbestand (app/restaurant.py) en winnen
+    # dan van deze drie. De omgeving geldt alleen als het bestand geen [restaurant] heeft (niet in productie).
     RESTAURANT_NAAM = os.getenv('RESTAURANT_NAAM', 'Mijn Restaurant')
     RESTAURANT_EMAIL = os.getenv('RESTAURANT_EMAIL', 'info@restaurant.nl')
     RESTAURANT_TELEFOON = os.getenv('RESTAURANT_TELEFOON', '0612345678')
