@@ -5,14 +5,25 @@ on:
     - cron: '*/10 * * * *'  # Elke 10 minuten
   workflow_dispatch: {}  # Handmatig testen zonder te wachten op cron
 
+permissions:
+  contents: read
+
 jobs:
+  # Eén job voor alle installaties (geen matrix), zodat dit elke 10 minuten maar één job kost.
   ping:
     runs-on: ubuntu-latest
     env:
-      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
+      # Alleen variables, geen secrets: de health-URL's zijn niet geheim.
+      ALLE_VARIABELEN: ${{ toJSON(vars) }}
     steps:
-      - name: Ping health endpoint (met DB-round-trip)
+      - uses: actions/checkout@v4
+      - name: Ping health endpoints (met DB-round-trip)
         run: |
-          test -n "$RENDER_HEALTH_URL" || { echo "RENDER_HEALTH_URL repository variable ontbreekt"; exit 1; }
-          curl -sf --max-time 10 --retry 2 --retry-delay 3 \
-            "$RENDER_HEALTH_URL"
+          fout=0
+          for naam in $(jq -r '.[].health_url' installaties.json); do
+            url=$(echo "$ALLE_VARIABELEN" | jq -r --arg n "$naam" '.[$n] // empty')
+            if [ -z "$url" ]; then echo "Repository variable $naam ontbreekt"; fout=1; continue; fi
+            curl -sf --max-time 10 --retry 2 --retry-delay 3 "$url" || { echo "$naam gaf geen antwoord"; fout=1; }
+            echo
+          done
+          exit $fout

@@ -7,17 +7,38 @@ on:
     - cron: '0 8,9 * * *'
   workflow_dispatch: {}  # handmatig starten om te testen
 
+permissions:
+  contents: read
+
 jobs:
-  herinneringen:
+  # Leest installaties.json: per installatie de NAMEN van de GitHub-variabelen en het secret (nooit de waarden).
+  lijst:
     runs-on: ubuntu-latest
+    outputs:
+      installaties: ${{ steps.lees.outputs.installaties }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: lees
+        run: echo "installaties=$(jq -c . installaties.json)" >> "$GITHUB_OUTPUT"
+
+  herinneringen:
+    name: herinneringen (${{ matrix.installatie.naam }})
+    needs: lijst
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # een storing bij de ene installatie houdt de andere niet tegen
+      matrix:
+        installatie: ${{ fromJSON(needs.lijst.outputs.installaties) }}
     env:
-      APP_URL: ${{ vars.RENDER_APP_URL }}
-      BEHEER_API_KEY: ${{ secrets.BEHEER_API_KEY }}
+      APP_URL: ${{ vars[matrix.installatie.app_url] }}
+      BEHEER_API_KEY: ${{ secrets[matrix.installatie.beheer_sleutel] }}
+      URL_NAAM: ${{ matrix.installatie.app_url }}
+      SLEUTEL_NAAM: ${{ matrix.installatie.beheer_sleutel }}
     steps:
       - name: Herinneringen voor morgen versturen
         run: |
-          test -n "$APP_URL" || { echo "Repository variable RENDER_APP_URL ontbreekt"; exit 1; }
-          test -n "$BEHEER_API_KEY" || { echo "Repository secret BEHEER_API_KEY ontbreekt"; exit 1; }
+          test -n "$APP_URL" || { echo "Repository variable $URL_NAAM ontbreekt"; exit 1; }
+          test -n "$BEHEER_API_KEY" || { echo "Repository secret $SLEUTEL_NAAM ontbreekt"; exit 1; }
           mislukt=0
           # Per aanroep verstuurt de app een beperkt aantal; zolang er iets resteert, opnieuw (hoogstens 5 keer).
           for poging in 1 2 3 4 5; do

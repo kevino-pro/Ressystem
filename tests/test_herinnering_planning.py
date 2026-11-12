@@ -25,8 +25,9 @@ class WorkflowTests(unittest.TestCase):
 
     def test_roept_de_route_aan_met_de_geheime_sleutel(self):
         self.assertIn("/beheer/herinneringen", self.tekst)
-        self.assertIn("${{ secrets.BEHEER_API_KEY }}", self.tekst)
-        self.assertIn("${{ vars.RENDER_APP_URL }}", self.tekst)
+        # Sinds de template-kit per installatie uit installaties.json (tests/test_installaties.py).
+        self.assertIn("${{ secrets[matrix.installatie.beheer_sleutel] }}", self.tekst)
+        self.assertIn("${{ vars[matrix.installatie.app_url] }}", self.tekst)
         self.assertIn("workflow_dispatch", self.tekst)
 
     def test_tien_uur_in_winter_en_zomer(self):

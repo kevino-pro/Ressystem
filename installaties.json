@@ -1,0 +1,10 @@
+[
+  {
+    "naam": "wpl-den-haag",
+    "restaurantbestand": "restaurants/wpl.toml",
+    "app_url": "RENDER_APP_URL",
+    "health_url": "RENDER_HEALTH_URL",
+    "service_id": "RENDER_SERVICE_ID",
+    "beheer_sleutel": "BEHEER_API_KEY"
+  }
+]

@@ -12,19 +12,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Leest installaties.json: per installatie de NAMEN van de GitHub-variabelen en het secret (nooit de waarden).
+  lijst:
+    runs-on: ubuntu-latest
+    outputs:
+      installaties: ${{ steps.lees.outputs.installaties }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: lees
+        run: echo "installaties=$(jq -c . installaties.json)" >> "$GITHUB_OUTPUT"
+
   verify-render:
+    name: verify-render (${{ matrix.installatie.naam }})
+    needs: lijst
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false  # een storing bij de ene installatie houdt de andere niet tegen
+      matrix:
+        installatie: ${{ fromJSON(needs.lijst.outputs.installaties) }}
     env:
-      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-      RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
-      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}  # één API-key voor het hele Render-account
+      RENDER_SERVICE_ID: ${{ vars[matrix.installatie.service_id] }}
+      RENDER_HEALTH_URL: ${{ vars[matrix.installatie.health_url] }}
+      SERVICE_NAAM: ${{ matrix.installatie.service_id }}
+      HEALTH_NAAM: ${{ matrix.installatie.health_url }}
     steps:
       - name: Validate required deployment settings
         run: |
           test -n "$RENDER_API_KEY" || { echo "RENDER_API_KEY secret ontbreekt"; exit 1; }
-          test -n "$RENDER_SERVICE_ID" || { echo "RENDER_SERVICE_ID repository variable ontbreekt"; exit 1; }
-          test -n "$RENDER_HEALTH_URL" || { echo "RENDER_HEALTH_URL repository variable ontbreekt"; exit 1; }
+          test -n "$RENDER_SERVICE_ID" || { echo "$SERVICE_NAAM repository variable ontbreekt"; exit 1; }
+          test -n "$RENDER_HEALTH_URL" || { echo "$HEALTH_NAAM repository variable ontbreekt"; exit 1; }
 
       - name: Wait for matching Render deployment
         env:
