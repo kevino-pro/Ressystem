@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app import create_app
 from app.security import reset_rate_limits
-from tests.hulp import log_in
+from tests.hulp import log_in, scripts
 from tests.test_toegang import TestConfig
 
 
@@ -78,7 +78,7 @@ class PersoneelsmenuTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "node is niet geïnstalleerd")
     def test_menuscript_is_geldig_javascript(self):
         html = self.pagina("beheerder")
-        script = next(s.split("</script>")[0] for s in html.split("<script>")[1:] if "menuknop" in s.split("</script>")[0])
+        script = next(s for s in scripts(html) if "menuknop" in s)
         with tempfile.TemporaryDirectory() as map_:
             pad = Path(map_) / "menu.js"
             pad.write_text(script, encoding="utf-8")

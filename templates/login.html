@@ -30,7 +30,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.getElementById('toon').addEventListener('click', function () {
         const veld = document.getElementById('wachtwoord');
         const zichtbaar = veld.type === 'text';

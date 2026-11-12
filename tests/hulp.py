@@ -1,4 +1,6 @@
 """Hulpjes voor tests die als personeel ingelogd moeten zijn."""
+import re
+
 from sqlalchemy import delete, func, insert
 from werkzeug.security import generate_password_hash
 
@@ -30,3 +32,8 @@ def log_in(app, client, naam="tester", rol="beheerder"):
         sessie["ingelogd"] = True
         sessie["gebruiker"] = naam
         sessie["stempel"] = sessie_stempel(wachtwoord_hash)
+
+
+def scripts(html):
+    """De inhoud van elk <script ...> in de pagina, in volgorde (de tag heeft een nonce die per verzoek verschilt)."""
+    return re.findall(r"<script[^>]*>(.*?)</script>", html, re.S)

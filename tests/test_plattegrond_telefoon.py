@@ -9,6 +9,7 @@ from pathlib import Path
 from sqlalchemy import insert
 
 from app.database import get_db, init_db, reserveringen, tafeltoewijzingen, wijs_tafels_toe
+from tests.hulp import scripts
 from tests.test_plattegrond_pagina import TestConfig, maak_client
 
 
@@ -75,7 +76,7 @@ class PlattegrondTelefoonTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "node is niet geïnstalleerd")
     def test_script_is_geldig_javascript(self):
         _, html = self.pagina()
-        script = next(s.split("</script>")[0] for s in html.split("<script>")[1:] if "tafelkeuze" in s.split("</script>")[0])
+        script = next(s for s in scripts(html) if "tafelkeuze" in s)
         with tempfile.TemporaryDirectory() as map_:
             pad = Path(map_) / "plattegrond.js"
             pad.write_text(script, encoding="utf-8")

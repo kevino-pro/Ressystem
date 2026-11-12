@@ -9,6 +9,7 @@ from pathlib import Path
 from sqlalchemy import update
 
 from app.database import get_db, personeel
+from tests.hulp import scripts
 from tests.test_personeel_reserveren import Basis
 
 
@@ -114,7 +115,7 @@ class ScriptTests(Basis):
     @unittest.skipUnless(shutil.which("node"), "node is niet geïnstalleerd")
     def test_script_is_geldig_javascript(self):
         html = self.client.get("/reservering/nieuw").get_data(as_text=True)
-        script = next(s.split("</script>")[0] for s in html.split("<script>")[1:] if "ruimte" in s.split("</script>")[0])
+        script = next(s for s in scripts(html) if "ruimte" in s)
         with tempfile.TemporaryDirectory() as map_:
             pad = Path(map_) / "invoeren.js"
             pad.write_text(script, encoding="utf-8")
