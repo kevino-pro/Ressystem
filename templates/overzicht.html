@@ -24,7 +24,7 @@
 <div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
 {% endfor %}
 
-<div class="tellers">
+<div class="tellers strook">
     <div class="teller"><small>{{ t("Reserveringen") }}</small><b>{{ tellers.reserveringen }}</b></div>
     <div class="teller"><small>{{ t("Gasten") }}</small><b>{{ tellers.gasten }}</b></div>
     <div class="teller">
