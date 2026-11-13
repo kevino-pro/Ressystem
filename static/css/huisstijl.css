@@ -386,6 +386,14 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .keuze b { font-size: 15px; }
 }
 
+/* De melding na een statuswijziging in het overzicht: onderaan in beeld, op elk schermformaat. */
+.toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 12px;
+         width: max-content; max-width: calc(100vw - 24px); padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 14px;
+         background: #1f2a1f; border: 1px solid rgba(123, 196, 127, .55); color: #dff2e0; box-shadow: 0 10px 30px rgba(0, 0, 0, .55); }
+.toast.fout { background: #2a1c1c; border-color: rgba(229, 115, 115, .55); color: #f2b8b8; }
+.toast button { flex: none; min-height: 40px; padding: 0 14px; border-radius: 9px; border: 1px solid currentColor; background: none; color: inherit;
+                font: inherit; font-weight: 600; cursor: pointer; }
+
 /* Personeel op een telefoon, tijdens de service: minder kop en meer rijen in beeld, de tellers als strook die
    blijft staan, en "Is er" groot en rechts (onder de duim). Mailen kan op de tablet of de pc. */
 @media (max-width: 700px) {
