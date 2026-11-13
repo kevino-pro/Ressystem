@@ -293,6 +293,12 @@
         const knop = document.querySelector('#dagen .keuze[data-datum="' + datumVeld.value + '"]');
         kiesDatum(datumVeld.value, knop && !knop.disabled ? knop : null);
     });
+    // Met een muis opent een klik op het (onzichtbare) datumveld de kalender niet vanzelf: alleen het kleine
+    // kalendericoon doet dat. Op een telefoon of tablet opent een tik hem wel, dus daar verandert niets.
+    datumVeld.addEventListener('click', function () {
+        if (typeof datumVeld.showPicker !== 'function' || !window.matchMedia('(pointer: fine)').matches) { return; }
+        try { datumVeld.showPicker(); } catch (fout) { /* de browser weigert: het veld zelf blijft bruikbaar */ }
+    });
     tijdenVak.addEventListener('click', function (e) {
         const knop = e.target.closest('.keuze');
         if (!knop || knop.disabled) { return; }

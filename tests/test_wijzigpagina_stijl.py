@@ -38,7 +38,9 @@ class WijzigPaginaStijlTests(Basis):
         self.assertIn("<small>Morgen</small><b>2</b>", html)
         self.assertIn('class="andere-wrap"', html)
         self.assertIn('id="datum" class="datumveld"', html)
-        self.assertNotIn("showPicker", html)
+        # showPicker alleen als hulp voor de muis; op iPhone werkt het niet, daar ligt het veld zelf over de knop.
+        self.assertEqual(html.count("showPicker"), 2)
+        self.assertIn("!window.matchMedia('(pointer: fine)').matches) { return; }", html)
         self.assertNotIn('class="keuzes dagen"', html)
 
     def test_vaste_balk_met_knop_die_uit_staat_tot_er_iets_verandert(self):
