@@ -24,7 +24,7 @@
 <div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
 {% endfor %}
 
-<div class="tellers strook">
+<div class="tellers strook" id="tellers">
     <div class="teller"><small>{{ t("Reserveringen") }}</small><b>{{ tellers.reserveringen }}</b></div>
     <div class="teller"><small>{{ t("Gasten") }}</small><b>{{ tellers.gasten }}</b></div>
     <div class="teller">
@@ -40,7 +40,7 @@
     {% endif %}
 </div>
 
-<div class="lijst">
+<div class="lijst" id="lijst">
     {% for tijd, rijen in groepen.items() %}
     <div class="tijdkop">
         <b>{{ tijd }}</b>
@@ -106,4 +106,99 @@
     <p class="leeg" style="padding: 24px 0; text-align: center">{{ t("Geen reserveringen op deze dag.") }}</p>
     {% endfor %}
 </div>
+
+{# De melding na "Is er" of "Niet gekomen": blijft even staan, met een knop om het terug te draaien. #}
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-tekst"></span>
+    <button type="button" id="toast-ongedaan" hidden>{{ t("Ongedaan maken") }}</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce() }}">
+// De status opslaan zonder de pagina te herladen, en de lijst uit zichzelf bijwerken. Zonder JavaScript (of in
+// een oude browser) werkt de knop zoals voorheen: het formulier wordt gewoon verstuurd.
+(function () {
+    const tellers = document.getElementById('tellers');
+    const lijst = document.getElementById('lijst');
+    const toast = document.getElementById('toast');
+    const toastTekst = document.getElementById('toast-tekst');
+    const ongedaan = document.getElementById('toast-ongedaan');
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const MISLUKT = {{ t('Het lukte niet om op te slaan. Probeer het opnieuw.') | tojson }};
+    const VERVERS_MS = 45000;   // zo vaak haalt de pagina de lijst opnieuw op
+    const TOAST_MS = 6000;      // zo lang blijft de melding (en Ongedaan maken) staan
+    let bezig = false;          // er loopt een statuswijziging
+    let teller = 0;             // alleen het laatste antwoord van verversen telt
+    let laatste = null;         // de laatste wijziging, voor Ongedaan maken
+    let toastTimer = null;
+
+    // Haalt deze pagina opnieuw op en zet alleen de tellers en de lijst erin: je blijft staan waar je was.
+    async function ververs(nuMeteen) {
+        if (bezig) { return; }
+        if (!nuMeteen && (document.hidden || lijst.querySelector('details[open]'))) { return; }
+        const nummer = ++teller;
+        try {
+            const antwoord = await fetch(location.href, { headers: { 'Accept': 'text/html' } });
+            if (antwoord.redirected) { location.reload(); return; }   // niet meer ingelogd: naar de inlogpagina
+            if (!antwoord.ok || nummer !== teller || bezig) { return; }
+            const pagina = new DOMParser().parseFromString(await antwoord.text(), 'text/html');
+            const nieuweLijst = pagina.getElementById('lijst');
+            const nieuweTellers = pagina.getElementById('tellers');
+            if (!nieuweLijst || !nieuweTellers || nummer !== teller || bezig) { return; }
+            lijst.replaceChildren(...nieuweLijst.childNodes);
+            tellers.replaceChildren(...nieuweTellers.childNodes);
+        } catch (fout) { /* geen verbinding: de volgende keer opnieuw */ }
+    }
+
+    function toon(tekst, isFout, terugTeDraaien) {
+        clearTimeout(toastTimer);
+        toastTekst.textContent = tekst;   // textContent: de naam van de gast wordt nooit als HTML uitgevoerd
+        toast.classList.toggle('fout', isFout);
+        laatste = terugTeDraaien;
+        ongedaan.hidden = !terugTeDraaien;
+        toast.hidden = false;
+        toastTimer = setTimeout(function () { toast.hidden = true; laatste = null; }, TOAST_MS);
+    }
+
+    async function zetStatus(kenmerk, datum, status) {
+        if (bezig) { return; }
+        bezig = true;
+        try {
+            const antwoord = await fetch('/aankomst', {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrf },
+                body: new URLSearchParams({ kenmerk: kenmerk, datum: datum, status: status })
+            });
+            if (antwoord.redirected) { location.reload(); return; }
+            const data = await antwoord.json();
+            const gelukt = antwoord.ok && data.status === 'succes';
+            toon(data.bericht || MISLUKT, !gelukt, gelukt && status !== 'verwacht' ? { kenmerk: kenmerk, datum: datum } : null);
+        } catch (fout) {
+            toon(MISLUKT, true, null);
+        } finally {
+            bezig = false;
+        }
+        await ververs(true);
+    }
+
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        const knop = e.submitter;   // de knop waarop getikt is: die bepaalt de status
+        if (!form.matches('form.status') || !knop || !window.fetch) { return; }
+        e.preventDefault();
+        zetStatus(form.elements.kenmerk.value, form.elements.datum.value, knop.value);
+    });
+
+    ongedaan.addEventListener('click', function () {
+        if (!laatste) { return; }
+        const wat = laatste;
+        toast.hidden = true;
+        zetStatus(wat.kenmerk, wat.datum, 'verwacht');
+    });
+
+    setInterval(ververs, VERVERS_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) { ververs(); } });
+})();
+</script>
 {% endblock %}

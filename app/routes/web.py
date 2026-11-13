@@ -417,7 +417,19 @@ def aankomst():
     """
     Zet een reservering op gearriveerd, niet gekomen (no-show) of terug op verwacht.
     Beheerder en medewerker mogen dit. Net als de plattegrond werkt dit met het kenmerk, niet met het id.
+
+    Het overzicht vraagt met "Accept: application/json" om een antwoord zonder de pagina te herladen: dan komt
+    de melding als JSON terug (status en bericht) in plaats van als flash met een doorverwijzing.
     """
+    wil_json = 'application/json' in request.headers.get('Accept', '')
+
+    def weiger(bericht, code):
+        """Een geweigerd verzoek: JSON voor het overzicht, anders de melding op de pagina waar je vandaan kwam."""
+        if wil_json:
+            return jsonify(status='fout', bericht=bericht), code
+        flash(bericht, 'fout')
+        return redirect(terug)
+
     regels = current_app.config['REGELS']
     status = request.form.get('status')
     kenmerk = request.form.get('kenmerk')
@@ -426,12 +438,16 @@ def aankomst():
     except ValueError:
         dag = None
     if dag is None or status not in STATUSSEN or not kenmerk:
+        if wil_json:
+            return jsonify(status='fout', bericht=t("Ongeldig verzoek.")), 400
         return t("Ongeldig verzoek."), 400
 
     datum = dag.isoformat()
     reservering = next((r for r in haal_reserveringen_op(get_db(), datum)
                         if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
     if reservering is None:
+        if wil_json:
+            return jsonify(status='fout', bericht=t(GeenReserveringFout.bericht)), 404
         return t(GeenReserveringFout.bericht), 404
 
     if request.form.get('terug') == 'plattegrond' and current_app.config.get('PLATTEGROND') is not None:
@@ -441,14 +457,15 @@ def aankomst():
 
     nu = regels.nu()
     if status != 'verwacht' and dag > nu.date():
-        flash(t("Dat kan pas op de dag van de reservering."), 'fout')
-        return redirect(terug)
+        return weiger(t("Dat kan pas op de dag van de reservering."), 409)
     if status == NIET_GEKOMEN and dag == nu.date() and f"{nu:%H:%M}" < reservering['tijd']:
-        flash(t("Een no-show kan pas na de begintijd ({tijd}).", tijd=reservering['tijd']), 'fout')
-        return redirect(terug)
+        return weiger(t("Een no-show kan pas na de begintijd ({tijd}).", tijd=reservering['tijd']), 409)
 
     zet_status(get_db(), reservering['id'], status)
-    flash(t(STATUS_BERICHTEN[status], naam=reservering['naam']), 'ok')
+    bericht = t(STATUS_BERICHTEN[status], naam=reservering['naam'])
+    if wil_json:
+        return jsonify(status='succes', bericht=bericht)
+    flash(bericht, 'ok')
     return redirect(terug)
 
 @web_bp.route('/beschikbaarheid')
