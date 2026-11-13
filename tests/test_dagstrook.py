@@ -64,7 +64,9 @@ class DagstrookTests(unittest.TestCase):
         self.assertIn('id="andere"', html)
         self.assertIn('id="datum" class="datumveld"', html)
         self.assertIn('class="andere-wrap"', html)
-        self.assertNotIn("showPicker", html)  # werkt niet op iPhone: het veld ligt zelf over de knop
+        # showPicker alleen als hulp voor de muis; op iPhone werkt het niet, daar ligt het veld zelf over de knop.
+        self.assertEqual(html.count("showPicker"), 2)
+        self.assertIn("!window.matchMedia('(pointer: fine)').matches) { return; }", html)
         self.assertIn('min="2030-01-01"', html)
         self.assertNotIn("innerHTML", html)
         self.assertNotIn('class="keuzes dagen"', html)
