@@ -386,6 +386,12 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .keuze b { font-size: 15px; }
 }
 
+/* Overzicht van vandaag: groepen op urgentie in plaats van per begintijd, met de tijd op elke rij. */
+.rijtijd { margin-right: 8px; font-weight: 700; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.tijdkop.laat b { color: var(--rood); }
+.tijdkop.binnen b { color: var(--groen); }
+.tijdkop.niet b { color: var(--zacht); }
+
 /* De melding na een statuswijziging in het overzicht: onderaan in beeld, op elk schermformaat. */
 .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 12px;
          width: max-content; max-width: calc(100vw - 24px); padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 14px;
@@ -430,6 +436,9 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .res:not(.zoek) .aantal { position: absolute; left: 0; top: 10px; }
     .res:not(.zoek) .wie, .res:not(.zoek) .acties, .res:not(.zoek) .acties .status { display: contents; }
     .res:not(.zoek) .wie > b { flex: 1 0 100%; order: 1; font-size: 16px; overflow-wrap: anywhere; }
+    /* Vandaag staat de tijd voor de naam, op dezelfde regel. */
+    .res:not(.zoek) .rijtijd { flex: none; order: 1; align-self: flex-start; margin-right: 0; font-size: 16px; }
+    .res:not(.zoek) .rijtijd + b { flex-basis: calc(100% - 56px); }
     .res:not(.zoek) .wie > small, .res:not(.zoek) .tafel { flex: none; order: 2; white-space: nowrap; }
     .res:not(.zoek) .acties .status button[value="no_show"], .res:not(.zoek) .acties details { order: 3; }
     /* De labels komen na telefoon en tafel en mogen onder de knop door: die is op die hoogte al voorbij. */

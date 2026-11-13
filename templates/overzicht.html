@@ -41,15 +41,19 @@
 </div>
 
 <div class="lijst" id="lijst">
-    {% for tijd, rijen in groepen.items() %}
-    <div class="tijdkop">
-        <b>{{ tijd }}</b>
+    {# Vandaag zijn de groepen Te laat, Komt zo, Later, Binnen en Niet gekomen, met de tijd op elke rij;
+       op een andere dag is elke begintijd een groep. #}
+    {% for sectie in secties %}
+    {% set rijen = sectie.rijen %}
+    <div class="tijdkop {{ sectie.soort }}">
+        <b>{{ sectie.kop }}</b>
         <span>{{ t('{aantal} reservering', aantal=rijen | length) if rijen | length == 1 else t('{aantal} reserveringen', aantal=rijen | length) }} · {{ t('{aantal} gasten', aantal=rijen | sum(attribute='aantal')) }}</span>
     </div>
     {% for r in rijen %}
     <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}">
         <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
         <div class="wie">
+            {% if toon_tijd %}<span class="rijtijd">{{ r.tijd }}</span>{% endif %}
             <b>{{ r.naam }}</b>
             <small>{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %}<span class="scheiding"> · </span>{% endif %}{% if r.email %}<a class="mailtekst" href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
             {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' or r.herinnering_verstuurd or r.gewijzigd_op %}
