@@ -203,6 +203,20 @@ def logout():
     session.clear()
     return redirect(url_for('web.login'))
 
+KOMT_ZO_MINUTEN = 30  # "Komt zo" in het overzicht van vandaag: verwacht binnen dit aantal minuten
+
+
+def _urgentie(reservering, nu_tijd, zo_tijd):
+    """In welke groep van het overzicht van vandaag een reservering hoort: laat, zo, later, binnen of niet."""
+    if reservering['status'] == 'gearriveerd':
+        return 'binnen'
+    if reservering['status'] == NIET_GEKOMEN:
+        return 'niet'
+    if reservering['tijd'] <= nu_tijd:
+        return 'laat'  # de begintijd is er of voorbij: dezelfde grens als de knop "Niet gekomen"
+    return 'zo' if reservering['tijd'] <= zo_tijd else 'later'
+
+
 @web_bp.route('/overzicht')
 @login_vereist
 def overzicht():
@@ -241,11 +255,24 @@ def overzicht():
         'verwacht': sum(1 for r in lijst if r['status'] == 'verwacht'),
     }
     nu = regels.nu()
+    nu_tijd = f"{nu:%H:%M}"
+    if dag == vandaag:
+        # Vandaag staat de lijst op urgentie: wie er al had moeten zijn bovenaan, wie binnen is onderaan.
+        straks = nu + timedelta(minutes=KOMT_ZO_MINUTEN)
+        zo_tijd = f"{straks:%H:%M}" if straks.date() == nu.date() else "23:59"
+        koppen = {'laat': t("Te laat"), 'zo': t("Komt zo"), 'later': t("Later"),
+                  'binnen': t("Binnen"), 'niet': t("Niet gekomen")}
+        per_soort = {soort: [] for soort in koppen}
+        for r in lijst:
+            per_soort[_urgentie(r, nu_tijd, zo_tijd)].append(r)
+        secties = [{'kop': koppen[soort], 'soort': soort, 'rijen': rijen} for soort, rijen in per_soort.items() if rijen]
+    else:
+        secties = [{'kop': tijd, 'soort': '', 'rijen': rijen} for tijd, rijen in groepen.items()]
     return render_template(
         'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
-        groepen=groepen, toewijzingen=toewijzingen, tellers=tellers, plattegrond_aan=plattegrond_aan,
-        kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=f"{nu:%H:%M}",
+        secties=secties, toon_tijd=dag == vandaag, toewijzingen=toewijzingen, tellers=tellers,
+        plattegrond_aan=plattegrond_aan, kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=nu_tijd,
     )
 
 def _zoekvorm(tekst):
