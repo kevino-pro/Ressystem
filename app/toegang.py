@@ -6,7 +6,8 @@ worden bij elk verzoek uit de database gelezen: een uitgezet account of een gewi
 werkt daardoor direct, ook op een telefoon die nog ingelogd is.
 
 Rollen: een beheerder mag alles; een medewerker mag reserveringen en de plattegrond bekijken en
-tafels toewijzen, maar geen reserveringen verwijderen en geen accounts beheren.
+tafelvoorstellen accepteren, maar geen tafels wijzigen, geen reserveringen verwijderen en geen
+accounts beheren.
 """
 import hashlib
 import hmac

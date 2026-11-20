@@ -12,7 +12,8 @@ from sqlalchemy import create_engine, inspect, select, update
 from app import create_app
 from app.config import Config
 from app.database import (
-    get_db, haal_reservering_op, init_db, maak_gebruiker, metadata, personeel, reserveringen, verwerk_reservering,
+    get_db, haal_reservering_op, haal_toewijzingen_op, init_db, maak_gebruiker, metadata, personeel, reserveringen,
+    verwerk_reservering,
 )
 from app.security import reset_rate_limits
 from app.toegang import beheerder_vereist, login_vereist
@@ -190,13 +191,18 @@ class RechtenTests(ToegangTestBasis):
         self.assertEqual(self.client.get("/overzicht").status_code, 200)
         self.assertEqual(self.client.get("/plattegrond").status_code, 200)
 
-    def test_medewerker_mag_tafels_toewijzen(self):
-        self.reservering()
+    def test_medewerker_mag_geen_tafels_wijzigen(self):
+        # Tafels kiezen doet een beheerder; een medewerker neemt alleen het voorstel over.
+        reservering_id = self.reservering()
         log_in(self.app, self.client, naam="anna", rol="medewerker")
         html = self.client.get(f"/plattegrond?datum={self.DAG}&tijd=18:00").get_data(as_text=True)
         kenmerk = re.search(r'data-kenmerk="([^"]+)"', html).group(1)
-        antwoord = self.client.post("/plattegrond/toewijzen", json={"datum": self.DAG, "kenmerk": kenmerk, "tafels": []})
-        self.assertEqual(antwoord.status_code, 200, antwoord.get_data(as_text=True))
+        antwoord = self.client.post("/plattegrond/toewijzen",
+                                    json={"datum": self.DAG, "kenmerk": kenmerk, "tafels": ["1a"]})
+        self.assertEqual(antwoord.status_code, 403, antwoord.get_data(as_text=True))
+        self.assertEqual(antwoord.get_json()["status"], "fout")
+        with self.app.app_context():
+            self.assertIsNone(haal_toewijzingen_op(get_db(), self.DAG).get(reservering_id))
 
     def test_medewerker_ziet_geen_reserverings_id(self):
         # Het id is de annuleerlink van de gast: wie het kent, kan via /annuleren/<id> verwijderen.

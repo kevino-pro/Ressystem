@@ -105,6 +105,9 @@ class EngelsePaginaTests(Basis):
         self.zet_taal("en")
 
     def test_overzicht(self):
+        # De link "Tafel kiezen" is er alleen voor een beheerder: die kiest zelf de tafels.
+        log_in(self.app, self.client, naam="anna", rol="beheerder")
+        self.zet_taal("en")
         self.reservering()
         html = self.pagina(f"/overzicht?datum={VANDAAG}")
         for tekst in ("Tuesday 1 January", "Busiest moment", "Not yet arrived", "1 booking · 4 guests",
@@ -125,6 +128,8 @@ class EngelsePaginaTests(Basis):
             self.assertIn(tekst, html)
 
     def test_tafel_bezet_melding(self):
+        log_in(self.app, self.client, naam="anna", rol="beheerder")  # tafels toewijzen doet een beheerder
+        self.zet_taal("en")
         eerste = self.reservering(naam="A")
         tweede = self.reservering(naam="B", tijd="18:15")
         indeling = self.app.config["PLATTEGROND"]

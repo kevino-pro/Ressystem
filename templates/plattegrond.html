@@ -83,7 +83,10 @@
 
     <div class="paneel">
         <h3>{{ t("Reserveringen") }}</h3>
+        {% if gebruiker and gebruiker.rol == 'beheerder' %}
+        {# Alleen een beheerder kiest tafels: een medewerker leest hier alleen wie er komt en welke tafel er al is. #}
         <p class="klein">{{ t("Kies een reservering en tik daarna op de tafels. Een tafel zit {minuten} minuten bezet.", minuten=zitduur) }}</p>
+        {% endif %}
         {% set zonder = reserveringen | rejectattr('id', 'in', toewijzingen) | list %}
         <ul id="reserveringen">
             {% if zonder %}<li class="kop" aria-hidden="true">{{ t("Nog zonder tafel") }} · {{ zonder | length }}</li>{% endif %}
@@ -110,6 +113,8 @@
             {% endfor %}
             {% if not reserveringen and not niet_gekomen %}<li class="leeg">{{ t("Geen reserveringen op deze dag.") }}</li>{% endif %}
         </ul>
+        {% if gebruiker and gebruiker.rol == 'beheerder' %}
+        {# Tafels toewijzen doet een beheerder; een medewerker bekijkt de plattegrond en de reserveringen. #}
         <div id="toewijzen" class="toewijzen" hidden>
             <p><b id="toewijzen-titel"></b></p>
             <p class="klein">{{ t("Tik op tafels om ze aan of uit te zetten.") }}</p>
@@ -121,6 +126,7 @@
                 <button type="button" id="toewijzen-annuleren" class="knop klein rand">{{ t("Annuleren") }}</button>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -147,6 +153,13 @@
     const tafels = {};      // tafelnummer -> het element op de tekening
     let actief = null;      // het <li> van de gekozen reservering
     let gekozen = new Set();  // tafelnummers
+
+    // Op een telefoon is de tijdenbalk een strook: laat de gekozen tijd zien. Dat werkt ook zonder toewijspaneel.
+    const gekozenTijd = document.querySelector('.tijdbalk .aan');
+    if (gekozenTijd) { gekozenTijd.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+
+    // Een medewerker ziet het toewijspaneel en de tafelknoppen niet: dan valt er niets te kiezen.
+    if (!paneel || !tafelkeuze) { return; }
 
     function vorm(tafel) { return tafel.querySelector('rect, ellipse'); }
 
@@ -223,10 +236,6 @@
             teken();
         });
     });
-
-    // Op een telefoon is de tijdenbalk een strook: laat de gekozen tijd zien.
-    const gekozenTijd = document.querySelector('.tijdbalk .aan');
-    if (gekozenTijd) { gekozenTijd.scrollIntoView({ inline: 'center', block: 'nearest' }); }
 
     teken();  // zet de tafelknoppen in de beginstand
 

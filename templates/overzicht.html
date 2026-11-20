@@ -97,12 +97,37 @@
                     <input type="hidden" name="tafels" value="{{ voorstellen[r.id] | join('+') }}">
                     <button type="submit">{{ t("Accepteren") }}</button>
                 </form>
-                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
-                {% else %}
-                <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
+                {% if gebruiker and gebruiker.rol == 'beheerder' %}
                 <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
                 {% endif %}
+                {% else %}
+                <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
+                {% if gebruiker and gebruiker.rol == 'beheerder' %}
+                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
+                {% endif %}
+                {% endif %}
             </div>
+            {% if gebruiker and gebruiker.rol == 'beheerder' %}
+            {# Alleen een beheerder wijzigt de tafels: een optie uit de lijst, zelf getypte nummers of losmaken. #}
+            <details class="wijzigen">
+                <summary>{{ t("Wijzigen") }}</summary>
+                <form action="/tafels/wijzigen" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ datum }}">
+                    <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                    {% set huidige = toewijzingen.get(r.id, []) | join('+') %}
+                    <select id="tafels-{{ kenmerken[r.id] }}" name="tafels" aria-label="{{ t('Tafel') }}">
+                        {% for optie in wijzig_opties.get(r.id, []) %}
+                        <option value="{{ optie.waarde }}"{% if optie.waarde == huidige %} selected{% endif %}>{{ optie.tafels }} ({{ t('{aantal} stoel', aantal=optie.stoelen) if optie.stoelen == 1 else t('{aantal} stoelen', aantal=optie.stoelen) }})</option>
+                        {% endfor %}
+                    </select>
+                    <label for="andere-{{ kenmerken[r.id] }}">{{ t("Andere tafels") }}</label>
+                    <input type="text" id="andere-{{ kenmerken[r.id] }}" name="andere" maxlength="60" autocomplete="off">
+                    <button type="submit">{{ t("Opslaan") }}</button>
+                    {% if huidige %}<button type="submit" name="losmaken" value="1">{{ t("Losmaken") }}</button>{% endif %}
+                </form>
+            </details>
+            {% endif %}
         </div>
         {% else %}<div class="kol-tafel"></div>{% endif %}
         <span class="kol-telefoon">{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}</span>
