@@ -446,3 +446,15 @@
 "Meer dan {aantal} resultaten. Maak je zoekopdracht specifieker." = "Lebih dari {aantal} hasil. Buat pencarian Anda lebih spesifik."
 "Naar deze dag" = "Ke hari ini"
 "Geen reserveringen gevonden." = "Tidak ada reservasi yang ditemukan."
+
+# tafelvoorstel in het overzicht en bij het invoeren (web.py, invoeren.py, overzicht.html)
+"Voorstel:" = "Usulan:"
+"Accepteren" = "Terima"
+"Geen tafel vrij" = "Tidak ada meja kosong"
+"Beheerder regelt de tafels" = "Admin mengatur mejanya"
+"Het voorstel is intussen veranderd. Kijk naar het nieuwe voorstel." = "Usulan sudah berubah. Silakan lihat usulan yang baru."
+"Tafel {tafels} voor {naam} is opgeslagen." = "Meja {tafels} untuk {naam} sudah disimpan."
+"Voorstel: tafel {tafels}. Accepteer het in het overzicht." = "Usulan: meja {tafels}. Terima di daftar."
+"Er is geen passende tafel vrij; de beheerder regelt de tafels." = "Tidak ada meja yang cocok dan kosong; admin mengatur mejanya."
+"Voorstel: tafel {tafels}. Kies de tafel op de plattegrond." = "Usulan: meja {tafels}. Pilih mejanya di denah."
+"Er is geen passende tafel vrij; kies zelf een tafel op de plattegrond." = "Tidak ada meja yang cocok dan kosong; pilih sendiri mejanya di denah."

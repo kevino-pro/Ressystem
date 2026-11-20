@@ -27,6 +27,7 @@ TOESTEMMING_MELDING = ("Vink aan dat we je allergie-informatie mogen bewaren, of
 from app.services.email_service import stuur_bevestigingsmail_async, stuur_wijzigingsmail_async
 from app.security import constant_time_equals, rate_limit, rate_limit_check_adres, valideer_csrf
 from app.reserveringsregels import RegelFout
+from app import tafelvoorstel
 from app.taal import DAGEN, MAANDEN, TAAL_COOKIE, huidige_taal, vertaal as t
 from app.toegang import beheerder_vereist, huidige_gebruiker, login_vereist, start_sessie
 
@@ -217,6 +218,19 @@ def _urgentie(reservering, nu_tijd, zo_tijd):
     return 'zo' if reservering['tijd'] <= zo_tijd else 'later'
 
 
+def _voorstellen(lijst, toewijzingen):
+    """
+    Het tafelvoorstel per reservering van die dag. Zonder plattegrond is er niets voor te stellen
+    en is het antwoord leeg.
+    """
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        return {}
+    return tafelvoorstel.voorstellen(lijst, toewijzingen, indeling,
+                                     current_app.config.get('TAFELVOORSTEL'),
+                                     current_app.config['REGELS'].zitduur_minuten)
+
+
 @web_bp.route('/overzicht')
 @login_vereist
 def overzicht():
@@ -232,6 +246,7 @@ def overzicht():
     lijst = haal_reserveringen_op(conn, datum)
     plattegrond_aan = current_app.config.get('PLATTEGROND') is not None
     toewijzingen = haal_toewijzingen_op(conn, datum) if plattegrond_aan else {}
+    voorstellen = _voorstellen(lijst, toewijzingen)
     gekomen = [r for r in lijst if r['status'] != NIET_GEKOMEN]  # een no-show telt niet mee
 
     # Per begintijd groeperen; de lijst is al op tijd gesorteerd.
@@ -273,6 +288,7 @@ def overzicht():
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
         secties=secties, toon_tijd=dag == vandaag, toewijzingen=toewijzingen, tellers=tellers,
         plattegrond_aan=plattegrond_aan, kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=nu_tijd,
+        voorstellen=voorstellen, max_personen=regels.max_personen_per_boeking,
     )
 
 def _zoekvorm(tekst):
@@ -431,6 +447,55 @@ def tafels_toewijzen():
         current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
         return jsonify({"status": "fout", "bericht": t("Het lukte niet om op te slaan. Probeer het opnieuw.")}), 503
     return jsonify({"status": "succes", "bericht": t("Opgeslagen."), "waarschuwing": waarschuwing}), 200
+
+
+@web_bp.route('/tafels/accepteren', methods=['POST'])
+@login_vereist
+def tafels_accepteren():
+    """
+    Accepteert het voorstel uit het overzicht. Een beheerder en een medewerker mogen dit: zo neemt het
+    personeel het voorstel over zonder zelf tafels te kiezen. Klopt het voorstel niet meer (er is intussen
+    iets veranderd), dan wordt er niets opgeslagen en vraagt het overzicht om naar het nieuwe voorstel te kijken.
+    """
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    kenmerk = request.form.get('kenmerk')
+    try:
+        datum = date.fromisoformat(request.form.get('datum') or '').isoformat()
+    except ValueError:
+        datum = None
+    if datum is None or not kenmerk:
+        return t("Ongeldig verzoek."), 400
+    terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
+
+    conn = get_db()
+    lijst = haal_reserveringen_op(conn, datum)
+    reservering = next((r for r in lijst if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
+    if reservering is None:
+        flash(t(GeenReserveringFout.bericht), 'fout')
+        return terug
+
+    tafels = [nummer for nummer in request.form.get('tafels', '').split('+') if nummer]
+    voorgesteld = _voorstellen(lijst, haal_toewijzingen_op(conn, datum)).get(reservering['id'])
+    if not voorgesteld or tuple(tafels) != voorgesteld:
+        flash(t("Het voorstel is intussen veranderd. Kijk naar het nieuwe voorstel."), 'fout')
+        return terug
+
+    try:
+        wijs_tafels_toe(conn, reservering['id'], tafels, indeling, current_app.config['REGELS'].zitduur_minuten)
+    except GeenReserveringFout as fout:
+        flash(t(fout.bericht), 'fout')
+    except TafelBezetFout as fout:
+        flash(fout.vertaald(), 'fout')
+    except OperationalError:
+        current_app.logger.exception("Voorstel accepteren mislukt door een databasefout")
+        flash(t("Het lukte niet om op te slaan. Probeer het opnieuw."), 'fout')
+    else:
+        flash(t("Tafel {tafels} voor {naam} is opgeslagen.", tafels=' + '.join(tafels), naam=reservering['naam']), 'ok')
+    return terug
+
 
 STATUS_BERICHTEN = {
     'gearriveerd': "{naam} is er.",

@@ -15,6 +15,7 @@ from app import create_app
 from app.database import (
     get_db, init_db, is_zelfde_gast, reserveringen, verwerk_reservering,
 )
+from app.routes.web import _kenmerk
 from app.security import reset_rate_limits
 from tests.hulp import log_in
 from tests.test_toegang import TestConfig
@@ -94,8 +95,11 @@ class OpslaanTests(Basis):
     def test_telefonische_reservering_zonder_email(self):
         antwoord = self.invoeren()
         self.assertEqual(antwoord.status_code, 302)
-        self.assertEqual(antwoord.headers["Location"], f"/overzicht?datum={self.dinsdag}")
         rij = self.rijen()[0]
+        # Met het anker van de nieuwe reservering, zodat het overzicht op precies die rij springt.
+        with self.app.app_context():
+            kenmerk = _kenmerk(rij["id"])
+        self.assertEqual(antwoord.headers["Location"], f"/overzicht?datum={self.dinsdag}#r-{kenmerk}")
         self.assertEqual((rij["naam"], rij["email"], rij["aantal"], rij["bron"], rij["ingevoerd_door"]),
                          ("Siti Rahma", "", 4, "telefoon", "anna"))
         self.mail.assert_not_called()
