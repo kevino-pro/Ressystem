@@ -231,6 +231,40 @@ def _voorstellen(lijst, toewijzingen):
                                      current_app.config['REGELS'].zitduur_minuten)
 
 
+def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_minuten):
+    """
+    Per reservering de keuzes die een beheerder in het overzicht krijgt: de opties uit het tafelvoorstel
+    waarvan op haar begintijd alle tafels vrij zijn. De tafels van de reservering zelf tellen niet mee
+    (die mag de beheerder opnieuw kiezen); de tafels van een andere reservering en de voorstellen van
+    anderen wel. Geeft {reservering_id: [{'waarde', 'tafels', 'stoelen'}, ...]} in de volgorde van het voorstel.
+    """
+    bezet = []  # (reservering_id, tafel, begin in minuten)
+    for reservering in lijst:
+        if reservering['status'] == NIET_GEKOMEN:  # een no-show bezet geen tafel
+            continue
+        begin = minuten_van(reservering['tijd'])
+        for nummer in (*toewijzingen.get(reservering['id'], ()), *(voorstellen.get(reservering['id']) or ())):
+            bezet.append((reservering['id'], nummer, begin))
+
+    def is_vrij(reservering_id, nummer, begin):
+        """Net als wijs_tafels_toe: een andere reservering binnen de zitduur maakt de tafel bezet."""
+        return not any(ander != reservering_id and tafel == nummer and abs(ander_begin - begin) < zitduur_minuten
+                       for ander, tafel, ander_begin in bezet)
+
+    keuzes = {}
+    for reservering in lijst:
+        if reservering['status'] == NIET_GEKOMEN:
+            continue
+        begin = minuten_van(reservering['tijd'])
+        keuzes[reservering['id']] = [
+            {'waarde': '+'.join(optie), 'tafels': ' + '.join(optie),
+             'stoelen': sum(indeling.tafel(nummer).stoelen for nummer in optie)}
+            for optie in tafelvoorstel.opties(indeling, voorstel, reservering['aantal'])
+            if all(is_vrij(reservering['id'], nummer, begin) for nummer in optie)
+        ]
+    return keuzes
+
+
 @web_bp.route('/overzicht')
 @login_vereist
 def overzicht():
@@ -283,12 +317,17 @@ def overzicht():
         secties = [{'kop': koppen[soort], 'soort': soort, 'rijen': rijen} for soort, rijen in per_soort.items() if rijen]
     else:
         secties = [{'kop': tijd, 'soort': '', 'rijen': rijen} for tijd, rijen in groepen.items()]
+    # Een beheerder kiest zelf de tafels in het overzicht; een medewerker ziet die keuzelijst niet.
+    wijzig_opties = {}
+    if plattegrond_aan and huidige_gebruiker()['rol'] == 'beheerder':
+        wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, current_app.config['PLATTEGROND'],
+                                      current_app.config.get('TAFELVOORSTEL'), regels.zitduur_minuten)
     return render_template(
         'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
         secties=secties, toon_tijd=dag == vandaag, toewijzingen=toewijzingen, tellers=tellers,
         plattegrond_aan=plattegrond_aan, kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=nu_tijd,
-        voorstellen=voorstellen, max_personen=regels.max_personen_per_boeking,
+        voorstellen=voorstellen, max_personen=regels.max_personen_per_boeking, wijzig_opties=wijzig_opties,
     )
 
 def _zoekvorm(tekst):
@@ -410,6 +449,11 @@ def _tijdknoppen(regels, dag):
 @web_bp.route('/plattegrond/toewijzen', methods=['POST'])
 @login_vereist(json_response=True)
 def tafels_toewijzen():
+    # Een medewerker bekijkt de plattegrond en accepteert het voorstel; zelf tafels kiezen doet een beheerder.
+    # Niet via @beheerder_vereist: deze route antwoordt in JSON, ook als je niet ingelogd bent.
+    if huidige_gebruiker()['rol'] != 'beheerder':
+        return jsonify({"status": "fout", "bericht": t("Geen toegang.")}), 403
+
     indeling = current_app.config.get('PLATTEGROND')
     if indeling is None:
         abort(404)
@@ -495,6 +539,79 @@ def tafels_accepteren():
     else:
         flash(t("Tafel {tafels} voor {naam} is opgeslagen.", tafels=' + '.join(tafels), naam=reservering['naam']), 'ok')
     return terug
+
+
+@web_bp.route('/tafels/wijzigen', methods=['POST'])
+@beheerder_vereist
+def tafels_wijzigen():
+    """
+    Wijzigt de tafels van een reservering. Alleen een beheerder mag dit: een medewerker neemt het voorstel
+    over via /tafels/accepteren. De beheerder kiest zelf, dus er wordt niet tegen het voorstel gecontroleerd:
+    een optie uit de keuzelijst, zelf getypte tafelnummers (die gaan voor) of losmaken.
+    """
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    kenmerk = request.form.get('kenmerk')
+    try:
+        datum = date.fromisoformat(request.form.get('datum') or '').isoformat()
+    except ValueError:
+        datum = None
+    if datum is None or not kenmerk:
+        return t("Ongeldig verzoek."), 400
+    terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
+
+    conn = get_db()
+    reservering = next((r for r in haal_reserveringen_op(conn, datum)
+                        if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
+    if reservering is None:
+        flash(t(GeenReserveringFout.bericht), 'fout')
+        return terug
+
+    tafels = _gekozen_tafels(request.form)
+    # Een lege keuze is geen opdracht om los te maken: daarvoor is de knop Losmaken (met een eigen veld).
+    # Zonder deze controle raakt een beheerder de tafels kwijt als de keuzelijst leeg is en hij niets typt.
+    if not tafels and not request.form.get('losmaken'):
+        flash(t("Ongeldig verzoek."), 'fout')
+        return terug
+    if len(tafels) > len(indeling.tafels):
+        flash(t("Ongeldig verzoek."), 'fout')
+        return terug
+
+    try:
+        waarschuwing = wijs_tafels_toe(conn, reservering['id'], tafels, indeling,
+                                       current_app.config['REGELS'].zitduur_minuten)
+    except GeenReserveringFout as fout:
+        flash(t(fout.bericht), 'fout')
+    except OnbekendeTafelFout as fout:
+        flash(fout.vertaald(), 'fout')
+    except TafelBezetFout as fout:
+        flash(fout.vertaald(), 'fout')
+    except OperationalError:
+        current_app.logger.exception("Tafels wijzigen mislukt door een databasefout")
+        flash(t("Het lukte niet om op te slaan. Probeer het opnieuw."), 'fout')
+    else:
+        if waarschuwing:
+            flash(waarschuwing, 'fout')
+        elif tafels:
+            flash(t("Tafel {tafels} voor {naam} is opgeslagen.", tafels=' + '.join(tafels), naam=reservering['naam']), 'ok')
+        else:
+            flash(t("De tafels van {naam} zijn losgemaakt.", naam=reservering['naam']), 'ok')
+    return terug
+
+
+def _gekozen_tafels(form):
+    """
+    De tafels uit het wijzigformulier. Losmaken geeft een lege lijst (de reservering raakt haar tafels kwijt);
+    zelf getypte nummers (gescheiden door +, komma of spatie) gaan voor de keuzelijst; anders die keuzelijst.
+    """
+    if form.get('losmaken'):
+        return []
+    eigen = [nummer for nummer in re.split(r'[+,\s]+', form.get('andere', '').strip()) if nummer]
+    if eigen:
+        return list(dict.fromkeys(eigen))  # dubbele weg, volgorde behouden
+    return [nummer for nummer in form.get('tafels', '').split('+') if nummer]
 
 
 STATUS_BERICHTEN = {
