@@ -50,7 +50,7 @@
         <span>{{ t('{aantal} reservering', aantal=rijen | length) if rijen | length == 1 else t('{aantal} reserveringen', aantal=rijen | length) }} · {{ t('{aantal} gasten', aantal=rijen | sum(attribute='aantal')) }}</span>
     </div>
     {% for r in rijen %}
-    <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}">
+    <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}" id="r-{{ kenmerken[r.id] }}">
         <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
         <div class="wie">
             {% if toon_tijd %}<span class="rijtijd">{{ r.tijd }}</span>{% endif %}
@@ -69,11 +69,25 @@
             {% endif %}
         </div>
         {% if plattegrond_aan and r.status != 'no_show' %}
+        <div class="tafelplek">
             {% if toewijzingen.get(r.id) %}
             <span class="tafel">{{ t('Tafel') }} {{ toewijzingen[r.id] | join(' + ') }}</span>
+            {% elif voorstellen.get(r.id) %}
+            {# Het systeem stelt de tafels voor; het personeel neemt ze over of kiest zelf op de plattegrond. #}
+            <span class="tafel voorstel">{{ t("Voorstel:") }} {{ voorstellen[r.id] | join(' + ') }}</span>
+            <form class="accepteren" action="/tafels/accepteren" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="datum" value="{{ datum }}">
+                <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                <input type="hidden" name="tafels" value="{{ voorstellen[r.id] | join('+') }}">
+                <button type="submit">{{ t("Accepteren") }}</button>
+            </form>
+            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
             {% else %}
+            <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
             <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
             {% endif %}
+        </div>
         {% else %}<span></span>{% endif %}
         <div class="acties">
             {% if dag <= vandaag %}

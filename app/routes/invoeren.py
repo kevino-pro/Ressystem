@@ -15,7 +15,10 @@ from flask import Blueprint, current_app, flash, jsonify, redirect, render_templ
 from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
-from app.database import DubbeleReserveringFout, drukte_bij, get_db, verwerk_reservering
+from app.database import (
+    DubbeleReserveringFout, drukte_bij, get_db, haal_reserveringen_op, haal_toewijzingen_op, verwerk_reservering,
+)
+from app.routes.web import _kenmerk, _voorstellen
 from app.schemas import MAX_PERSONEN_PERSONEEL, PersoneelReserveringSchema
 from app.security import rate_limit, valideer_csrf
 from app.services.email_service import stuur_bevestigingsmail_async
@@ -161,8 +164,29 @@ def opslaan():
         stuur_bevestigingsmail_async(ontvanger_email=g.email, naam=g.naam, datum=datum, tijd=tijd,
                                      aantal=g.aantal, reservering_id=reservering_id, taal=taal)
         bericht += " " + t("De gast krijgt een bevestigingsmail.")
+    indeling = current_app.config.get('PLATTEGROND')
+    kenmerk = None
+    if indeling is not None:
+        # Het voorstel meteen noemen; het overzicht laat het zien en daar is het te accepteren.
+        conn = get_db()
+        voorstel = _voorstellen(haal_reserveringen_op(conn, datum),
+                                haal_toewijzingen_op(conn, datum)).get(reservering_id)
+        if voorstel:
+            tafels = ' + '.join(voorstel)
+            if g.bron == 'binnenloper':
+                # Een binnenloper komt op de plattegrond; daar kiest hij de tafel zelf.
+                bericht += " " + t("Voorstel: tafel {tafels}. Kies de tafel op de plattegrond.", tafels=tafels)
+            else:
+                bericht += " " + t("Voorstel: tafel {tafels}. Accepteer het in het overzicht.", tafels=tafels)
+        elif g.bron == 'binnenloper':
+            bericht += " " + t("Er is geen passende tafel vrij; kies zelf een tafel op de plattegrond.")
+        else:
+            bericht += " " + t("Er is geen passende tafel vrij; de beheerder regelt de tafels.")
+        kenmerk = _kenmerk(reservering_id)
     flash(bericht, 'ok')
-    if g.bron == 'binnenloper' and current_app.config.get('PLATTEGROND') is not None:
+    if g.bron == 'binnenloper' and indeling is not None:
         # Aan de deur is de volgende stap een tafel kiezen: meteen naar de plattegrond op dat moment.
         return redirect(url_for('web.plattegrond', datum=datum, tijd=tijd))
+    if kenmerk is not None:
+        return redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk))
     return redirect(url_for('web.overzicht', datum=datum))

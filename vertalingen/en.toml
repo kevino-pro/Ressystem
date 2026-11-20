@@ -446,3 +446,15 @@
 "Meer dan {aantal} resultaten. Maak je zoekopdracht specifieker." = "More than {aantal} results. Please make your search more specific."
 "Naar deze dag" = "Go to this day"
 "Geen reserveringen gevonden." = "No bookings found."
+
+# tafelvoorstel in het overzicht en bij het invoeren (web.py, invoeren.py, overzicht.html)
+"Voorstel:" = "Proposal:"
+"Accepteren" = "Accept"
+"Geen tafel vrij" = "No free table"
+"Beheerder regelt de tafels" = "The administrator arranges the tables"
+"Het voorstel is intussen veranderd. Kijk naar het nieuwe voorstel." = "The proposal has changed in the meantime. Please look at the new proposal."
+"Tafel {tafels} voor {naam} is opgeslagen." = "Table {tafels} for {naam} has been saved."
+"Voorstel: tafel {tafels}. Accepteer het in het overzicht." = "Proposal: table {tafels}. Accept it in the overview."
+"Er is geen passende tafel vrij; de beheerder regelt de tafels." = "There is no suitable free table; the administrator arranges the tables."
+"Voorstel: tafel {tafels}. Kies de tafel op de plattegrond." = "Proposal: table {tafels}. Choose the table on the floor plan."
+"Er is geen passende tafel vrij; kies zelf een tafel op de plattegrond." = "There is no suitable free table; choose a table yourself on the floor plan."
