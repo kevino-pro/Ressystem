@@ -77,6 +77,14 @@ elementen = [
     { naam = "Ingang", kolom = 0, rij = 8, hoogte = 2 },
 ]
 
+# Tafelvoorstel. Het systeem stelt eerst de kleinste losse tafel voor die past en vrij is.
+# Past de groep aan geen losse tafel, dan de eerste vrije combinatie uit deze lijst, in deze volgorde.
+# Per aantal personen een lijst van combinaties. Groepen groter dan 15 bellen; de beheerder regelt de tafels.
+[tafelvoorstel]
+7 = [["1a", "1b"], ["3a", "3b"]]
+10 = [["1e", "2"], ["9", "10a", "10b"]]
+14 = [["2", "3a", "3b"]]
+
 # Gegevens voor de privacyverklaring (/privacy). Controleer de locaties in de dashboards van
 # Render, Neon en n8n voordat je dit merget; de verklaring is een belofte aan je gasten.
 [privacy]

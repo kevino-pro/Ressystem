@@ -18,6 +18,7 @@ from app.database import (
 from app.services.email_service import stuur_bevestigingsmail_sync
 from app.reserveringsregels import laad_regels
 from app.plattegrond import laad_plattegrond
+from app.tafelvoorstel import laad_tafelvoorstel
 from app.privacy import laad_privacy
 from app.restaurant import laad_restaurant
 from app.herinnering import laad_herinnering, morgen_en_grens, verstuur_herinneringen
@@ -45,6 +46,7 @@ def create_app(config_class=Config):
         regels_pad = Path(app.root_path).parent / regels_pad
     app.config['REGELS'] = laad_regels(regels_pad)
     app.config['PLATTEGROND'] = laad_plattegrond(regels_pad)  # None als het bestand geen [plattegrond] heeft
+    app.config['TAFELVOORSTEL'] = laad_tafelvoorstel(regels_pad, app.config['PLATTEGROND'])  # None zonder plattegrond
     app.config['PRIVACY'] = laad_privacy(regels_pad)  # None als het bestand geen [privacy] heeft
     if app.config.get('APP_ENV') == 'production' and app.config['PRIVACY'] is None:
         raise RuntimeError(f"APP_ENV=production maar {regels_pad.name} heeft geen [privacy]; de privacyverklaring is verplicht.")
