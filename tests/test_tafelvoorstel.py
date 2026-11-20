@@ -40,10 +40,10 @@ def reservering(reservering_id, tijd, aantal, status="verwacht", aangemaakt_op=N
 
 
 class LaadTafelvoorstelTests(unittest.TestCase):
-    def test_01_wpl_heeft_drie_groepsgroottes(self):
+    def test_01_wpl_heeft_alle_groepsgroottes(self):
         voorstel = laad_tafelvoorstel(WPL, laad_plattegrond(WPL))
-        self.assertEqual(sorted(voorstel.combinaties), [7, 10, 14])
-        self.assertEqual(voorstel.combinaties[10], (("1e", "2"), ("9", "10a", "10b")))
+        self.assertEqual(sorted(voorstel.combinaties), list(range(4, 16)))
+        self.assertEqual(voorstel.combinaties[10], (("1e", "2"), ("9", "10a", "10b"), ("2", "3a")))
 
         class MetWpl(TestConfig):
             RESTAURANT_CONFIG = "restaurants/wpl.toml"

@@ -83,6 +83,15 @@ class WplRegelsTests(unittest.TestCase):
         self.assertTrue(tijden["19:00"]["beschikbaar"])   # na een uur is de tafel weer vrij
         self.assertEqual(tijden["20:00"]["vrij"], 69)
 
+    def test_combinaties_voor_elke_groep_zonder_losse_tafel(self):
+        """Elke groep tot het online maximum die aan geen losse tafel past, heeft minstens één combinatie."""
+        indeling = self.app.config["PLATTEGROND"]
+        voorstel = self.app.config["TAFELVOORSTEL"]
+        grootste = max(tafel.stoelen for tafel in indeling.tafels)
+        for aantal in range(grootste + 1, self.regels.max_personen_per_boeking + 1):
+            with self.subTest(aantal=aantal):
+                self.assertTrue(voorstel.combinaties.get(aantal), f"geen combinatie voor {aantal} personen")
+
 
 if __name__ == "__main__":
     unittest.main()

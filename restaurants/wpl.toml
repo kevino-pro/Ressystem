@@ -88,10 +88,18 @@ elementen = [
 # Past de groep aan geen losse tafel, dan de eerste vrije combinatie uit deze lijst, in deze volgorde.
 # Per aantal personen een lijst van combinaties. Groepen groter dan 15 bellen; de beheerder regelt de tafels.
 [tafelvoorstel]
-7 = [["1a", "1b"], ["3a", "3b"]]
-10 = [["1e", "2"], ["9", "10a", "10b"]]
-14 = [["2", "3a", "3b"]]
-
+4 = [["5a", "5b"], ["6a", "6b"], ["7a", "7b"]]
+5 = [["10a", "10b"]]
+6 = [["5a", "5b", "6a"], ["5b", "6a", "6b"]]
+7 = [["1a", "1b"], ["1b", "1c"], ["1c", "1d"], ["1d", "1e"], ["3a", "3b"], ["9", "10a"]]
+8 = [["1a", "1b"], ["1b", "1c"], ["1c", "1d"], ["1d", "1e"], ["3a", "3b"]]
+9 = [["9", "10a", "10b"], ["1e", "2"]]
+10 = [["1e", "2"], ["9", "10a", "10b"], ["2", "3a"]]
+11 = [["1a", "1b", "1c"], ["1c", "1d", "1e"]]
+12 = [["1a", "1b", "1c"], ["1c", "1d", "1e"]]
+13 = [["2", "3a", "3b"], ["1a", "1b", "1c", "1d"]]
+14 = [["2", "3a", "3b"], ["1a", "1b", "1c", "1d"]]
+15 = [["1a", "1b", "1c", "1d"], ["1c", "1d", "1e", "2"]]
 # Gegevens voor de privacyverklaring (/privacy). Controleer de locaties in de dashboards van
 # Render, Neon en n8n voordat je dit merget; de verklaring is een belofte aan je gasten.
 [privacy]
