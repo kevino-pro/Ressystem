@@ -43,6 +43,17 @@
 <div class="lijst" id="lijst">
     {# Vandaag zijn de groepen Te laat, Komt zo, Later, Binnen en Niet gekomen, met de tijd op elke rij;
        op een andere dag is elke begintijd een groep. #}
+    {# De koprij van de papieren lijst noemt de vaste kolommen van elke regel. Op een telefoon staan de kolommen
+       onder elkaar en valt de koprij weg (zie static/css/huisstijl.css). #}
+    {% if secties %}
+    <div class="kolomkoppen">
+        <span>{{ t("Tijd") }}</span>
+        <span>{{ t("Naam") }}</span>
+        <span>{{ t("Personen") }}</span>
+        <span>{{ t("Tafel") }}</span>
+        <span>{{ t("Telefoon") }}</span>
+    </div>
+    {% endif %}
     {% for sectie in secties %}
     {% set rijen = sectie.rijen %}
     <div class="tijdkop {{ sectie.soort }}">
@@ -51,11 +62,13 @@
     </div>
     {% for r in rijen %}
     <div class="res {{ 'aangekomen' if r.status == 'gearriveerd' }} {{ 'noshow' if r.status == 'no_show' }}" id="r-{{ kenmerken[r.id] }}">
-        <div class="aantal" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</div>
-        <div class="wie">
+        {# De tijd staat in de eerste kolom: vandaag in de rij zelf (rijtijd), op een andere dag uit de tijdkolom. #}
+        <span class="kol-tijd">{% if not toon_tijd %}{{ r.tijd }}{% endif %}</span>
+        {# .wie en .aantal blijven in de klasselijst staan: de opmaak en de test van de telefoonversie hangen eraan. #}
+        <div class="wie kol-naam">
             {% if toon_tijd %}<span class="rijtijd">{{ r.tijd }}</span>{% endif %}
             <b>{{ r.naam }}</b>
-            <small>{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}{% if r.telefoon and r.email %}<span class="scheiding"> · </span>{% endif %}{% if r.email %}<a class="mailtekst" href="mailto:{{ r.email }}">{{ r.email }}</a>{% endif %}</small>
+            {% if r.email %}<small><a class="mailtekst" href="mailto:{{ r.email }}">{{ r.email }}</a>{% if r.telefoon %}<span class="scheiding"> · </span>{% endif %}</small>{% endif %}
             {% if r.kinderstoelen or r.opmerking or r.allergieen or r.bron != 'online' or r.status != 'verwacht' or r.herinnering_verstuurd or r.gewijzigd_op %}
             <div class="notities">
                 {% if r.status == 'gearriveerd' %}<span class="notitie">{{ t("Is er") }}</span>{% elif r.status == 'no_show' %}<span class="notitie allergie">{{ t("Niet gekomen") }}</span>{% endif %}
@@ -68,27 +81,31 @@
             </div>
             {% endif %}
         </div>
+        <span class="aantal kol-personen" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</span>
         {% if plattegrond_aan and r.status != 'no_show' %}
-        <div class="tafelplek">
-            {% if toewijzingen.get(r.id) %}
-            <span class="tafel">{{ t('Tafel') }} {{ toewijzingen[r.id] | join(' + ') }}</span>
-            {% elif voorstellen.get(r.id) %}
-            {# Het systeem stelt de tafels voor; het personeel neemt ze over of kiest zelf op de plattegrond. #}
-            <span class="tafel voorstel">{{ t("Voorstel:") }} {{ voorstellen[r.id] | join(' + ') }}</span>
-            <form class="accepteren" action="/tafels/accepteren" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="datum" value="{{ datum }}">
-                <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
-                <input type="hidden" name="tafels" value="{{ voorstellen[r.id] | join('+') }}">
-                <button type="submit">{{ t("Accepteren") }}</button>
-            </form>
-            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
-            {% else %}
-            <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
-            <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
-            {% endif %}
+        <div class="kol-tafel">
+            <div class="tafelplek">
+                {% if toewijzingen.get(r.id) %}
+                <span class="tafel">{{ t('Tafel') }} {{ toewijzingen[r.id] | join(' + ') }}</span>
+                {% elif voorstellen.get(r.id) %}
+                {# Het systeem stelt de tafels voor; het personeel neemt ze over of kiest zelf op de plattegrond. #}
+                <span class="tafel voorstel">{{ t("Voorstel:") }} {{ voorstellen[r.id] | join(' + ') }}</span>
+                <form class="accepteren" action="/tafels/accepteren" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ datum }}">
+                    <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                    <input type="hidden" name="tafels" value="{{ voorstellen[r.id] | join('+') }}">
+                    <button type="submit">{{ t("Accepteren") }}</button>
+                </form>
+                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
+                {% else %}
+                <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
+                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
+                {% endif %}
+            </div>
         </div>
-        {% else %}<span></span>{% endif %}
+        {% else %}<div class="kol-tafel"></div>{% endif %}
+        <span class="kol-telefoon">{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}</span>
         <div class="acties">
             {% if dag <= vandaag %}
             <form class="status" action="/aankomst" method="POST">
