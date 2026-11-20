@@ -1,0 +1,78 @@
+{% extends "personeel.html" %}
+{% block titel %}{{ t("Zonder tafel") }} · {{ config.RESTAURANT_NAAM }}{% endblock %}
+{% block inhoud %}
+<div class="dagnav">
+    <h2>{{ t("Zonder tafel") }}</h2>
+</div>
+<p class="sub">{{ t("Kijk hier 's ochtends, 's middags en 's avonds. Accepteer het voorstel of laat een beheerder de tafels regelen.") }}</p>
+
+{% for categorie, bericht in get_flashed_messages(with_categories=true) %}
+<div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
+{% endfor %}
+
+{% if dagen %}
+<div class="lijst" id="lijst">
+    <div class="kolomkoppen">
+        <span>{{ t("Tijd") }}</span>
+        <span>{{ t("Naam") }}</span>
+        <span>{{ t("Personen") }}</span>
+        <span>{{ t("Tafel") }}</span>
+        <span>{{ t("Telefoon") }}</span>
+    </div>
+    {% for dag in dagen %}
+    <div class="tijdkop">
+        <b>{{ dag.dag | datum_tekst(met_jaar=dag.dag.year != vandaag.year) | hoofdletter }}</b>
+        <span>{{ t('{aantal} reservering', aantal=dag.rijen | length) if dag.rijen | length == 1 else t('{aantal} reserveringen', aantal=dag.rijen | length) }} · {{ t('{aantal} gasten', aantal=dag.rijen | sum(attribute='aantal')) }}</span>
+    </div>
+    {% for r in dag.rijen %}
+    <div class="res" id="r-{{ kenmerken[r.id] }}">
+        <span class="kol-tijd">{{ r.tijd }}</span>
+        <div class="wie kol-naam"><b>{{ r.naam }}</b></div>
+        <span class="aantal kol-personen" title="{{ t('{aantal} personen', aantal=r.aantal) }}">{{ r.aantal }}</span>
+        <div class="kol-tafel">
+            <div class="tafelplek">
+                {% if dag.voorstellen.get(r.id) %}
+                {# Het systeem stelt de tafels voor; het personeel neemt ze over met Accepteren. #}
+                <span class="tafel voorstel">{{ t("Voorstel:") }} {{ dag.voorstellen[r.id] | join(' + ') }}</span>
+                <form class="accepteren" action="/tafels/accepteren" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ dag.datum }}">
+                    <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                    <input type="hidden" name="tafels" value="{{ dag.voorstellen[r.id] | join('+') }}">
+                    <input type="hidden" name="terug" value="meldingen">
+                    <button type="submit">{{ t("Accepteren") }}</button>
+                </form>
+                {% else %}
+                <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
+                {% endif %}
+            </div>
+            {% if gebruiker and gebruiker.rol == 'beheerder' %}
+            {# Alleen een beheerder wijzigt de tafels: een optie uit de lijst, zelf getypte nummers of losmaken. #}
+            <details class="wijzigen">
+                <summary>{{ t("Wijzigen") }}</summary>
+                <form action="/tafels/wijzigen" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ dag.datum }}">
+                    <input type="hidden" name="kenmerk" value="{{ kenmerken[r.id] }}">
+                    <input type="hidden" name="terug" value="meldingen">
+                    <select id="tafels-{{ kenmerken[r.id] }}" name="tafels" aria-label="{{ t('Tafel') }}">
+                        {% for optie in dag.wijzig_opties.get(r.id, []) %}
+                        <option value="{{ optie.waarde }}">{{ optie.tafels }} ({{ t('{aantal} stoel', aantal=optie.stoelen) if optie.stoelen == 1 else t('{aantal} stoelen', aantal=optie.stoelen) }})</option>
+                        {% endfor %}
+                    </select>
+                    <label for="andere-{{ kenmerken[r.id] }}">{{ t("Andere tafels") }}</label>
+                    <input type="text" id="andere-{{ kenmerken[r.id] }}" name="andere" maxlength="60" autocomplete="off">
+                    <button type="submit">{{ t("Opslaan") }}</button>
+                </form>
+            </details>
+            {% endif %}
+        </div>
+        <span class="kol-telefoon">{% if r.telefoon %}<a class="tel" href="tel:{{ r.telefoon }}">{{ r.telefoon }}</a>{% endif %}</span>
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+{% else %}
+<p class="leeg" style="padding: 24px 0; text-align: center">{{ t("Alle reserveringen hebben een tafel.") }}</p>
+{% endif %}
+{% endblock %}

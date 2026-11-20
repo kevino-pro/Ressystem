@@ -455,3 +455,9 @@
 "Er is geen passende tafel vrij; de beheerder regelt de tafels." = "There is no suitable free table; the administrator arranges the tables."
 "Het is bijna vol op dit tijdstip. Bel het restaurant om te reserveren: {telefoon}." = "It is nearly full at this time. Call the restaurant to book: {telefoon}."
 "Er is geen passende tafel vrij op dit tijdstip; de beheerder moet de tafels regelen." = "There is no suitable free table at this time; the administrator has to arrange the tables."
+
+# meldingen: reserveringen zonder tafel (meldingen.html, personeel.html, web.py)
+"Meldingen" = "Notifications"
+"Zonder tafel" = "Without a table"
+"Kijk hier 's ochtends, 's middags en 's avonds. Accepteer het voorstel of laat een beheerder de tafels regelen." = "Check here in the morning, in the afternoon and in the evening. Accept the proposal or ask an administrator to arrange the tables."
+"Alle reserveringen hebben een tafel." = "All bookings have a table."

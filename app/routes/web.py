@@ -7,7 +7,8 @@ from datetime import date, datetime, time, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from flask import (
-    Blueprint, Response, abort, flash, render_template, request, jsonify, redirect, url_for, session, current_app,
+    Blueprint, Response, abort, flash, g, has_request_context, render_template, request, jsonify, redirect,
+    url_for, session, current_app,
 )
 from werkzeug.security import check_password_hash
 from pydantic import ValidationError
@@ -39,6 +40,7 @@ HOKJE = 48  # pixels per hokje op de plattegrond
 STRAKS_MINUTEN = 30  # zo ver vooruit kijkt de plattegrond naar tafels die bijna bezet zijn
 
 DAGEN_IN_STRIP = 7  # zoveel dagen staan als knop boven de kalender
+MELDINGEN_DAGEN = 7  # /meldingen toont vandaag en de zes dagen daarna
 ZOEK_MIN_TEKENS = 2
 ZOEK_MAX_RESULTATEN = 50
 TELEFOON_ZOEKTERM = re.compile(r'[\d\s+()\-]+')  # alleen cijfers en wat je in een telefoonnummer typt
@@ -282,6 +284,48 @@ def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_
     return keuzes
 
 
+def _zonder_tafel_telling():
+    """
+    Voor de teller in het personeelsmenu: het aantal reserveringen van vandaag (vanaf nu) en van morgen
+    dat nog geen tafel heeft. None voor een gast en zonder plattegrond; één telling per verzoek.
+    """
+    if not has_request_context() or current_app.config.get('PLATTEGROND') is None:
+        return None
+    if huidige_gebruiker() is None:
+        return None
+    if 'zonder_tafel_telling' in g:
+        return g.zonder_tafel_telling
+    regels = current_app.config['REGELS']
+    nu = regels.nu()
+    vandaag = nu.date()
+    nu_tijd = f"{nu:%H:%M}"
+    conn = get_db()
+
+    def tel(datum, vanaf):
+        """Reserveringen die nog verwacht worden en geen tafel hebben; vandaag alleen vanaf `vanaf`."""
+        toewijzingen = haal_toewijzingen_op(conn, datum)
+        return sum(1 for r in haal_reserveringen_op(conn, datum)
+                   if r['status'] == 'verwacht' and not toewijzingen.get(r['id'])
+                   and (vanaf is None or r['tijd'] >= vanaf))
+
+    try:
+        g.zonder_tafel_telling = {
+            'vandaag': tel(vandaag.isoformat(), nu_tijd),
+            'morgen': tel((vandaag + timedelta(days=1)).isoformat(), None),
+        }
+    except OperationalError:
+        # Een pagina die een databasefout netjes opvangt (zoals "Het lukte niet om op te slaan")
+        # moet ook zonder database kunnen verschijnen: dan geen teller, maar de pagina blijft werken.
+        g.zonder_tafel_telling = None
+    return g.zonder_tafel_telling
+
+
+@web_bp.app_context_processor
+def _menu_teller():
+    """De teller bij Meldingen in het menu, op elke personeelspagina."""
+    return {'zonder_tafel': _zonder_tafel_telling()}
+
+
 @web_bp.route('/overzicht')
 @login_vereist
 def overzicht():
@@ -345,6 +389,48 @@ def overzicht():
         secties=secties, toon_tijd=dag == vandaag, toewijzingen=toewijzingen, tellers=tellers,
         plattegrond_aan=plattegrond_aan, kenmerken={r['id']: _kenmerk(r['id']) for r in lijst}, nu_tijd=nu_tijd,
         voorstellen=voorstellen, max_personen=regels.max_personen_per_boeking, wijzig_opties=wijzig_opties,
+    )
+
+
+@web_bp.route('/meldingen')
+@login_vereist
+def meldingen():
+    """
+    Reserveringen zonder tafel voor vandaag en de zes dagen daarna, met het tafelvoorstel erbij.
+    Het personeel kijkt hier 's ochtends, 's middags en 's avonds en accepteert het voorstel.
+    """
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    regels = current_app.config['REGELS']
+    nu = regels.nu()
+    vandaag = nu.date()
+    nu_tijd = f"{nu:%H:%M}"
+    conn = get_db()
+    dagen = []
+    for verschil in range(MELDINGEN_DAGEN):
+        dag = vandaag + timedelta(days=verschil)
+        datum = dag.isoformat()
+        lijst = haal_reserveringen_op(conn, datum)
+        toewijzingen = haal_toewijzingen_op(conn, datum)
+        voorstellen = _voorstellen(lijst, toewijzingen)
+        rijen = [r for r in lijst
+                 if r['status'] == 'verwacht' and not toewijzingen.get(r['id'])
+                 and (verschil or r['tijd'] >= nu_tijd)]  # vandaag alleen wat nog moet komen
+        if not rijen:
+            continue
+        # Een beheerder kiest zelf de tafels; een medewerker ziet die keuzelijst niet.
+        wijzig_opties = {}
+        if huidige_gebruiker()['rol'] == 'beheerder':
+            wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, indeling,
+                                          current_app.config.get('TAFELVOORSTEL'), regels.zitduur_minuten)
+        dagen.append({'datum': datum, 'dag': dag, 'rijen': rijen, 'voorstellen': voorstellen,
+                      'wijzig_opties': wijzig_opties})
+    return render_template(
+        'meldingen.html', actief='meldingen', dagen=dagen, vandaag=vandaag,
+        kenmerken={r['id']: _kenmerk(r['id']) for dag in dagen for r in dag['rijen']},
+        max_personen=regels.max_personen_per_boeking,
     )
 
 def _zoekvorm(tekst):
@@ -482,7 +568,11 @@ def tafels_accepteren():
         datum = None
     if datum is None or not kenmerk:
         return t("Ongeldig verzoek."), 400
-    terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
+    # Vanuit /meldingen komt het verzoek met terug=meldingen: dan weer naar die pagina in plaats van het overzicht.
+    if request.form.get('terug') == 'meldingen':
+        terug = redirect(url_for('web.meldingen'), code=303)
+    else:
+        terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
 
     conn = get_db()
     lijst = haal_reserveringen_op(conn, datum)
@@ -530,7 +620,11 @@ def tafels_wijzigen():
         datum = None
     if datum is None or not kenmerk:
         return t("Ongeldig verzoek."), 400
-    terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
+    # Vanuit /meldingen komt het verzoek met terug=meldingen: dan weer naar die pagina in plaats van het overzicht.
+    if request.form.get('terug') == 'meldingen':
+        terug = redirect(url_for('web.meldingen'), code=303)
+    else:
+        terug = redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk), code=303)
 
     conn = get_db()
     reservering = next((r for r in haal_reserveringen_op(conn, datum)
