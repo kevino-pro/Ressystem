@@ -211,6 +211,33 @@ form.accepteren button:hover { background: rgba(123, 196, 127, .24); }
 .menu button { width: 100%; text-align: left; background: transparent; border: 0; color: var(--rood); font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
 .menu button:hover { background: rgba(229, 115, 115, .1); }
 
+/* Het overzicht als een papieren lijst: elke reservering is één regel met vaste kolommen in deze volgorde:
+   tijd, naam, personen, tafel, telefoon en de acties. De koprij noemt ze; op een telefoon staan de kolommen
+   onder elkaar en valt de koprij weg (zie de serviceregels onderaan). */
+.lijst { --kolommen: 4rem minmax(0, 1fr) 4rem 9rem 9rem auto; }
+.kolomkoppen, .res:not(.zoek) { grid-template-columns: var(--kolommen); }
+.kolomkoppen { display: grid; align-items: center; column-gap: 14px; padding: 10px 0 8px; border-bottom: 1px solid var(--lijn);
+               color: var(--zacht); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.kolomkoppen span:nth-child(3) { text-align: right; }  /* de personen staan rechts boven hun getal */
+.res:not(.zoek) { column-gap: 14px; row-gap: 2px; }
+/* De tijd: op een andere dag uit de tijdkolom, vandaag uit de rij zelf (rijtijd); allebei in de eerste kolom. */
+.res:not(.zoek) > .kol-tijd, .res:not(.zoek) > .kol-naam > .rijtijd { grid-column: 1; grid-row: 1; }
+/* De naam, het e-mailadres en de labels staan onder elkaar in de tweede kolom. */
+.res:not(.zoek) > .kol-naam { display: contents; }
+.res:not(.zoek) > .kol-naam > b { grid-column: 2; grid-row: 1; }
+.res:not(.zoek) > .kol-naam > small { grid-column: 2; grid-row: 2; }
+.res:not(.zoek) > .kol-naam > .notities { grid-column: 2 / -1; grid-row: 3; }
+.res:not(.zoek) > .kol-personen { grid-column: 3; grid-row: 1; width: auto; height: auto; border: 0; background: none;
+                                  justify-self: end; font-variant-numeric: tabular-nums; }
+.res:not(.zoek) > .kol-tafel { grid-column: 4; grid-row: 1; }
+.res:not(.zoek) > .kol-telefoon { grid-column: 5; grid-row: 1; font-variant-numeric: tabular-nums; }
+.res:not(.zoek) > .kol-telefoon .tel { color: var(--zacht); text-decoration: none; }
+.res:not(.zoek) > .acties { grid-column: 6; grid-row: 1; flex-wrap: wrap; justify-content: flex-end; }
+.res:not(.zoek) > .kol-tijd:empty, .res:not(.zoek) > .kol-tafel:empty, .res:not(.zoek) > .kol-telefoon:empty { display: none; }
+/* De telefoon heeft een eigen kolom gekregen; het scheidingsteken van de oude, gecombineerde regel (nummer ·
+   e-mailadres) hoort daardoor niet meer bij deze opmaak. */
+.res:not(.zoek) .kol-naam .scheiding { display: none; }
+
 /* Personeel: plattegrond */
 .tijdbalk { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
 .tijdbalk > small { color: var(--zacht); margin-right: 6px; }
@@ -396,7 +423,8 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
 }
 
 /* Overzicht van vandaag: groepen op urgentie in plaats van per begintijd, met de tijd op elke rij. */
-.rijtijd { margin-right: 8px; font-weight: 700; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
+/* De tijd staat in de eerste kolom, ook op een dag die niet vandaag is (daar komt hij uit .kol-tijd). */
+.rijtijd, .kol-tijd { font-weight: 700; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .tijdkop.laat b { color: var(--rood); }
 .tijdkop.binnen b { color: var(--groen); }
 .tijdkop.niet b { color: var(--zacht); }
@@ -436,25 +464,33 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     /* De tijd van de groep blijft onder de tellers staan terwijl je door de lijst gaat. */
     .lijst .tijdkop:not(.datumkop) { position: sticky; top: 44px; z-index: 4; background: #130f0c; }
 
-    /* Rij: aantal links, de statusknop vast rechts, daartussen naam, telefoon en tafel. Wat niet naast elkaar past
-       (een lang nummer, "Niet gekomen") schuift naar de volgende regel in plaats van te worden afgekapt. */
+    /* Koprij: op een telefoon staan de kolommen onder elkaar, dus de koprij vervalt. */
+    .kolomkoppen { display: none; }
+
+    /* Rij in twee regels: tijd · naam · personen bovenaan, tafel · telefoon eronder. De statusknop staat vast
+       rechts (onder de duim) en de labels helemaal onderaan. Wat niet past (een lang nummer, "Niet gekomen")
+       schuift naar de volgende regel in plaats van te worden afgekapt. */
     .res:not(.zoek) { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; position: relative;
-                      min-height: 68px; padding: 10px 98px 10px 48px; }
+                      min-height: 68px; padding: 10px 98px 10px 0; }
     .res:not(.zoek):not(:has(.status)) { padding-right: 0; }  /* een dag in de toekomst heeft geen statusknop */
-    .res:not(.zoek) > span:empty { display: none; }
-    .res:not(.zoek) .aantal { position: absolute; left: 0; top: 10px; }
-    .res:not(.zoek) .wie, .res:not(.zoek) .acties, .res:not(.zoek) .acties .status { display: contents; }
-    .res:not(.zoek) .wie > b { flex: 1 0 100%; order: 1; font-size: 16px; overflow-wrap: anywhere; }
-    /* Vandaag staat de tijd voor de naam, op dezelfde regel. */
-    .res:not(.zoek) .rijtijd { flex: none; order: 1; align-self: flex-start; margin-right: 0; font-size: 16px; }
-    .res:not(.zoek) .rijtijd + b { flex-basis: calc(100% - 56px); }
-    .res:not(.zoek) .wie > small, .res:not(.zoek) .tafel { flex: none; order: 2; white-space: nowrap; }
+    .res:not(.zoek) > span:empty, .res:not(.zoek) > div:empty { display: none; }
+    .res:not(.zoek)::before { content: ""; flex-basis: 100%; order: 2; }  /* de sprong naar de tweede regel */
+    .res:not(.zoek) .kol-naam, .res:not(.zoek) .acties, .res:not(.zoek) .acties .status { display: contents; }
+    /* Regel 1: tijd · naam · personen. */
+    .res:not(.zoek) .kol-tijd, .res:not(.zoek) .rijtijd { flex: none; order: 1; margin-right: 0; font-size: 16px; }
+    .res:not(.zoek) .kol-naam > b { flex: 1 1 auto; min-width: 0; order: 1; font-size: 16px; overflow-wrap: anywhere; }
+    .res:not(.zoek) .kol-personen { flex: none; order: 1; }
+    .res:not(.zoek) .kol-naam > small { display: none; }  /* mailen kan op de tablet of de pc */
+    /* Regel 2: tafel · telefoon. */
+    .res:not(.zoek) .kol-tafel, .res:not(.zoek) .kol-telefoon { flex: none; order: 2; }
+    .res:not(.zoek) .kol-tafel .tafel { white-space: nowrap; }
+    .res:not(.zoek) .kol-telefoon { white-space: nowrap; }
+    .res:not(.zoek) .kol-telefoon .tel { display: inline-block; padding: 4px 0; font-size: 14px; color: var(--tekst); text-decoration: none; }
     .res:not(.zoek) .acties .status button[value="no_show"], .res:not(.zoek) .acties details { order: 3; }
-    /* De labels komen na telefoon en tafel en mogen onder de knop door: die is op die hoogte al voorbij. */
+    /* De labels komen na tafel en telefoon en mogen onder de knop door: die is op die hoogte al voorbij. */
     .res:not(.zoek) .notities { flex: none; order: 4; width: calc(100% + 98px); margin: 2px -98px 0 0; }
     .res:not(.zoek):not(:has(.status)) .notities { width: 100%; margin-right: 0; }
     .res:not(.zoek) .tafel.leeg { padding: 5px 8px; }
-    .res:not(.zoek) .tafelplek { flex: none; order: 2; }
     .res:not(.zoek) .tafelplek .tafel.leeg { white-space: normal; }
     .res:not(.zoek) .tafelplek form.accepteren button { min-height: 32px; }
     .res:not(.zoek) .acties .mail { display: none; }
