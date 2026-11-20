@@ -57,6 +57,12 @@ nav.staf .logo h1 { font-size: 21px; }
 /* nav.staf ervoor: .pil (verderop) zet display anders weer aan */
 nav.staf .menuknop { display: none; cursor: pointer; }
 .menu-lijst { display: contents; }
+/* Teller bij Meldingen in het personeelsmenu: klein, rond en in de accentkleur. */
+nav.staf .teller-melding { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+                           padding: 0 5px; margin-left: 6px; border-radius: 999px; background: var(--accent);
+                           color: var(--accent-tekst); font-size: 11px; font-weight: 700; line-height: 1; }
+/* Op de Meldingen-pagina zelf is de link accentgekleurd; het label keert de kleuren dan om. */
+nav.staf .pil.aan .teller-melding { background: var(--accent-tekst); color: var(--accent); }
 
 /* Bouwstenen */
 .kaart { background: var(--kaart); border: 1px solid var(--lijn); border-radius: 18px; padding: 28px;
@@ -350,6 +356,7 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .menu-lijst > .pil, .menu-lijst > form .pil { min-height: 44px; width: 100%; justify-content: flex-start; padding: 0 14px; font-size: 14px; }
     .menu-lijst > form { display: block; }
     .menu-lijst .talen { padding: 4px 0 2px; }
+    .menu-lijst .teller-melding { min-width: 20px; height: 20px; font-size: 12px; }
     .tellers { grid-template-columns: 1fr 1fr; }
     .res { grid-template-columns: 40px 1fr; row-gap: 8px; }
     .res .tafel, .res .acties { grid-column: 2; }

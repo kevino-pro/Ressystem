@@ -455,3 +455,9 @@
 "Er is geen passende tafel vrij; de beheerder regelt de tafels." = "Tidak ada meja yang cocok dan kosong; admin mengatur mejanya."
 "Het is bijna vol op dit tijdstip. Bel het restaurant om te reserveren: {telefoon}." = "Hampir penuh pada jam ini. Hubungi restoran untuk memesan: {telefoon}."
 "Er is geen passende tafel vrij op dit tijdstip; de beheerder moet de tafels regelen." = "Tidak ada meja yang cocok dan kosong pada jam ini; admin harus mengatur mejanya."
+
+# meldingen: reserveringen zonder tafel (meldingen.html, personeel.html, web.py)
+"Meldingen" = "Notifikasi"
+"Zonder tafel" = "Tanpa meja"
+"Kijk hier 's ochtends, 's middags en 's avonds. Accepteer het voorstel of laat een beheerder de tafels regelen." = "Periksa di sini pada pagi, siang, dan malam. Terima usulan atau minta admin mengatur mejanya."
+"Alle reserveringen hebben een tafel." = "Semua reservasi sudah memiliki meja."

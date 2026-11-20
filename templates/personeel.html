@@ -13,6 +13,10 @@
             {% endif %}
             {# Op een telefoon staat de rest onder de knop Menu; vanaf 700 px staat alles naast elkaar. #}
             <div class="menu-lijst" id="menu">
+            {% if config.PLATTEGROND %}
+            {# Het aantal reserveringen zonder tafel van vandaag en morgen; zonder plattegrond is er geen /meldingen. #}
+            <a class="pil {{ 'aan' if actief == 'meldingen' }}" href="/meldingen">{{ t("Meldingen") }}{% if zonder_tafel and zonder_tafel.vandaag + zonder_tafel.morgen > 0 %}<span class="teller-melding">{{ zonder_tafel.vandaag + zonder_tafel.morgen }}</span>{% endif %}</a>
+            {% endif %}
             {% if gebruiker and gebruiker.rol == 'beheerder' %}
             <a class="pil {{ 'aan' if actief == 'accounts' }}" href="/accounts">{{ t("Medewerkers") }}</a>
             <a class="pil {{ 'aan' if actief == 'cijfers' }}" href="/cijfers">{{ t("Cijfers") }}</a>
