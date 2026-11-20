@@ -182,12 +182,11 @@ class NoShowGeeftRuimteTests(Basis):
         self.reservering(naam="A", aantal=4)
         rid = self.reservering(naam="B", aantal=6)
         self.zet(rid, "no_show")
-        # De link naar de plattegrond is er alleen voor een beheerder: die kiest zelf de tafels.
-        log_in(self.app, self.client, naam="anna", rol="beheerder")
+        # Een no-show krijgt geen tafelplek: de plaatsen zijn weer vrij.
         html = self.client.get(f"/overzicht?datum={VANDAAG}").get_data(as_text=True)
         self.assertIn("<small>Gasten</small><b>4</b>", html)
         self.assertIn("Niet gekomen</span>", html)
-        self.assertEqual(html.count("+ Tafel kiezen"), 1)  # niet bij de no-show
+        self.assertEqual(html.count('class="tafelplek"'), 1)  # niet bij de no-show
 
 
 class WeergaveTests(Basis):

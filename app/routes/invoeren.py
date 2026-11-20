@@ -172,21 +172,13 @@ def opslaan():
         voorstel = _voorstellen(haal_reserveringen_op(conn, datum),
                                 haal_toewijzingen_op(conn, datum)).get(reservering_id)
         if voorstel:
-            tafels = ' + '.join(voorstel)
-            if g.bron == 'binnenloper':
-                # Een binnenloper komt op de plattegrond; daar kiest hij de tafel zelf.
-                bericht += " " + t("Voorstel: tafel {tafels}. Kies de tafel op de plattegrond.", tafels=tafels)
-            else:
-                bericht += " " + t("Voorstel: tafel {tafels}. Accepteer het in het overzicht.", tafels=tafels)
-        elif g.bron == 'binnenloper':
-            bericht += " " + t("Er is geen passende tafel vrij; kies zelf een tafel op de plattegrond.")
+            # De plattegrond is een kijkpagina: elke reservering gaat naar het overzicht met het voorstel.
+            bericht += " " + t("Voorstel: tafel {tafels}. Accepteer het in het overzicht.",
+                               tafels=' + '.join(voorstel))
         else:
             bericht += " " + t("Er is geen passende tafel vrij; de beheerder regelt de tafels.")
         kenmerk = _kenmerk(reservering_id)
     flash(bericht, 'ok')
-    if g.bron == 'binnenloper' and indeling is not None:
-        # Aan de deur is de volgende stap een tafel kiezen: meteen naar de plattegrond op dat moment.
-        return redirect(url_for('web.plattegrond', datum=datum, tijd=tijd))
     if kenmerk is not None:
         return redirect(url_for('web.overzicht', datum=datum, _anchor='r-' + kenmerk))
     return redirect(url_for('web.overzicht', datum=datum))
