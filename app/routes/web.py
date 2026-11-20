@@ -424,7 +424,7 @@ def plattegrond():
     dag = date.fromisoformat(datum)
     return render_template(
         'plattegrond.html', actief='plattegrond', indeling=indeling, datum=datum, dag=dag, tijd=tijd,
-        zitduur=zitduur, reserveringen=gekomen, niet_gekomen=[r for r in lijst if r['status'] == NIET_GEKOMEN],
+        reserveringen=gekomen, niet_gekomen=[r for r in lijst if r['status'] == NIET_GEKOMEN],
         toewijzingen=toewijzingen, bezet=bezet, straks=straks, nu_tijd=f"{regels.nu():%H:%M}",
         kenmerken={r['id']: _kenmerk(r['id']) for r in lijst},
         aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE, vandaag=regels.nu().date(),
@@ -445,53 +445,6 @@ def _tijdknoppen(regels, dag):
         tijden.append(f"{minuut // 60:02d}:{minuut % 60:02d}")
         minuut += stap
     return tijden
-
-@web_bp.route('/plattegrond/toewijzen', methods=['POST'])
-@login_vereist(json_response=True)
-def tafels_toewijzen():
-    # Een medewerker bekijkt de plattegrond en accepteert het voorstel; zelf tafels kiezen doet een beheerder.
-    # Niet via @beheerder_vereist: deze route antwoordt in JSON, ook als je niet ingelogd bent.
-    if huidige_gebruiker()['rol'] != 'beheerder':
-        return jsonify({"status": "fout", "bericht": t("Geen toegang.")}), 403
-
-    indeling = current_app.config.get('PLATTEGROND')
-    if indeling is None:
-        abort(404)
-
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        data = {}
-    kenmerk = data.get('kenmerk')
-    tafels = data.get('tafels')
-    try:
-        datum = date.fromisoformat(data.get('datum')).isoformat()
-    except (TypeError, ValueError):
-        datum = None
-    if (datum is None or not isinstance(kenmerk, str) or not isinstance(tafels, list)
-            or len(tafels) > len(indeling.tafels) or not all(isinstance(t, str) for t in tafels)):
-        return jsonify({"status": "fout", "bericht": t("Ongeldig verzoek.")}), 400
-
-    # De plattegrond kent alleen het kenmerk, niet het id (zie _kenmerk); zoek het id op die dag op.
-    reservering_id = next((r['id'] for r in haal_reserveringen_op(get_db(), datum)
-                           if constant_time_equals(_kenmerk(r['id']), kenmerk)), None)
-    if reservering_id is None:
-        return jsonify({"status": "fout", "bericht": t(GeenReserveringFout.bericht)}), 404
-
-    try:
-        waarschuwing = wijs_tafels_toe(
-            get_db(), reservering_id, tafels, indeling, current_app.config['REGELS'].zitduur_minuten
-        )
-    except OnbekendeTafelFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 400
-    except GeenReserveringFout as fout:
-        return jsonify({"status": "fout", "bericht": t(fout.bericht)}), 404
-    except TafelBezetFout as fout:
-        return jsonify({"status": "fout", "bericht": fout.vertaald()}), 409
-    except OperationalError:
-        current_app.logger.exception("Tafels toewijzen mislukt door een databasefout")
-        return jsonify({"status": "fout", "bericht": t("Het lukte niet om op te slaan. Probeer het opnieuw.")}), 503
-    return jsonify({"status": "succes", "bericht": t("Opgeslagen."), "waarschuwing": waarschuwing}), 200
-
 
 @web_bp.route('/tafels/accepteren', methods=['POST'])
 @login_vereist

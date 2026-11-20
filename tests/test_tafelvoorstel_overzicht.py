@@ -159,16 +159,16 @@ class TafelvoorstelOverzichtTests(unittest.TestCase):
         self.assertIn("Voorstel: tafel 8.", html)
         self.assertIn("Voorstel: 8", html)
 
-    def test_binnenloper_krijgt_uitleg_over_de_plattegrond(self):
-        # Een binnenloper komt op de plattegrond, dus daar wordt naar verwezen en niet naar het overzicht.
+    def test_binnenloper_gaat_naar_het_overzicht(self):
+        # Een binnenloper gaat net als een telefonische boeking naar het overzicht; daar staat het voorstel.
         antwoord = self.client.post("/reservering/nieuw", data={
             "bron": "binnenloper", "datum": DAG, "tijd": "19:00", "aantal": "2",
         })
         self.assertEqual(antwoord.status_code, 302)
-        self.assertIn("/plattegrond", antwoord.headers["Location"])
-        html = self.client.get(antwoord.headers["Location"]).get_data(as_text=True)
-        self.assertIn("Voorstel: tafel 8. Kies de tafel op de plattegrond.", html)
-        self.assertNotIn("Accepteer het in het overzicht", html)
+        self.assertIn(f"/overzicht?datum={DAG}", antwoord.headers["Location"])
+        self.assertIn("#r-", antwoord.headers["Location"])
+        self.assertNotIn("/plattegrond", antwoord.headers["Location"])
+        self.assertIn("Voorstel: tafel 8. Accepteer het in het overzicht.", self.overzicht())
 
 
 if __name__ == "__main__":

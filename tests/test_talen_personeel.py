@@ -105,13 +105,10 @@ class EngelsePaginaTests(Basis):
         self.zet_taal("en")
 
     def test_overzicht(self):
-        # De link "Tafel kiezen" is er alleen voor een beheerder: die kiest zelf de tafels.
-        log_in(self.app, self.client, naam="anna", rol="beheerder")
-        self.zet_taal("en")
         self.reservering()
         html = self.pagina(f"/overzicht?datum={VANDAAG}")
         for tekst in ("Tuesday 1 January", "Busiest moment", "Not yet arrived", "1 booking · 4 guests",
-                      '>Arrived</button>', '>No-show</button>', "+ Choose table", "+ Walk-in"):
+                      '>Arrived</button>', '>No-show</button>', "+ Walk-in"):
             self.assertIn(tekst, html)
 
     def test_status_melding(self):
@@ -124,11 +121,11 @@ class EngelsePaginaTests(Basis):
     def test_plattegrond(self):
         self.reservering()
         html = self.pagina(f"/plattegrond?datum={VANDAAG}&tijd=18:05")
-        for tekst in ("Floor plan", "Occupancy at", "No table yet", "Table 1a, 4 seats", '"mislukt": "Saving failed."'):
+        for tekst in ("Floor plan", "Occupancy at", "No table yet", "Table 1a, 4 seats", "taken at 18:05"):
             self.assertIn(tekst, html)
 
     def test_tafel_bezet_melding(self):
-        log_in(self.app, self.client, naam="anna", rol="beheerder")  # tafels toewijzen doet een beheerder
+        log_in(self.app, self.client, naam="anna", rol="beheerder")  # tafels wijzigen doet een beheerder
         self.zet_taal("en")
         eerste = self.reservering(naam="A")
         tweede = self.reservering(naam="B", tijd="18:15")
@@ -137,10 +134,11 @@ class EngelsePaginaTests(Basis):
             wijs_tafels_toe(get_db(), eerste, ["1a"], indeling, 60)
         with self.app.test_request_context():
             kenmerk = _kenmerk(tweede)
-        antwoord = self.client.post("/plattegrond/toewijzen",
-                                    json={"datum": VANDAAG, "kenmerk": kenmerk, "tafels": ["1a"]})
-        self.assertEqual(antwoord.status_code, 409)
-        self.assertEqual(antwoord.get_json()["bericht"], "Table 1a is already assigned to a booking at 18:00.")
+        antwoord = self.client.post("/tafels/wijzigen",
+                                    data={"datum": VANDAAG, "kenmerk": kenmerk, "tafels": "1a"},
+                                    follow_redirects=True)
+        self.assertEqual(antwoord.status_code, 200)
+        self.assertIn("Table 1a is already assigned to a booking at 18:00.", antwoord.get_data(as_text=True))
 
     def test_invoeren_met_waarschuwing_en_melding(self):
         html = self.client.post("/reservering/nieuw", data={
@@ -167,9 +165,11 @@ class EngelsePaginaTests(Basis):
         self.assertIn("The password must have at least 12 characters.", self.pagina("/account"))
 
     def test_uitgelogd_in_json(self):
+        # Een JSON-route antwoordt in de taal van het personeel in plaats van door te sturen naar de loginpagina.
         self.client.post("/logout")
         self.client.set_cookie("taal", "en")
-        antwoord = self.client.post("/plattegrond/toewijzen", json={})
+        antwoord = self.client.get("/reservering/ruimte",
+                                   query_string={"datum": VANDAAG, "tijd": "18:00", "aantal": "2"})
         self.assertEqual(antwoord.get_json()["bericht"], "You have been logged out. Please log in again.")
 
 

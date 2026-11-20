@@ -88,7 +88,7 @@
                 {% if toewijzingen.get(r.id) %}
                 <span class="tafel">{{ t('Tafel') }} {{ toewijzingen[r.id] | join(' + ') }}</span>
                 {% elif voorstellen.get(r.id) %}
-                {# Het systeem stelt de tafels voor; het personeel neemt ze over of kiest zelf op de plattegrond. #}
+                {# Het systeem stelt de tafels voor; het personeel neemt ze over met Accepteren. #}
                 <span class="tafel voorstel">{{ t("Voorstel:") }} {{ voorstellen[r.id] | join(' + ') }}</span>
                 <form class="accepteren" action="/tafels/accepteren" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -97,14 +97,8 @@
                     <input type="hidden" name="tafels" value="{{ voorstellen[r.id] | join('+') }}">
                     <button type="submit">{{ t("Accepteren") }}</button>
                 </form>
-                {% if gebruiker and gebruiker.rol == 'beheerder' %}
-                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
-                {% endif %}
                 {% else %}
                 <span class="tafel leeg">{% if r.aantal > max_personen %}{{ t("Beheerder regelt de tafels") }}{% else %}{{ t("Geen tafel vrij") }}{% endif %}</span>
-                {% if gebruiker and gebruiker.rol == 'beheerder' %}
-                <a class="tafel leeg" href="/plattegrond?datum={{ datum }}&amp;tijd={{ r.tijd }}">+ {{ t("Tafel kiezen") }}</a>
-                {% endif %}
                 {% endif %}
             </div>
             {% if gebruiker and gebruiker.rol == 'beheerder' %}

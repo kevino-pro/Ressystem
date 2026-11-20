@@ -1,3 +1,4 @@
+"""Tafels van een reservering wijzigen via het overzicht (beheerder); de plattegrond is een kijkpagina."""
 import unittest
 
 from sqlalchemy import insert
@@ -34,64 +35,81 @@ class TafelsToewijzenTests(unittest.TestCase):
                     datum="2030-01-01", tijd=tijd, aantal=aantal))
 
     def verzoek(self, rid, tafels):
-        """Wat de plattegrond verstuurt: de dag, het kenmerk (niet het id) en de tafels."""
+        """Wat het wijzigformulier verstuurt: de dag, het kenmerk (niet het id) en de tafels."""
         with self.app.app_context():
-            return {"datum": DAG, "kenmerk": _kenmerk(rid), "tafels": tafels}
+            return {"datum": DAG, "kenmerk": _kenmerk(rid), "tafels": "+".join(tafels)}
 
     def post(self, data, client=None, **kwargs):
-        return (client or self.client).post("/plattegrond/toewijzen", json=data, **kwargs)
+        return (client or self.client).post("/tafels/wijzigen", data=data, **kwargs)
+
+    def melding(self, data, client=None):
+        """Het overzicht na het opslaan: daarin staat de melding van de wijziging."""
+        antwoord = self.post(data, client=client, follow_redirects=True)
+        self.assertEqual(antwoord.status_code, 200)
+        return antwoord.get_data(as_text=True)
 
     def tafels(self):
         with self.app.app_context():
             return haal_toewijzingen_op(get_db(), "2030-01-01")
 
     def test_toewijzen(self):
-        antwoord = self.post(self.verzoek("a", ["1a", "1b"]))
-        self.assertEqual(antwoord.status_code, 200)
-        self.assertIsNone(antwoord.get_json()["waarschuwing"])
+        html = self.melding(self.verzoek("a", ["1a", "1b"]))
+        self.assertIn("Tafel 1a + 1b voor N is opgeslagen.", html)
         self.assertEqual(self.tafels(), {"a": ["1a", "1b"]})
 
     def test_waarschuwing_bij_te_weinig_stoelen(self):
-        antwoord = self.post(self.verzoek("a", ["1a"]))
-        self.assertEqual(antwoord.status_code, 200)
-        self.assertEqual(antwoord.get_json()["waarschuwing"], "Let op: 4 stoelen voor 5 gasten.")
+        html = self.melding(self.verzoek("a", ["1a"]))
+        self.assertIn("Let op: 4 stoelen voor 5 gasten.", html)
+        self.assertEqual(self.tafels(), {"a": ["1a"]})
 
     def test_bezette_tafel(self):
         self.post(self.verzoek("a", ["2"]))
-        antwoord = self.post(self.verzoek("b", ["2"]))
-        self.assertEqual(antwoord.status_code, 409)
-        self.assertIn("Tafel 2", antwoord.get_json()["bericht"])
+        html = self.melding(self.verzoek("b", ["2"]))
+        self.assertIn("Tafel 2 is al toegewezen aan een reservering van 19:00.", html)
+        self.assertEqual(self.tafels(), {"a": ["2"]})
 
     def test_onbekende_tafel(self):
-        self.assertEqual(self.post(self.verzoek("a", ["99"])).status_code, 400)
+        html = self.melding(self.verzoek("a", ["99"]))
+        self.assertIn("Onbekende tafel: 99.", html)
+        self.assertEqual(self.tafels(), {})
 
     def test_reservering_bestaat_niet(self):
-        self.assertEqual(self.post(self.verzoek("weg", ["1a"])).status_code, 404)
+        html = self.melding(self.verzoek("weg", ["1a"]))
+        self.assertIn("Deze reservering bestaat niet meer", html)
+        self.assertEqual(self.tafels(), {})
 
     def test_id_zelf_werkt_niet(self):
-        # Het id is de annuleerlink van de gast; alleen het kenmerk van de plattegrond telt.
-        antwoord = self.post({"datum": DAG, "kenmerk": "a", "tafels": ["1a"]})
-        self.assertEqual(antwoord.status_code, 404)
+        # Het id is de annuleerlink van de gast; alleen het kenmerk van het overzicht telt.
+        html = self.melding({"datum": DAG, "kenmerk": "a", "tafels": "1a"})
+        self.assertIn("Deze reservering bestaat niet meer", html)
         self.assertEqual(self.tafels(), {})
 
     def test_ongeldige_invoer(self):
         goed = self.verzoek("a", ["1a"])
-        for data in ({}, ["a"], {**goed, "datum": None}, {**goed, "datum": "morgen"}, {**goed, "kenmerk": 1},
-                     {**goed, "kenmerk": None}, {**goed, "tafels": "1a"}, {**goed, "tafels": [1]},
-                     {**goed, "tafels": ["1a"] * 23}):
+        # Zonder datum of kenmerk is er geen pagina om naartoe te gaan: een gewone 400.
+        for data in ({}, {**goed, "datum": ""}, {**goed, "datum": "morgen"}, {**goed, "kenmerk": ""}):
             with self.subTest(data=data):
-                self.assertEqual(self.post(data).status_code, 400)
+                antwoord = self.post(data)
+                self.assertEqual(antwoord.status_code, 400)
+                self.assertIn("Ongeldig verzoek.", antwoord.get_data(as_text=True))
+        # Een lege of te lange keuze: terug naar het overzicht met dezelfde melding.
+        for tafels in ("", "+".join(["1a"] * 23)):
+            with self.subTest(tafels=tafels):
+                self.assertIn("Ongeldig verzoek.", self.melding({**goed, "tafels": tafels}))
+        self.assertEqual(self.tafels(), {})
 
     def test_alleen_ingelogd(self):
         _, client = maak_client(TestConfig, ingelogd=False)
-        self.assertEqual(self.post(self.verzoek("a", ["1a"]), client=client).status_code, 401)
+        antwoord = self.post(self.verzoek("a", ["1a"]), client=client)
+        self.assertEqual(antwoord.status_code, 302)
+        self.assertIn("/login", antwoord.headers["Location"])
         self.assertEqual(self.tafels(), {})
 
     def test_csrf_verplicht(self):
         _, client = maak_client(MetCsrfConfig)
         antwoord = self.post(self.verzoek("a", ["1a"]), client=client)
         self.assertEqual(antwoord.status_code, 400)
-        self.assertIn("CSRF", antwoord.get_json()["bericht"])
+        self.assertIn("CSRF", antwoord.get_data(as_text=True))
         self.assertEqual(self.tafels(), {})
 
     def test_404_zonder_plattegrond(self):

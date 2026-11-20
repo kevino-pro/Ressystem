@@ -63,16 +63,18 @@ class BinnenloperTests(Basis):
         self.assertNotRegex(html, r'id="naam"[^>]*required')
         self.assertNotRegex(html, r'id="telefoon"[^>]*required')
 
-    def test_zonder_naam_en_telefoon_naar_de_plattegrond(self):
+    def test_zonder_naam_en_telefoon_naar_het_overzicht(self):
         antwoord = self.binnenloper()
         self.assertEqual(antwoord.status_code, 302)
-        self.assertEqual(antwoord.headers["Location"], f"/plattegrond?datum={VANDAAG}&tijd=18:05")
+        self.assertIn(f"/overzicht?datum={VANDAAG}", antwoord.headers["Location"])
         rij = self.rijen()[0]
         self.assertEqual((rij["naam"], rij["telefoon"], rij["email"], rij["bron"], rij["ingevoerd_door"]),
                          ("Binnenloper", "", "", "binnenloper", "anna"))
-        html = self.client.get(f"/plattegrond?datum={VANDAAG}&tijd=18:05").get_data(as_text=True)
+        # De plattegrond is een kijkpagina: het voorstel staat in het overzicht en daar is het te accepteren.
+        html = self.client.get(f"/overzicht?datum={VANDAAG}").get_data(as_text=True)
         self.assertIn("Reservering voor Binnenloper om 18:05 (3 p.) is opgeslagen.", html)
-        self.assertIn("· binnenloper", html)
+        self.assertIn("Accepteer het in het overzicht", html)
+        self.assertIn("Binnenloper · anna", html)
 
     def test_met_naam(self):
         self.binnenloper(naam="Familie Wijaya")

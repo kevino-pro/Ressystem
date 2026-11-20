@@ -119,7 +119,9 @@ class SessieControleTests(ToegangTestBasis):
             self.assertTrue(antwoord.headers["Location"].endswith("/login"), pad)
 
     def test_json_route_geeft_401(self):
-        antwoord = self.client.post("/plattegrond/toewijzen", json={"datum": "2030-01-01", "kenmerk": "x", "tafels": []})
+        # De ruimtezin van het invoerformulier is de JSON-route voor het personeel.
+        antwoord = self.client.get("/reservering/ruimte",
+                                   query_string={"datum": "2030-01-01", "tijd": "18:00", "aantal": "2"})
         self.assertEqual(antwoord.status_code, 401)
         self.assertEqual(antwoord.get_json()["status"], "fout")
 
@@ -197,10 +199,10 @@ class RechtenTests(ToegangTestBasis):
         log_in(self.app, self.client, naam="anna", rol="medewerker")
         html = self.client.get(f"/plattegrond?datum={self.DAG}&tijd=18:00").get_data(as_text=True)
         kenmerk = re.search(r'data-kenmerk="([^"]+)"', html).group(1)
-        antwoord = self.client.post("/plattegrond/toewijzen",
-                                    json={"datum": self.DAG, "kenmerk": kenmerk, "tafels": ["1a"]})
+        antwoord = self.client.post("/tafels/wijzigen",
+                                    data={"datum": self.DAG, "kenmerk": kenmerk, "tafels": "1a"})
         self.assertEqual(antwoord.status_code, 403, antwoord.get_data(as_text=True))
-        self.assertEqual(antwoord.get_json()["status"], "fout")
+        self.assertIn("Geen toegang.", antwoord.get_data(as_text=True))
         with self.app.app_context():
             self.assertIsNone(haal_toewijzingen_op(get_db(), self.DAG).get(reservering_id))
 

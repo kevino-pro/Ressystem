@@ -159,18 +159,18 @@ class TafelWijzigenTests(unittest.TestCase):
         self.assertIsNone(self.toewijzingen(reservering_id))
 
     def test_alleen_de_beheerder_ziet_wijzigen(self):
-        self.reservering()  # nog zonder tafel: dan staat er een link naar de plattegrond
+        self.reservering()  # nog zonder tafel: dan staat er een voorstel of "Geen tafel vrij"
         self.inloggen(rol="medewerker")
         medewerker = self.overzicht()
         self.assertNotIn("Wijzigen", medewerker)
         self.assertNotIn("Tafel kiezen", medewerker)  # een medewerker kiest zelf geen tafels
-        self.assertNotIn("Kies een reservering", self.plattegrond())
+        self.assertNotIn("Kies een reservering", self.plattegrond())  # de plattegrond is een kijkpagina
         self.inloggen()
         beheerder = self.overzicht()
         self.assertIn("Wijzigen", beheerder)
         self.assertIn('name="andere"', beheerder)
-        self.assertIn("Tafel kiezen", beheerder)
-        self.assertIn("Kies een reservering", self.plattegrond())
+        self.assertNotIn("Tafel kiezen", beheerder)  # kiezen gebeurt in het overzicht, niet op de plattegrond
+        self.assertNotIn("Kies een reservering", self.plattegrond())
 
     def test_keuzelijst_laat_tafels_van_een_andere_reservering_weg(self):
         eerste = self.reservering(naam="A")

@@ -1,4 +1,4 @@
-"""De plattegrond op een telefoon (personeel, fase 3): tafelknoppen in een vaste balk en een strook met tijden."""
+"""De plattegrond op een telefoon (personeel, fase 3; kijkpagina sinds fase 5): een strook met tijden."""
 import re
 import shutil
 import subprocess
@@ -37,27 +37,31 @@ class PlattegrondTelefoonTests(unittest.TestCase):
         antwoord = self.client.get("/plattegrond" + query)
         return antwoord.status_code, antwoord.get_data(as_text=True)
 
-    def test_bezette_tafel_krijgt_het_kenmerk_van_haar_reservering(self):
+    def test_bezette_tafel_wijst_naar_het_kenmerk_in_de_lijst(self):
         self.reservering("r1", tijd="19:00", aantal=2, tafels=["1a"])
         _, html = self.pagina("?datum=2030-01-01&tijd=19:30")
-        kenmerk = re.search(r'data-tafel="1a" data-stoelen="\d+" data-bezet="([0-9a-f]+)"', html).group(1)
+        tafel = re.search(r'data-tafel="1a".*?</g>', html, re.S).group(0)
+        self.assertIn("Jan", tafel)  # wie er zit, staat op de tekening
+        kenmerk = re.search(r'data-kenmerk="([0-9a-f]+)"', html).group(1)  # de reservering in de lijst
         self.assertEqual(len(kenmerk), 24)
-        self.assertIn(f'data-kenmerk="{kenmerk}"', html)  # dezelfde waarde staat op de reservering in de lijst
 
-    def test_vrije_tafel_heeft_een_leeg_kenmerk(self):
+    def test_vrije_tafel_heeft_geen_bezetting(self):
         self.reservering("r1", tijd="19:00", aantal=2, tafels=["1a"])
         _, html = self.pagina("?datum=2030-01-01&tijd=19:30")
-        self.assertRegex(html, r'data-tafel="10a" data-stoelen="\d+" data-bezet=""')
+        tafel = re.search(r'data-tafel="10a".*?</g>', html, re.S).group(0)
+        self.assertNotIn("Jan", tafel)
+        self.assertNotIn("data-bezet", tafel)
 
     def test_het_id_van_de_reservering_staat_niet_op_de_tekening(self):
         self.reservering("geheim-id-123", tijd="19:00", aantal=2, tafels=["1a"])
         _, html = self.pagina("?datum=2030-01-01&tijd=19:30")
         self.assertNotIn("geheim-id-123", html)
 
-    def test_toewijsbalk_heeft_een_plek_voor_tafelknoppen_en_geen_vaste_stijl_meer(self):
+    def test_plattegrond_heeft_geen_toewijsbalk_meer(self):
         _, html = self.pagina()
-        self.assertIn('id="toewijzen" class="toewijzen" hidden', html)
-        self.assertIn('id="tafelkeuze"', html)
+        self.assertNotIn('id="toewijzen"', html)
+        self.assertNotIn('id="tafelkeuze"', html)
+        self.assertNotIn("Tafels opslaan", html)
         self.assertNotIn('style="margin-top: 12px; border-top', html)
 
     def test_dagknoppen_hebben_een_label_en_de_tekst_verdwijnt_alleen_op_telefoon(self):
@@ -76,7 +80,7 @@ class PlattegrondTelefoonTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "node is niet geïnstalleerd")
     def test_script_is_geldig_javascript(self):
         _, html = self.pagina()
-        script = next(s for s in scripts(html) if "tafelkeuze" in s)
+        script = next(s for s in scripts(html) if "tijdbalk" in s)
         with tempfile.TemporaryDirectory() as map_:
             pad = Path(map_) / "plattegrond.js"
             pad.write_text(script, encoding="utf-8")

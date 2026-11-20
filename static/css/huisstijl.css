@@ -252,7 +252,6 @@ form.accepteren button:hover { background: rgba(123, 196, 127, .24); }
 .legenda i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; border: 1.5px solid rgba(255, 255, 255, .25); }
 .legenda .bezet { background: rgba(217, 164, 65, .22); border-color: var(--accent); }
 .legenda .straks { border: 1.5px dashed var(--accent); }
-.legenda .keuze-kleur { background: var(--groen); border-color: var(--groen); }
 .legenda .nog-niet { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 0; }
 .niet-gekomen { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 12px; margin-bottom: 4px; list-style: none; opacity: .55; }
 .niet-gekomen b { font-size: 13.5px; font-weight: 600; text-decoration: line-through; }
@@ -266,7 +265,6 @@ form.accepteren button:hover { background: rgba(123, 196, 127, .24); }
 .reservering small { color: var(--zacht); font-size: 12px; }
 .reservering .p { font-size: 12.5px; color: var(--zacht); text-align: right; }
 .reservering.nu-aan-tafel { background: rgba(217, 164, 65, .08); }
-.reservering.actief { border-color: var(--groen); background: rgba(123, 196, 127, .08); }
 .reservering.zonder-tafel small { color: var(--accent); }
 #reserveringen { padding: 0; list-style: none; }
 
@@ -366,19 +364,6 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
 .paneel details.meer { margin-bottom: 16px; }
 .paneel .twee.naast { grid-template-columns: 1fr 1fr; }  /* personen en tijd blijven ook op een telefoon naast elkaar */
 
-/* Plattegrond: het paneel om tafels toe te wijzen. Op een telefoon is het een vaste balk met tafelknoppen. */
-.toewijzen { margin-top: 12px; border-top: 1px solid var(--lijn); padding-top: 12px; }
-.toewijzen-keuze { margin-top: 4px; font-size: 13px; }
-.toewijzen-melding { color: var(--rood); margin-top: 4px; font-size: 13px; }
-.tafelkeuze { display: none; }
-.tafelknop { flex: none; min-width: 52px; min-height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-             border-radius: 10px; border: 1px solid var(--lijn); background: var(--veld); color: var(--tekst); font: inherit; cursor: pointer; }
-.tafelknop b { font-size: 15px; }
-.tafelknop small { font-size: 10.5px; color: var(--zacht); }
-.tafelknop[aria-pressed=true] { background: var(--groen); border-color: var(--groen); color: #0f1a10; }
-.tafelknop[aria-pressed=true] small { color: #0f1a10; }
-.tafelknop:disabled { opacity: .35; cursor: default; }
-
 /* Personeel op een telefoon: de reserveringen eerst, niet de knoppen en tellers. Bellen kan met het nummer, mailen met Mail. */
 @media (max-width: 700px) {
     .alleen-breed { display: none; }
@@ -400,17 +385,11 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .res .wie .tel { display: inline-block; padding: 4px 0; font-size: 14px; color: var(--tekst); }
     .res .wie small { margin-top: 0; }
 
-    /* Plattegrond: tijden in een strook, tafelknoppen in een vaste balk onderaan */
+    /* Plattegrond: tijden in een strook */
     .indeling > .paneel { min-width: 0; }  /* anders rekt de tekening (640 px) de hele pagina op in plaats van in de vloer te scrollen */
     .tijdbalk { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 14px; padding: 0 16px 6px; }
     .tijdbalk::-webkit-scrollbar { display: none; }
     .tijdbalk > * { flex: none; }
-    .toewijzen { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0; padding: 10px 14px 12px; max-height: 60vh; overflow-y: auto;
-                 background: #1d1813; border-top: 1px solid var(--lijn); box-shadow: 0 -10px 30px rgba(0, 0, 0, .5); }
-    .toewijzen p.klein { display: none; }  /* alleen de hintregel; de knoppen hebben ook de klasse klein */
-    .tafelkeuze { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px; scrollbar-width: none; }
-    .tafelkeuze::-webkit-scrollbar { display: none; }
-    body.toewijzen-open { padding-bottom: 260px; }
 }
 @media (max-width: 480px) {
     .kaart { padding: 18px; }

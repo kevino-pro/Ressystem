@@ -67,7 +67,8 @@ class OverzichtTests(unittest.TestCase):
         self.assertLess(html.index("<b>13:00</b>"), html.index("<b>18:00</b>"))
         self.assertIn("2 reserveringen · 6 gasten", html)
         self.assertIn("Tafel 1a", html)
-        self.assertIn(f'href="/plattegrond?datum={DAG}&amp;tijd=18:00"', html)
+        # De plattegrond is een kijkpagina: het overzicht linkt niet meer per reservering naar een tijd.
+        self.assertNotIn(f"plattegrond?datum={DAG}&amp;tijd=", html)
 
     def test_dagnavigatie(self):
         _, html = self.pagina()
