@@ -81,6 +81,16 @@ class CapaciteitVolFout(Exception):
         self.vrij = vrij
         super().__init__(f"Geen capaciteit: nog {vrij} plek(ken) vrij.")
 
+class TafelsVolFout(Exception):
+    """
+    De groep past qua plekken nog wel, maar op dit tijdstip is er geen passende tafel (of combinatie)
+    meer vrij. Het bericht is Nederlands en bedoeld voor de logs; de gast krijgt een eigen zin.
+    """
+    bericht = "Bijna vol: geen passende tafel vrij."
+
+    def __init__(self):
+        super().__init__(self.bericht)
+
 class KinderstoelVolFout(Exception):
     """Alle kinderstoelen zijn tijdens (een deel van) de zitduur al gereserveerd."""
     bericht = ("Op deze tijd zijn alle kinderstoelen al gereserveerd. "
@@ -291,19 +301,8 @@ def wijs_tafels_toe(conn, reservering_id, tafels, plattegrond, zitduur_minuten):
 
 def haal_toewijzingen_op(conn, datum=None):
     """Tafels per reservering op deze datum (of alle datums bij None): {reservering_id: [tafel, ...]}."""
-    query = (
-        select(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
-        .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
-        .order_by(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
-    )
-    if datum:
-        query = query.where(reserveringen.c.datum == datum)
     with conn.begin():
-        rijen = conn.execute(query).all()
-    toewijzingen = {}
-    for reservering_id, tafel in rijen:
-        toewijzingen.setdefault(reservering_id, []).append(tafel)
-    return toewijzingen
+        return _toewijzingen_op(conn, datum)
 
 def is_zelfde_gast(a, b):
     """
@@ -330,9 +329,50 @@ def _heeft_al_reservering(conn, gast, datum, tijd, behalve=None):
     bestaande = conn.execute(query).mappings()
     return any(is_zelfde_gast(rij, gast) for rij in bestaande)
 
+def _reserveringen_op(conn, datum=None):
+    """
+    De reserveringen (op tijd) binnen de lopende transactie. haal_reserveringen_op() opent er zelf
+    een, en dat mag niet binnen de lock van verwerk_reservering().
+    """
+    query = select(reserveringen)
+    if datum:
+        query = query.where(reserveringen.c.datum == datum).order_by(reserveringen.c.tijd.asc())
+    else:
+        query = query.order_by(reserveringen.c.datum.desc(), reserveringen.c.tijd.asc())
+    return conn.execute(query).mappings().all()
+
+def _toewijzingen_op(conn, datum=None):
+    """{reservering_id: [tafel, ...]} binnen de lopende transactie (zie haal_toewijzingen_op)."""
+    query = (
+        select(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+        .join(reserveringen, reserveringen.c.id == tafeltoewijzingen.c.reservering_id)
+        .order_by(tafeltoewijzingen.c.reservering_id, tafeltoewijzingen.c.tafel)
+    )
+    if datum:
+        query = query.where(reserveringen.c.datum == datum)
+    toewijzingen = {}
+    for reservering_id, tafel in conn.execute(query).all():
+        toewijzingen.setdefault(reservering_id, []).append(tafel)
+    return toewijzingen
+
+def _controleer_tafel(conn, datum, tijd, aantal, tafels, zitduur_minuten, behalve=None):
+    """
+    Controleert of er op dit tijdstip nog een passende tafel of combinatie vrij is voor `aantal` gasten.
+    Leest de reserveringen en de tafels van die dag binnen de lopende transactie: de lock op de dag is
+    dan al genomen, dus twee gelijktijdige boekingen kunnen niet allebei dezelfde tafel krijgen.
+    Zonder passende tafel volgt TafelsVolFout; met `behalve` (een reservering-id) telt de eigen
+    reservering niet mee, zodat de gast die alleen het aantal wijzigt zijn eigen tafelruimte houdt.
+    """
+    from app.tafelvoorstel import past_nog  # hier, want app.tafelvoorstel leest zelf uit deze module
+
+    plattegrond, voorstel = tafels
+    if not past_nog(_reserveringen_op(conn, datum), _toewijzingen_op(conn, datum), plattegrond, voorstel,
+                    zitduur_minuten or 1, tijd, aantal, behalve=behalve):
+        raise TafelsVolFout()
+
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
                         kinderstoelen=0, max_kinderstoelen=None, opmerking=None, allergieen=None,
-                        bron='online', ingevoerd_door=None, taal='nl'):
+                        bron='online', ingevoerd_door=None, taal='nl', tafels=None):
     """
     Enige plek waar een reservering wordt weggeschreven. Wordt door web.py (formulier)
     en api.py (AI-webhook) gebruikt zodat de capaciteitsregel maar op één plek staat.
@@ -351,6 +391,11 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
 
     Met `max_capaciteit` None (reservering door het personeel) wordt de capaciteit niet afgedwongen;
     het personeel krijgt vooraf een waarschuwing via drukte_bij().
+
+    Met `tafels` ((plattegrond, tafelvoorstel)) controleert het systeem binnen dezelfde lock ook of er
+    op dit tijdstip nog een passende tafel of combinatie vrij is, met de reserveringen en de tafels van
+    die dag. Past de groep nergens meer, dan volgt TafelsVolFout. Zonder plattegrond (None) of bij het
+    personeel (`max_capaciteit` None) wordt dit niet gecontroleerd.
 
     Heeft dezelfde gast al een reservering op deze datum en tijd, dan volgt DubbeleReserveringFout.
     Die controle draait binnen dezelfde lock als de capaciteit, zodat een herhaalde of gelijktijdige
@@ -409,6 +454,9 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
             if in_gebruik + kinderstoelen > max_kinderstoelen:
                 raise KinderstoelVolFout()
 
+        if tafels is not None and max_capaciteit is not None:
+            _controleer_tafel(conn, datum, tijd, aantal, tafels, zitduur_minuten)
+
         unieke_id = secrets.token_urlsafe(16)
         conn.execute(
             insert(reserveringen).values(
@@ -437,11 +485,13 @@ class NietMeerWijzigbaarFout(Exception):
     """De reservering is intussen geannuleerd, of de gast is er al (of kwam niet)."""
 
 def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal, zitduur_minuten,
-                       max_kinderstoelen=None, taal=None):
+                       max_kinderstoelen=None, taal=None, tafels=None):
     """
     Zet een bestaande reservering (status 'verwacht') op een nieuwe datum, tijd en/of aantal personen,
     met dezelfde controles als verwerk_reservering(): dubbele boeking, gasten tegelijk en kinderstoelen.
     De reservering telt daarbij zelf niet mee, dus wie alleen het aantal verandert, houdt zijn plek.
+    Met `tafels` ((plattegrond, tafelvoorstel)) geldt dat ook voor de tafels: past de groep op de nieuwe
+    tijd nergens meer, dan volgt TafelsVolFout en blijft de reservering zoals hij was.
 
     Na het wijzigen:
     - verliest de reservering haar tafels op de plattegrond (het personeel wijst opnieuw toe);
@@ -481,6 +531,9 @@ def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal
             in_gebruik = piekbezetting(stoelen, start, zitduur_minuten) if stoelen else 0
             if in_gebruik + oud['kinderstoelen'] > max_kinderstoelen:
                 raise KinderstoelVolFout()
+
+        if tafels is not None and max_capaciteit is not None:
+            _controleer_tafel(conn, datum, tijd, aantal, tafels, zitduur_minuten, behalve=reservering_id)
 
         waarden = {'datum': datum, 'tijd': tijd, 'aantal': aantal, 'gewijzigd_op': func.current_timestamp()}
         if datum != oud['datum']:
@@ -565,13 +618,8 @@ def haal_personeel_op(conn, gebruikersnaam):
         ).mappings().first()
 
 def haal_reserveringen_op(conn, datum=None):
-    query = select(reserveringen)
-    if datum:
-        query = query.where(reserveringen.c.datum == datum).order_by(reserveringen.c.tijd.asc())
-    else:
-        query = query.order_by(reserveringen.c.datum.desc(), reserveringen.c.tijd.asc())
     with conn.begin():
-        return conn.execute(query).mappings().all()
+        return _reserveringen_op(conn, datum)
 
 def haal_reserveringen_vanaf(conn, vanaf):
     """Alle reserveringen op of na `vanaf` ('YYYY-MM-DD'), op datum en tijd; voor het zoeken."""

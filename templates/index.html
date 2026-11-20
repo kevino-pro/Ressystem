@@ -127,7 +127,8 @@
     const ZITDUUR = {{ regels.zitduur_minuten | int }};
     const T = {{ {
         'persoon': t('persoon'), 'personen': t('personen'), 'tot': t('tot'), 'lunch': t('Lunch'),
-        'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'),
+        'diner': t('Diner'), 'vol': t('Vol'), 'nog_plekken': t('Nog {vrij} plekken'), 'bel': t('Bel ons'),
+        'bijna_vol': t('Bijna vol. Bel het restaurant:'),
         'dag_vol': t('Deze dag is vol voor {aantal} personen. Kies een andere dag of bel ons.'),
         'laden': t('Tijden laden…'), 'laden_mislukt': t('Tijden laden lukte niet.'),
         'geen_verbinding': t('Geen verbinding. Probeer het opnieuw.'), 'kalender': t('Kies een datum in de kalender.'),
@@ -224,7 +225,7 @@
             if (!t.beschikbaar) {
                 knop.disabled = true;
                 const klein = document.createElement('small');
-                klein.textContent = T.vol;
+                klein.textContent = t.bel ? T.bel : T.vol;  // plekken genoeg, maar geen tafel vrij
                 knop.append(klein);
             } else if (t.vrij <= 10) {
                 knop.classList.add('bijna');
@@ -234,6 +235,13 @@
             }
             raster.append(knop);
         });
+        if (data.telefoon) {
+            // Er is nog plek, maar niet meer aan een tafel: dan kan de gast alleen nog bellen.
+            const p = document.createElement('p');
+            p.className = 'leeg';
+            p.textContent = T.bijna_vol + ' ' + data.telefoon;
+            tijdenVak.append(p);
+        }
         if (!data.tijden.some(function (t) { return t.beschikbaar; })) {
             const p = document.createElement('p');
             p.className = 'leeg';

@@ -14,8 +14,8 @@ from pydantic import ValidationError
 
 from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
-    KinderstoelVolFout, NIET_GEKOMEN, NietMeerWijzigbaarFout, STATUSSEN, wijzig_reservering, zet_status,
-    GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
+    KinderstoelVolFout, NIET_GEKOMEN, NietMeerWijzigbaarFout, STATUSSEN, TafelsVolFout, wijzig_reservering,
+    zet_status, GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op, haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
 )
@@ -229,6 +229,23 @@ def _voorstellen(lijst, toewijzingen):
     return tafelvoorstel.voorstellen(lijst, toewijzingen, indeling,
                                      current_app.config.get('TAFELVOORSTEL'),
                                      current_app.config['REGELS'].zitduur_minuten)
+
+
+def _tafelcheck():
+    """(plattegrond, tafelvoorstel) voor de tafelcontrole bij het reserveren; None zonder plattegrond."""
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        return None
+    return indeling, current_app.config.get('TAFELVOORSTEL')
+
+
+def _bel_bijna_vol():
+    """
+    De zin voor de gast als de plekken wel passen, maar er geen tafel (of combinatie) meer vrij is.
+    De gast kan wel bellen; dan zoekt het restaurant een oplossing.
+    """
+    return t("Het is bijna vol op dit tijdstip. Bel het restaurant om te reserveren: {telefoon}.",
+             telefoon=current_app.config['RESTAURANT_TELEFOON'])
 
 
 def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_minuten):
@@ -650,7 +667,12 @@ def beschikbaarheid():
 
     # Bij wijzigen telt de eigen reservering niet mee (zie wijzigen_klant); /wijzigen controleert opnieuw.
     behalve = request.args.get('behalve', '')[:64] or None
-    bestaande = bezetting_op(get_db(), dag.isoformat(), behalve=behalve)
+    conn = get_db()
+    bestaande = bezetting_op(conn, dag.isoformat(), behalve=behalve)
+    # De reserveringen en tafels van de dag één keer ophalen; zonder plattegrond is er geen tafelcontrole.
+    indeling = current_app.config.get('PLATTEGROND')
+    dag_reserveringen = haal_reserveringen_op(conn, dag.isoformat()) if indeling is not None else []
+    dag_toewijzingen = haal_toewijzingen_op(conn, dag.isoformat()) if indeling is not None else {}
     nu = regels.nu()
     tijden, eerste_fout = [], None
     for tijdstip in regels.knoptijden_op(dag):
@@ -661,7 +683,15 @@ def beschikbaarheid():
             continue  # te vroeg, te ver vooruit of een sluitingsdag: geen knop
         vrij = regels.max_gasten_tegelijk - piekbezetting(
             bestaande, minuten_van(f"{tijdstip:%H:%M}"), regels.zitduur_minuten)
-        tijden.append({"tijd": f"{tijdstip:%H:%M}", "vrij": max(vrij, 0), "beschikbaar": vrij >= aantal})
+        knop = {"tijd": f"{tijdstip:%H:%M}", "vrij": max(vrij, 0), "beschikbaar": vrij >= aantal}
+        if knop["beschikbaar"] and indeling is not None:
+            # De plekken passen, maar misschien is er geen tafel (of combinatie) meer vrij:
+            # dan kan de gast alleen nog bellen (zie ook verwerk_reservering met tafels).
+            if not tafelvoorstel.past_nog(dag_reserveringen, dag_toewijzingen, indeling,
+                                          current_app.config.get('TAFELVOORSTEL'),
+                                          regels.zitduur_minuten, knop["tijd"], aantal, behalve=behalve):
+                knop.update(beschikbaar=False, bel=True)
+        tijden.append(knop)
 
     if not tijden:
         if eerste_fout is None:  # geen openingstijden op deze dag
@@ -671,8 +701,11 @@ def beschikbaarheid():
                 eerste_fout = fout.vertaald()
         return jsonify({"status": "succes", "open": False, "tijden": [],
                         "bericht": eerste_fout or t("Op deze dag kun je niet online reserveren.")}), 200
-    return jsonify({"status": "succes", "open": True, "tijden": tijden,
-                    "diner_vanaf": f"{regels.diner_vanaf:%H:%M}" if regels.diner_vanaf else None}), 200
+    antwoord = {"status": "succes", "open": True, "tijden": tijden,
+                "diner_vanaf": f"{regels.diner_vanaf:%H:%M}" if regels.diner_vanaf else None}
+    if any(knop.get("bel") for knop in tijden):
+        antwoord["telefoon"] = current_app.config['RESTAURANT_TELEFOON']
+    return jsonify(antwoord), 200
 
 @web_bp.route('/reservering', methods=['POST'])
 @rate_limit('reservering', 10, 600, json_response=True)
@@ -724,11 +757,14 @@ def nieuwe_reservering():
             zitduur_minuten=regels.zitduur_minuten,
             kinderstoelen=valid_data.kinderstoelen, max_kinderstoelen=regels.kinderstoelen,
             opmerking=valid_data.opmerking, allergieen=allergieen, taal=huidige_taal(),
+            tafels=_tafelcheck(),
         )
     except DubbeleReserveringFout as fout:
         return jsonify({"status": "fout", "bericht": fout.vertaald()}), 409
     except KinderstoelVolFout as fout:
         return jsonify({"status": "fout", "bericht": fout.vertaald()}), 400
+    except TafelsVolFout:
+        return jsonify({"status": "fout", "bericht": _bel_bijna_vol()}), 400
     except CapaciteitVolFout as e:
         return jsonify({
             "status": "fout",
@@ -841,13 +877,15 @@ def wijzigen_klant(reservering_id):
     try:
         nieuw = wijzig_reservering(conn, reservering_id, regels.max_gasten_tegelijk, keuze['datum'], tijd_tekst,
                                    aantal, regels.zitduur_minuten, max_kinderstoelen=regels.kinderstoelen,
-                                   taal=huidige_taal())
+                                   taal=huidige_taal(), tafels=_tafelcheck())
     except NietMeerWijzigbaarFout:
         return t("Deze reservering kan niet meer online worden gewijzigd."), 409
     except DubbeleReserveringFout:
         return _wijzigpagina(reservering, t("Je hebt op deze dag en tijd al een andere reservering."), 409, keuze)
     except KinderstoelVolFout as fout:
         return _wijzigpagina(reservering, fout.vertaald(), 400, keuze)
+    except TafelsVolFout:
+        return _wijzigpagina(reservering, _bel_bijna_vol(), 400, keuze)
     except CapaciteitVolFout as e:
         return _wijzigpagina(reservering, t("Geen plek meer op dit tijdstip. Nog {vrij} plek(ken) beschikbaar.",
                                             vrij=max(e.vrij, 0)), 400, keuze)

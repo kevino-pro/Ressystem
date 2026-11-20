@@ -24,6 +24,7 @@ from app.security import rate_limit, valideer_csrf
 from app.services.email_service import stuur_bevestigingsmail_async
 from app.taal import TAALNAMEN, huidige_taal, vertaal as t
 from app.toegang import huidige_gebruiker, login_vereist
+from app import tafelvoorstel
 
 invoeren_bp = Blueprint('invoeren', __name__, url_prefix='/reservering')
 
@@ -60,6 +61,16 @@ def _waarschuwingen(regels, gegevens):
     if gegevens.kinderstoelen and stoelen + gegevens.kinderstoelen > regels.kinderstoelen:
         lijst.append(t("Er zijn dan {nodig} kinderstoelen nodig; het restaurant heeft er {aantal}.",
                        nodig=stoelen + gegevens.kinderstoelen, aantal=regels.kinderstoelen))
+    # Past de groep wel qua plekken, maar is er geen tafel (of combinatie) meer vrij? Een groep waarvoor
+    # de plattegrond helemaal geen tafel heeft (groter dan het voorstel) valt hier niet onder: daar is
+    # niets "vol", de beheerder schuift zelf. Het personeel mag in beide gevallen toch opslaan.
+    indeling = current_app.config.get('PLATTEGROND')
+    voorstel = current_app.config.get('TAFELVOORSTEL')
+    if indeling is not None and tafelvoorstel.opties(indeling, voorstel, gegevens.aantal):
+        conn = get_db()
+        if not tafelvoorstel.past_nog(haal_reserveringen_op(conn, datum), haal_toewijzingen_op(conn, datum),
+                                      indeling, voorstel, regels.zitduur_minuten, tijd, gegevens.aantal):
+            lijst.append(t("Er is geen passende tafel vrij op dit tijdstip; de beheerder moet de tafels regelen."))
     return lijst
 
 
