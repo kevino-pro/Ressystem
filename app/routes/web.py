@@ -230,15 +230,18 @@ def _voorstellen(lijst, toewijzingen):
         return {}
     return tafelvoorstel.voorstellen(lijst, toewijzingen, indeling,
                                      current_app.config.get('TAFELVOORSTEL'),
-                                     current_app.config['REGELS'].zitduur_minuten)
+                                     current_app.config['REGELS'].tafel_bezet_minuten)
 
 
 def _tafelcheck():
-    """(plattegrond, tafelvoorstel) voor de tafelcontrole bij het reserveren; None zonder plattegrond."""
+    """
+    (plattegrond, tafelvoorstel, minuten dat een tafel bezet is) voor de tafelcontrole bij het reserveren;
+    None zonder plattegrond.
+    """
     indeling = current_app.config.get('PLATTEGROND')
     if indeling is None:
         return None
-    return indeling, current_app.config.get('TAFELVOORSTEL')
+    return indeling, current_app.config.get('TAFELVOORSTEL'), current_app.config['REGELS'].tafel_bezet_minuten
 
 
 def _bel_bijna_vol():
@@ -382,7 +385,7 @@ def overzicht():
     wijzig_opties = {}
     if plattegrond_aan and huidige_gebruiker()['rol'] == 'beheerder':
         wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, current_app.config['PLATTEGROND'],
-                                      current_app.config.get('TAFELVOORSTEL'), regels.zitduur_minuten)
+                                      current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten)
     return render_template(
         'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
@@ -424,7 +427,7 @@ def meldingen():
         wijzig_opties = {}
         if huidige_gebruiker()['rol'] == 'beheerder':
             wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, indeling,
-                                          current_app.config.get('TAFELVOORSTEL'), regels.zitduur_minuten)
+                                          current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten)
         dagen.append({'datum': datum, 'dag': dag, 'rijen': rijen, 'voorstellen': voorstellen,
                       'wijzig_opties': wijzig_opties})
     return render_template(
@@ -588,7 +591,7 @@ def tafels_accepteren():
         return terug
 
     try:
-        wijs_tafels_toe(conn, reservering['id'], tafels, indeling, current_app.config['REGELS'].zitduur_minuten)
+        wijs_tafels_toe(conn, reservering['id'], tafels, indeling, current_app.config['REGELS'].tafel_bezet_minuten)
     except GeenReserveringFout as fout:
         flash(t(fout.bericht), 'fout')
     except TafelBezetFout as fout:
@@ -645,7 +648,7 @@ def tafels_wijzigen():
 
     try:
         waarschuwing = wijs_tafels_toe(conn, reservering['id'], tafels, indeling,
-                                       current_app.config['REGELS'].zitduur_minuten)
+                                       current_app.config['REGELS'].tafel_bezet_minuten)
     except GeenReserveringFout as fout:
         flash(t(fout.bericht), 'fout')
     except OnbekendeTafelFout as fout:
@@ -783,7 +786,7 @@ def beschikbaarheid():
             # dan kan de gast alleen nog bellen (zie ook verwerk_reservering met tafels).
             if not tafelvoorstel.past_nog(dag_reserveringen, dag_toewijzingen, indeling,
                                           current_app.config.get('TAFELVOORSTEL'),
-                                          regels.zitduur_minuten, knop["tijd"], aantal, behalve=behalve):
+                                          regels.tafel_bezet_minuten, knop["tijd"], aantal, behalve=behalve):
                 knop.update(beschikbaar=False, bel=True)
         tijden.append(knop)
 

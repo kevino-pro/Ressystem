@@ -69,7 +69,7 @@ def _waarschuwingen(regels, gegevens):
     if indeling is not None and tafelvoorstel.opties(indeling, voorstel, gegevens.aantal):
         conn = get_db()
         if not tafelvoorstel.past_nog(haal_reserveringen_op(conn, datum), haal_toewijzingen_op(conn, datum),
-                                      indeling, voorstel, regels.zitduur_minuten, tijd, gegevens.aantal):
+                                      indeling, voorstel, regels.tafel_bezet_minuten, tijd, gegevens.aantal):
             lijst.append(t("Er is geen passende tafel vrij op dit tijdstip; de beheerder moet de tafels regelen."))
     return lijst
 

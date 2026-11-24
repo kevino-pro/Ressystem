@@ -11,6 +11,7 @@ telefoon = "0612345678"
 tijdzone = "Europe/Amsterdam"
 slot_minuten = 15              # gasten kiezen een tijd per 15 minuten
 zitduur_minuten = 120          # zo lang telt een reservering mee voor de capaciteit
+wisseltijd_minuten = 0         # een tafel blijft na een groep nog 0 minuten bezet (afruimen, uitloop); telt niet mee voor de 40 gasten
 max_gasten_tegelijk = 40       # maximaal aantal gasten dat tegelijk aan tafel zit
 max_personen_per_boeking = 8   # grotere groepen bellen het restaurant
 min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren

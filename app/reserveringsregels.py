@@ -60,6 +60,7 @@ class ReserveringsRegels(BaseModel):
     tijdzone: str = "Europe/Amsterdam"
     slot_minuten: int = 15
     zitduur_minuten: int = Field(default=120, ge=15, le=480)
+    wisseltijd_minuten: int = Field(default=0, ge=0, le=60)  # zo lang blijft een tafel na een groep nog bezet; telt niet mee voor max_gasten_tegelijk
     max_gasten_tegelijk: int = Field(default=40, ge=1)
     max_personen_per_boeking: int = Field(default=8, ge=1, le=20)  # schemas.py staat ook max. 20 toe
     min_minuten_vooraf: int = Field(default=60, ge=0)
@@ -139,6 +140,11 @@ class ReserveringsRegels(BaseModel):
     @property
     def zone(self):
         return ZoneInfo(self.tijdzone)
+
+    @property
+    def tafel_bezet_minuten(self):
+        """Zo lang is een tafel bezet: de zitduur plus de wisseltijd (afruimen en uitloop)."""
+        return self.zitduur_minuten + self.wisseltijd_minuten
 
     def nu(self):
         """Huidige lokale tijd van het restaurant (Render draait in UTC)."""
