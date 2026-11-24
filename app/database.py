@@ -362,12 +362,14 @@ def _controleer_tafel(conn, datum, tijd, aantal, tafels, zitduur_minuten, behalv
     dan al genomen, dus twee gelijktijdige boekingen kunnen niet allebei dezelfde tafel krijgen.
     Zonder passende tafel volgt TafelsVolFout; met `behalve` (een reservering-id) telt de eigen
     reservering niet mee, zodat de gast die alleen het aantal wijzigt zijn eigen tafelruimte houdt.
+    `tafels` is (plattegrond, tafelvoorstel[, minuten dat een tafel bezet is]); zonder dat laatste
+    getal geldt `zitduur_minuten`.
     """
     from app.tafelvoorstel import past_nog  # hier, want app.tafelvoorstel leest zelf uit deze module
 
-    plattegrond, voorstel = tafels
+    plattegrond, voorstel, *rest = tafels
     if not past_nog(_reserveringen_op(conn, datum), _toewijzingen_op(conn, datum), plattegrond, voorstel,
-                    zitduur_minuten or 1, tijd, aantal, behalve=behalve):
+                    rest[0] if rest else (zitduur_minuten or 1), tijd, aantal, behalve=behalve):
         raise TafelsVolFout()
 
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
@@ -392,10 +394,10 @@ def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd
     Met `max_capaciteit` None (reservering door het personeel) wordt de capaciteit niet afgedwongen;
     het personeel krijgt vooraf een waarschuwing via drukte_bij().
 
-    Met `tafels` ((plattegrond, tafelvoorstel)) controleert het systeem binnen dezelfde lock ook of er
-    op dit tijdstip nog een passende tafel of combinatie vrij is, met de reserveringen en de tafels van
-    die dag. Past de groep nergens meer, dan volgt TafelsVolFout. Zonder plattegrond (None) of bij het
-    personeel (`max_capaciteit` None) wordt dit niet gecontroleerd.
+    Met `tafels` ((plattegrond, tafelvoorstel[, minuten dat een tafel bezet is])) controleert het systeem
+    binnen dezelfde lock ook of er op dit tijdstip nog een passende tafel of combinatie vrij is, met de
+    reserveringen en de tafels van die dag. Past de groep nergens meer, dan volgt TafelsVolFout. Zonder
+    plattegrond (None) of bij het personeel (`max_capaciteit` None) wordt dit niet gecontroleerd.
 
     Heeft dezelfde gast al een reservering op deze datum en tijd, dan volgt DubbeleReserveringFout.
     Die controle draait binnen dezelfde lock als de capaciteit, zodat een herhaalde of gelijktijdige
@@ -490,8 +492,9 @@ def wijzig_reservering(conn, reservering_id, max_capaciteit, datum, tijd, aantal
     Zet een bestaande reservering (status 'verwacht') op een nieuwe datum, tijd en/of aantal personen,
     met dezelfde controles als verwerk_reservering(): dubbele boeking, gasten tegelijk en kinderstoelen.
     De reservering telt daarbij zelf niet mee, dus wie alleen het aantal verandert, houdt zijn plek.
-    Met `tafels` ((plattegrond, tafelvoorstel)) geldt dat ook voor de tafels: past de groep op de nieuwe
-    tijd nergens meer, dan volgt TafelsVolFout en blijft de reservering zoals hij was.
+    Met `tafels` ((plattegrond, tafelvoorstel[, minuten dat een tafel bezet is])) geldt dat ook voor de
+    tafels: past de groep op de nieuwe tijd nergens meer, dan volgt TafelsVolFout en blijft de reservering
+    zoals hij was.
 
     Na het wijzigen:
     - verliest de reservering haar tafels op de plattegrond (het personeel wijst opnieuw toe);

@@ -80,7 +80,10 @@ class WplRegelsTests(unittest.TestCase):
         tijden = {t["tijd"]: t for t in self.client.get(
             f"/beschikbaarheid?datum={self.dinsdag}&aantal=15").get_json()["tijden"]}
         self.assertFalse(tijden["18:30"]["beschikbaar"])  # 18:00-groep zit er nog
-        self.assertTrue(tijden["19:00"]["beschikbaar"])   # na een uur is de tafel weer vrij
+        # Na een uur passen de gasten weer, maar de tafels zijn door de wisseltijd nog bezet: bellen.
+        self.assertFalse(tijden["19:00"]["beschikbaar"])
+        self.assertTrue(tijden["19:00"]["bel"])
+        self.assertTrue(tijden["19:30"]["beschikbaar"])   # na zitduur + wisseltijd is de tafel weer vrij
         self.assertEqual(tijden["20:00"]["vrij"], 69)
 
     def test_combinaties_voor_elke_groep_zonder_losse_tafel(self):

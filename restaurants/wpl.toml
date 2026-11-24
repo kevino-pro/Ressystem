@@ -12,6 +12,7 @@ telefoon = "070-406 2928"
 tijdzone = "Europe/Amsterdam"
 slot_minuten = 15              # gasten kiezen een tijd per 15 minuten
 zitduur_minuten = 60           # elke groep heeft een uur
+wisseltijd_minuten = 15        # een tafel blijft na een groep nog 15 minuten bezet (afruimen, uitloop); telt niet mee voor de 69 gasten
 max_gasten_tegelijk = 69       # zitplaatsen in Den Haag
 max_personen_per_boeking = 15  # grotere groepen bellen en bestellen vooraf
 min_minuten_vooraf = 60        # niet later dan een uur van tevoren online reserveren
