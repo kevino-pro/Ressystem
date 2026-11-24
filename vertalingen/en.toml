@@ -320,6 +320,14 @@
 "{aantal} stoelen" = "{aantal} seats"
 "De tafels van {naam} zijn losgemaakt." = "The tables for {naam} have been released."
 
+# plattegrond.html: tafels buiten gebruik (web.py)
+"Tafels buiten gebruik op deze dag" = "Tables out of service on this day"
+"Buiten gebruik" = "Out of service"
+"Weer in gebruik" = "Back in service"
+"Tafel {tafel} is op {datum} buiten gebruik." = "Table {tafel} is out of service on {datum}."
+"Tafel {tafel} is weer in gebruik." = "Table {tafel} is back in service."
+"Let op: tafel {tafel} heeft nog reserveringen: {lijst}. Wijzig hun tafels in het overzicht." = "Note: table {tafel} still has bookings: {lijst}. Change their tables in the overview."
+
 # privacy.html
 "Privacyverklaring" = "Privacy statement"
 "← Reserveren" = "← Book a table"

@@ -264,6 +264,16 @@ form.accepteren button:hover { background: rgba(123, 196, 127, .24); }
 .niet-gekomen small { color: var(--zacht); font-size: 12px; }
 .niet-gekomen .p { font-size: 12.5px; color: var(--zacht); text-align: right; }
 .legenda span:last-child { margin-left: auto; }
+/* Een tafel die die dag buiten gebruik is: gearceerd (met #arcering uit de tekening) en gedempt. */
+.vloer .tafel.buiten-gebruik { opacity: .55; cursor: default; }
+.vloer .tafel.buiten-gebruik text { fill: var(--zacht); }
+/* Tafels buiten gebruik: de lijst onder de tekening en de knoppen om te wisselen (alleen een beheerder). */
+.tafels-buiten-gebruik { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--lijn); }
+.tafels-buiten-gebruik h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.tafels-buiten-gebruik .buiten-lijst { margin: 0 0 10px; font-size: 13px; color: var(--zacht); }
+.tafels-buiten-gebruik .buiten-knoppen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tafels-buiten-gebruik form { display: flex; gap: 8px; align-items: center; margin: 0; }
+.tafels-buiten-gebruik select { min-height: 34px; }
 .paneel .kop { font-size: 11.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--zacht); margin: 16px 0 6px; }
 .reservering { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; margin-bottom: 4px; cursor: pointer; list-style: none; }
 .reservering:hover { border-color: var(--lijn); }
@@ -397,6 +407,8 @@ fieldset.stap { min-width: 0; position: relative; }  /* min-width: anders rekt d
     .tijdbalk { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 14px; padding: 0 16px 6px; }
     .tijdbalk::-webkit-scrollbar { display: none; }
     .tijdbalk > * { flex: none; }
+    .tafels-buiten-gebruik form { flex-wrap: wrap; }
+    .tafels-buiten-gebruik select, .tafels-buiten-gebruik .buiten-knoppen .pil { min-height: 38px; }
 }
 @media (max-width: 480px) {
     .kaart { padding: 18px; }

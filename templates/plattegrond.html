@@ -52,10 +52,11 @@
             {% set later = straks.get(t.nummer) %}
             {% set x = t.kolom * hokje + 4 %}{% set y = t.rij * hokje + 4 %}
             {% set b = t.breedte * hokje - 8 %}{% set h = t.hoogte * hokje - 8 %}
-            {% set vulling = accent ~ '38' if gast else 'rgba(255,255,255,.06)' %}
+            {% set buiten = t.nummer in buiten_gebruik %}
+            {% set vulling = 'url(#arcering)' if buiten else (accent ~ '38' if gast else 'rgba(255,255,255,.06)') %}
             {% set rand = accent if gast or later else 'rgba(255,255,255,.28)' %}
-            <g class="tafel" data-tafel="{{ t.nummer }}">
-                <title>{{ _t('Tafel {nummer}, {stoelen} stoelen', nummer=t.nummer, stoelen=t.stoelen) }}{% if gast %}, {{ gast.naam }} ({{ gast.aantal }} p., {{ gast.tijd }}){% elif later %}, {{ _t('vanaf {tijd}', tijd=later.tijd) }} {{ later.naam }}{% endif %}</title>
+            <g class="tafel{{ ' buiten-gebruik' if buiten }}" data-tafel="{{ t.nummer }}">
+                <title>{{ _t('Tafel {nummer}, {stoelen} stoelen', nummer=t.nummer, stoelen=t.stoelen) }}{% if buiten %}, {{ _t('Buiten gebruik') }}{% endif %}{% if gast %}, {{ gast.naam }} ({{ gast.aantal }} p., {{ gast.tijd }}){% elif later %}, {{ _t('vanaf {tijd}', tijd=later.tijd) }} {{ later.naam }}{% endif %}</title>
                 {% if t.vorm == "rond" %}
                 <ellipse cx="{{ x + b / 2 }}" cy="{{ y + h / 2 }}" rx="{{ b / 2 }}" ry="{{ h / 2 }}"
                          fill="{{ vulling }}" stroke="{{ rand }}" stroke-width="2"{% if later %} stroke-dasharray="5 4"{% endif %}></ellipse>
@@ -77,6 +78,38 @@
             <span><i class="straks"></i>{{ t("komt binnen 30 min") }}</span>
             {% if dag == vandaag %}<span><i class="nog-niet"></i>{{ t("nog niet binnen") }}</span>{% endif %}
             <span>{{ t("{tafels} tafels · {stoelen} stoelen · {vrij} vrij", tafels=indeling.tafels | length, stoelen=indeling.totaal_stoelen, vrij=indeling.tafels | length - bezet | length) }}</span>
+        </div>
+        <div class="tafels-buiten-gebruik">
+            <h3>{{ _t("Tafels buiten gebruik op deze dag") }}</h3>
+            <p class="buiten-lijst">{{ buiten_gebruik | sort | join(', ') if buiten_gebruik else _t("Geen") }}</p>
+            {% if gebruiker and gebruiker.rol == 'beheerder' %}
+            {% set in_gebruik = indeling.tafels | rejectattr('nummer', 'in', buiten_gebruik) | list %}
+            <div class="buiten-knoppen">
+                {% if in_gebruik %}
+                <form action="/tafels/buiten-gebruik" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ datum }}">
+                    <input type="hidden" name="tijd" value="{{ tijd }}">
+                    <input type="hidden" name="aan" value="1">
+                    <label for="buiten-tafel" class="verborgen">{{ _t("Tafel") }}</label>
+                    <select id="buiten-tafel" name="tafel">
+                        {% for tafel in in_gebruik %}<option value="{{ tafel.nummer }}">{{ tafel.nummer }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="pil">{{ _t("Buiten gebruik") }}</button>
+                </form>
+                {% endif %}
+                {% for nummer in buiten_gebruik | sort %}
+                <form action="/tafels/buiten-gebruik" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="datum" value="{{ datum }}">
+                    <input type="hidden" name="tijd" value="{{ tijd }}">
+                    <input type="hidden" name="aan" value="0">
+                    <input type="hidden" name="tafel" value="{{ nummer }}">
+                    <button type="submit" class="pil">{{ _t("Weer in gebruik") }}: {{ nummer }}</button>
+                </form>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
     </div>
 
