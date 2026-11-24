@@ -638,13 +638,19 @@ def haal_reservering_op(conn, reservering_id):
         ).mappings().first()
 
 def zet_status(conn, reservering_id, status):
-    """Zet de status van een reservering (zie STATUSSEN). Geeft GeenReserveringFout als die niet bestaat."""
+    """
+    Zet de status van een reservering (zie STATUSSEN). Geeft GeenReserveringFout als die niet bestaat.
+    Een no-show verliest zijn tafels; terug op verwacht krijgt hij een nieuw voorstel.
+    """
     if status not in STATUSSEN:
         raise ValueError(f"Onbekende status: {status}")
     with conn.begin():
         resultaat = conn.execute(
             update(reserveringen).where(reserveringen.c.id == reservering_id).values(status=status)
         )
+        if status == NIET_GEKOMEN:
+            # In dezelfde transactie: de tafels komen vrij en kunnen naar een andere reservering.
+            conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id == reservering_id))
     if resultaat.rowcount == 0:
         raise GeenReserveringFout()
 
