@@ -393,6 +393,7 @@
 "Het wachtwoord mag hoogstens {aantal} tekens hebben." = "Kata sandi maksimal {aantal} karakter."
 "Geen toegang." = "Tidak ada akses."
 "Je bent uitgelogd. Log opnieuw in." = "Anda sudah keluar. Silakan masuk lagi."
+"Je bent automatisch uitgelogd omdat je een tijd niets deed. Log opnieuw in." = "Anda otomatis keluar karena sudah lama tidak melakukan apa pun. Silakan masuk lagi."
 
 # voorbeeld.toml
 "hosting van de reserveringswebsite" = "hosting situs web reservasi"

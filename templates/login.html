@@ -7,6 +7,10 @@
     <h2>{{ t("Inloggen") }}</h2>
     <p class="sub">{{ t("Voor personeel: het reserveringsoverzicht en de plattegrond.") }}</p>
 
+    {% for categorie, bericht in get_flashed_messages(with_categories=true) %}
+    <div class="melding {{ categorie }}" role="{{ 'alert' if categorie == 'fout' else 'status' }}">{{ bericht }}</div>
+    {% endfor %}
+
     {% if foutmelding %}
     <div class="melding fout" role="alert">{{ foutmelding }}</div>
     {% endif %}
