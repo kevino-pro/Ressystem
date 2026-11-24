@@ -17,7 +17,8 @@ from app.database import (
     bezetting_op, get_db, piekbezetting, verwerk_reservering, CapaciteitVolFout, DubbeleReserveringFout,
     KinderstoelVolFout, NIET_GEKOMEN, NietMeerWijzigbaarFout, STATUSSEN, TafelsVolFout, wijzig_reservering,
     zet_status, GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
-    haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op, haal_toewijzingen_op,
+    haal_buiten_gebruik_op, haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op,
+    haal_toewijzingen_op,
     minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
 )
 from app.normalisatie import normaliseer_naam, normaliseer_telefoon
@@ -220,17 +221,18 @@ def _urgentie(reservering, nu_tijd, zo_tijd):
     return 'zo' if reservering['tijd'] <= zo_tijd else 'later'
 
 
-def _voorstellen(lijst, toewijzingen):
+def _voorstellen(lijst, toewijzingen, buiten_gebruik=frozenset()):
     """
     Het tafelvoorstel per reservering van die dag. Zonder plattegrond is er niets voor te stellen
-    en is het antwoord leeg.
+    en is het antwoord leeg. Een tafel die die dag buiten gebruik is, wordt niet voorgesteld.
     """
     indeling = current_app.config.get('PLATTEGROND')
     if indeling is None:
         return {}
     return tafelvoorstel.voorstellen(lijst, toewijzingen, indeling,
                                      current_app.config.get('TAFELVOORSTEL'),
-                                     current_app.config['REGELS'].tafel_bezet_minuten)
+                                     current_app.config['REGELS'].tafel_bezet_minuten,
+                                     buiten_gebruik=buiten_gebruik)
 
 
 def _tafelcheck():
@@ -253,12 +255,13 @@ def _bel_bijna_vol():
              telefoon=current_app.config['RESTAURANT_TELEFOON'])
 
 
-def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_minuten):
+def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_minuten, buiten_gebruik=frozenset()):
     """
     Per reservering de keuzes die een beheerder in het overzicht krijgt: de opties uit het tafelvoorstel
     waarvan op haar begintijd alle tafels vrij zijn. De tafels van de reservering zelf tellen niet mee
     (die mag de beheerder opnieuw kiezen); de tafels van een andere reservering en de voorstellen van
-    anderen wel. Geeft {reservering_id: [{'waarde', 'tafels', 'stoelen'}, ...]} in de volgorde van het voorstel.
+    anderen wel. Een tafel buiten gebruik is geen keuze. Geeft
+    {reservering_id: [{'waarde', 'tafels', 'stoelen'}, ...]} in de volgorde van het voorstel.
     """
     bezet = []  # (reservering_id, tafel, begin in minuten)
     for reservering in lijst:
@@ -281,7 +284,8 @@ def _vrije_opties(lijst, toewijzingen, voorstellen, indeling, voorstel, zitduur_
         keuzes[reservering['id']] = [
             {'waarde': '+'.join(optie), 'tafels': ' + '.join(optie),
              'stoelen': sum(indeling.tafel(nummer).stoelen for nummer in optie)}
-            for optie in tafelvoorstel.opties(indeling, voorstel, reservering['aantal'])
+            for optie in tafelvoorstel.opties(indeling, voorstel, reservering['aantal'],
+                                              buiten_gebruik=buiten_gebruik)
             if all(is_vrij(reservering['id'], nummer, begin) for nummer in optie)
         ]
     return keuzes
@@ -344,7 +348,8 @@ def overzicht():
     lijst = haal_reserveringen_op(conn, datum)
     plattegrond_aan = current_app.config.get('PLATTEGROND') is not None
     toewijzingen = haal_toewijzingen_op(conn, datum) if plattegrond_aan else {}
-    voorstellen = _voorstellen(lijst, toewijzingen)
+    buiten_gebruik = haal_buiten_gebruik_op(conn, datum) if plattegrond_aan else frozenset()
+    voorstellen = _voorstellen(lijst, toewijzingen, buiten_gebruik)
     gekomen = [r for r in lijst if r['status'] != NIET_GEKOMEN]  # een no-show telt niet mee
 
     # Per begintijd groeperen; de lijst is al op tijd gesorteerd.
@@ -385,7 +390,8 @@ def overzicht():
     wijzig_opties = {}
     if plattegrond_aan and huidige_gebruiker()['rol'] == 'beheerder':
         wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, current_app.config['PLATTEGROND'],
-                                      current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten)
+                                      current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten,
+                                      buiten_gebruik)
     return render_template(
         'overzicht.html', actief='overzicht', datum=datum, dag=dag, vandaag=vandaag,
         vorige=(dag - timedelta(days=1)).isoformat(), volgende=(dag + timedelta(days=1)).isoformat(),
@@ -417,7 +423,8 @@ def meldingen():
         datum = dag.isoformat()
         lijst = haal_reserveringen_op(conn, datum)
         toewijzingen = haal_toewijzingen_op(conn, datum)
-        voorstellen = _voorstellen(lijst, toewijzingen)
+        buiten_gebruik = haal_buiten_gebruik_op(conn, datum)
+        voorstellen = _voorstellen(lijst, toewijzingen, buiten_gebruik)
         rijen = [r for r in lijst
                  if r['status'] == 'verwacht' and not toewijzingen.get(r['id'])
                  and (verschil or r['tijd'] >= nu_tijd)]  # vandaag alleen wat nog moet komen
@@ -427,7 +434,8 @@ def meldingen():
         wijzig_opties = {}
         if huidige_gebruiker()['rol'] == 'beheerder':
             wijzig_opties = _vrije_opties(lijst, toewijzingen, voorstellen, indeling,
-                                          current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten)
+                                          current_app.config.get('TAFELVOORSTEL'), regels.tafel_bezet_minuten,
+                                          buiten_gebruik)
         dagen.append({'datum': datum, 'dag': dag, 'rijen': rijen, 'voorstellen': voorstellen,
                       'wijzig_opties': wijzig_opties})
     return render_template(
@@ -585,7 +593,8 @@ def tafels_accepteren():
         return terug
 
     tafels = [nummer for nummer in request.form.get('tafels', '').split('+') if nummer]
-    voorgesteld = _voorstellen(lijst, haal_toewijzingen_op(conn, datum)).get(reservering['id'])
+    buiten_gebruik = haal_buiten_gebruik_op(conn, datum)
+    voorgesteld = _voorstellen(lijst, haal_toewijzingen_op(conn, datum), buiten_gebruik).get(reservering['id'])
     if not voorgesteld or tuple(tafels) != voorgesteld:
         flash(t("Het voorstel is intussen veranderd. Kijk naar het nieuwe voorstel."), 'fout')
         return terug
@@ -770,6 +779,7 @@ def beschikbaarheid():
     indeling = current_app.config.get('PLATTEGROND')
     dag_reserveringen = haal_reserveringen_op(conn, dag.isoformat()) if indeling is not None else []
     dag_toewijzingen = haal_toewijzingen_op(conn, dag.isoformat()) if indeling is not None else {}
+    dag_buiten_gebruik = haal_buiten_gebruik_op(conn, dag.isoformat()) if indeling is not None else frozenset()
     nu = regels.nu()
     tijden, eerste_fout = [], None
     for tijdstip in regels.knoptijden_op(dag):
@@ -786,7 +796,8 @@ def beschikbaarheid():
             # dan kan de gast alleen nog bellen (zie ook verwerk_reservering met tafels).
             if not tafelvoorstel.past_nog(dag_reserveringen, dag_toewijzingen, indeling,
                                           current_app.config.get('TAFELVOORSTEL'),
-                                          regels.tafel_bezet_minuten, knop["tijd"], aantal, behalve=behalve):
+                                          regels.tafel_bezet_minuten, knop["tijd"], aantal, behalve=behalve,
+                                          buiten_gebruik=dag_buiten_gebruik):
                 knop.update(beschikbaar=False, bel=True)
         tijden.append(knop)
 

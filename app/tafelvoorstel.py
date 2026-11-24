@@ -66,11 +66,12 @@ def _controleer(pad, voorstel, plattegrond):
                 fout(f"combinatie {'+'.join(combinatie)} heeft {stoelen} stoelen voor {aantal} personen")
 
 
-def opties(plattegrond, voorstel, aantal):
+def opties(plattegrond, voorstel, aantal, buiten_gebruik=frozenset()):
     """
     De tafels en combinaties die voor `aantal` personen in aanmerking komen, in voorkeursvolgorde:
     eerst de kleinste losse tafel die past (bij evenveel stoelen op volgorde in het bestand),
     dan de combinaties uit het voorstel. Elke optie is een tuple tafelnummers, ook een losse tafel.
+    Een tafel die die dag buiten gebruik is, valt weg: als losse tafel en in elke combinatie.
     """
     if plattegrond is None:
         return []
@@ -79,14 +80,18 @@ def opties(plattegrond, voorstel, aantal):
         key=lambda nummer: plattegrond.tafel(nummer).stoelen,
     )
     combinaties = voorstel.combinaties.get(aantal, ()) if voorstel is not None else ()
-    return [(nummer,) for nummer in los] + list(combinaties)
+    return [
+        optie for optie in [(nummer,) for nummer in los] + list(combinaties)
+        if not buiten_gebruik.intersection(optie)
+    ]
 
 
-def voorstellen(reserveringen, toewijzingen, plattegrond, voorstel, zitduur_minuten):
+def voorstellen(reserveringen, toewijzingen, plattegrond, voorstel, zitduur_minuten, buiten_gebruik=frozenset()):
     """
     Stelt per nog niet toegewezen reservering (status verwacht of gearriveerd) een tafel of combinatie voor.
     Wie het eerst reserveerde, gaat voor, zodat een bestaand voorstel niet verschuift als er een
     reservering bij komt. Geeft {reservering_id: tuple met tafelnummers of None}.
+    Een tafel buiten gebruik krijgt geen voorstel; wie er al staat, houdt hem.
     """
     if plattegrond is None:
         return {}
@@ -96,30 +101,32 @@ def voorstellen(reserveringen, toewijzingen, plattegrond, voorstel, zitduur_minu
         if not _komt_in_aanmerking(reservering, toewijzingen):
             continue
         begin = minuten_van(reservering["tijd"])
-        gekozen = _eerste_vrije(plattegrond, voorstel, reservering["aantal"], begin, bezet, zitduur_minuten)
+        gekozen = _eerste_vrije(plattegrond, voorstel, reservering["aantal"], begin, bezet, zitduur_minuten,
+                                buiten_gebruik)
         voorgesteld[reservering["id"]] = gekozen
         if gekozen:
             bezet.extend((nummer, begin) for nummer in gekozen)
     return voorgesteld
 
 
-def past_nog(reserveringen, toewijzingen, plattegrond, voorstel, zitduur_minuten, tijd, aantal, behalve=None):
+def past_nog(reserveringen, toewijzingen, plattegrond, voorstel, zitduur_minuten, tijd, aantal, behalve=None,
+             buiten_gebruik=frozenset()):
     """
     Of een nieuwe groep van `aantal` personen om `tijd` ('HH:MM') nog ergens terecht kan, als de
     bestaande reserveringen voorgaan. Met `behalve` (een reservering-id) telt die reservering niet mee,
-    bijvoorbeeld wanneer de gast zijn eigen reservering wijzigt.
+    bijvoorbeeld wanneer de gast zijn eigen reservering wijzigt. Een tafel buiten gebruik is geen plek.
     """
     if plattegrond is None:
         return False
     bestaand = [reservering for reservering in reserveringen if reservering["id"] != behalve]
-    voorgesteld = voorstellen(bestaand, toewijzingen, plattegrond, voorstel, zitduur_minuten)
+    voorgesteld = voorstellen(bestaand, toewijzingen, plattegrond, voorstel, zitduur_minuten, buiten_gebruik)
     bezet = _bezet_van_toewijzingen(bestaand, toewijzingen)
     begin_van = {reservering["id"]: minuten_van(reservering["tijd"]) for reservering in bestaand}
     for reservering_id, gekozen in voorgesteld.items():
         for nummer in gekozen or ():
             bezet.append((nummer, begin_van[reservering_id]))
     begin = minuten_van(tijd)
-    return _eerste_vrije(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten) is not None
+    return _eerste_vrije(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten, buiten_gebruik) is not None
 
 
 def _bezet_van_toewijzingen(reserveringen, toewijzingen):
@@ -147,14 +154,14 @@ def _in_volgorde(reserveringen):
     ))
 
 
-def _eerste_vrije(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten):
+def _eerste_vrije(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten, buiten_gebruik=frozenset()):
     """
     De kleinste tafel of combinatie waarvan alle tafels vrij zijn, of None.
     Bij gelijke keuze de tafel die grote groepen het minst in de weg zit: van de kandidaten gaat de
     voorkeur naar wie de meeste grotere groepen (uit het voorstel) nog ruimte laat.
     """
     vrij = [
-        optie for optie in opties(plattegrond, voorstel, aantal)
+        optie for optie in opties(plattegrond, voorstel, aantal, buiten_gebruik)
         if all(_is_vrij(nummer, begin, bezet, zitduur_minuten) for nummer in optie)
     ]
     if not vrij:

@@ -16,7 +16,8 @@ from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
 from app.database import (
-    DubbeleReserveringFout, drukte_bij, get_db, haal_reserveringen_op, haal_toewijzingen_op, verwerk_reservering,
+    DubbeleReserveringFout, drukte_bij, get_db, haal_buiten_gebruik_op, haal_reserveringen_op, haal_toewijzingen_op,
+    verwerk_reservering,
 )
 from app.routes.web import _kenmerk, _voorstellen
 from app.schemas import MAX_PERSONEN_PERSONEEL, PersoneelReserveringSchema
@@ -68,8 +69,12 @@ def _waarschuwingen(regels, gegevens):
     voorstel = current_app.config.get('TAFELVOORSTEL')
     if indeling is not None and tafelvoorstel.opties(indeling, voorstel, gegevens.aantal):
         conn = get_db()
-        if not tafelvoorstel.past_nog(haal_reserveringen_op(conn, datum), haal_toewijzingen_op(conn, datum),
-                                      indeling, voorstel, regels.tafel_bezet_minuten, tijd, gegevens.aantal):
+        # Een tafel die die dag buiten gebruik is, telt niet mee als plek (zie tafelvoorstel.opties).
+        buiten_gebruik = haal_buiten_gebruik_op(conn, datum)
+        if not tafelvoorstel.opties(indeling, voorstel, gegevens.aantal, buiten_gebruik=buiten_gebruik) \
+                or not tafelvoorstel.past_nog(haal_reserveringen_op(conn, datum), haal_toewijzingen_op(conn, datum),
+                                              indeling, voorstel, regels.tafel_bezet_minuten, tijd, gegevens.aantal,
+                                              buiten_gebruik=buiten_gebruik):
             lijst.append(t("Er is geen passende tafel vrij op dit tijdstip; de beheerder moet de tafels regelen."))
     return lijst
 
@@ -181,7 +186,8 @@ def opslaan():
         # Het voorstel meteen noemen; het overzicht laat het zien en daar is het te accepteren.
         conn = get_db()
         voorstel = _voorstellen(haal_reserveringen_op(conn, datum),
-                                haal_toewijzingen_op(conn, datum)).get(reservering_id)
+                                haal_toewijzingen_op(conn, datum),
+                                haal_buiten_gebruik_op(conn, datum)).get(reservering_id)
         if voorstel:
             # De plattegrond is een kijkpagina: elke reservering gaat naar het overzicht met het voorstel.
             bericht += " " + t("Voorstel: tafel {tafels}. Accepteer het in het overzicht.",
