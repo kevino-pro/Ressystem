@@ -19,7 +19,7 @@ from app.database import (
     zet_status, GeenReserveringFout, OnbekendeTafelFout, TafelBezetFout,
     haal_buiten_gebruik_op, haal_personeel_op, haal_reserveringen_op, haal_reserveringen_vanaf, haal_reservering_op,
     haal_toewijzingen_op,
-    minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_taal,
+    minuten_van, verwijder_reservering as db_verwijder_reservering, wijs_tafels_toe, zet_buiten_gebruik, zet_taal,
 )
 from app.normalisatie import normaliseer_naam, normaliseer_telefoon
 from app.schemas import ALLERGIE_MELDING, NAAM_MELDING, OPMERKING_MELDING, TELEFOON_MELDING, ReserveringSchema
@@ -526,6 +526,7 @@ def plattegrond():
     conn = get_db()
     lijst = haal_reserveringen_op(conn, datum)
     toewijzingen = haal_toewijzingen_op(conn, datum)
+    buiten_gebruik = haal_buiten_gebruik_op(conn, datum)
     start = minuten_van(tijd)
     zitduur = regels.zitduur_minuten
     gekomen = [r for r in lijst if r['status'] != NIET_GEKOMEN]  # een no-show bezet geen tafel
@@ -539,7 +540,8 @@ def plattegrond():
     return render_template(
         'plattegrond.html', actief='plattegrond', indeling=indeling, datum=datum, dag=dag, tijd=tijd,
         reserveringen=gekomen, niet_gekomen=[r for r in lijst if r['status'] == NIET_GEKOMEN],
-        toewijzingen=toewijzingen, bezet=bezet, straks=straks, nu_tijd=f"{regels.nu():%H:%M}",
+        toewijzingen=toewijzingen, bezet=bezet, straks=straks, buiten_gebruik=buiten_gebruik,
+        nu_tijd=f"{regels.nu():%H:%M}",
         kenmerken={r['id']: _kenmerk(r['id']) for r in lijst},
         aan_tafel_ids={r['id'] for r in aan_tafel}, hokje=HOKJE, vandaag=regels.nu().date(),
         tijdknoppen=_tijdknoppen(regels, dag), vorige=(dag - timedelta(days=1)).isoformat(),
@@ -559,6 +561,62 @@ def _tijdknoppen(regels, dag):
         tijden.append(f"{minuut // 60:02d}:{minuut % 60:02d}")
         minuut += stap
     return tijden
+
+def _geldige_tijd(tekst):
+    """True als `tekst` een tijd als 'HH:MM' is (voor de link terug naar de plattegrond)."""
+    if not TIJD_PATROON.fullmatch(tekst):
+        return False
+    try:
+        time.fromisoformat(tekst)
+    except ValueError:
+        return False
+    return True
+
+@web_bp.route('/tafels/buiten-gebruik', methods=['POST'])
+@beheerder_vereist
+def tafel_buiten_gebruik():
+    """
+    Zet een tafel voor één dag buiten gebruik, of haalt hem weer in gebruik. Alleen een beheerder mag
+    dit. Een tafel die die dag al reserveringen heeft, blijft van die reserveringen: de beheerder ziet
+    wie er staan en wijzigt hun tafels in het overzicht.
+    """
+    indeling = current_app.config.get('PLATTEGROND')
+    if indeling is None:
+        abort(404)
+
+    try:
+        datum = date.fromisoformat(request.form.get('datum') or '').isoformat()
+    except ValueError:
+        return t("Ongeldig verzoek."), 400
+    tafel = request.form.get('tafel') or ''
+    aan = request.form.get('aan')
+    if indeling.tafel(tafel) is None or aan not in ('1', '0'):
+        return t("Ongeldig verzoek."), 400
+
+    tijd = request.form.get('tijd') or ''
+    terug = redirect(url_for('web.plattegrond', datum=datum, tijd=tijd if _geldige_tijd(tijd) else None), code=303)
+
+    conn = get_db()
+    try:
+        zet_buiten_gebruik(conn, datum, tafel, aan == '1', door=huidige_gebruiker()['gebruikersnaam'])
+    except OperationalError:
+        current_app.logger.exception("Tafel buiten gebruik zetten mislukt door een databasefout")
+        flash(t("Het lukte niet om op te slaan. Probeer het opnieuw."), 'fout')
+        return terug
+
+    if aan == '0':
+        flash(t("Tafel {tafel} is weer in gebruik.", tafel=tafel), 'ok')
+        return terug
+    flash(t("Tafel {tafel} is op {datum} buiten gebruik.", tafel=tafel, datum=datum), 'ok')
+    # Wie er die dag al staat, houdt zijn tafel; de beheerder verplaatst die reserveringen zelf.
+    toewijzingen = haal_toewijzingen_op(conn, datum)
+    nog_op_tafel = [f"{reservering['tijd']} {reservering['naam']}"
+                    for reservering in haal_reserveringen_op(conn, datum)
+                    if reservering['status'] != NIET_GEKOMEN and tafel in toewijzingen.get(reservering['id'], [])]
+    if nog_op_tafel:
+        flash(t("Let op: tafel {tafel} heeft nog reserveringen: {lijst}. Wijzig hun tafels in het overzicht.",
+                tafel=tafel, lijst=", ".join(nog_op_tafel)), 'fout')
+    return terug
 
 @web_bp.route('/tafels/accepteren', methods=['POST'])
 @login_vereist

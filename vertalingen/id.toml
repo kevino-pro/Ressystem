@@ -320,6 +320,14 @@
 "{aantal} stoelen" = "{aantal} kursi"
 "De tafels van {naam} zijn losgemaakt." = "Meja untuk {naam} sudah dilepas."
 
+# plattegrond.html: tafels buiten gebruik (web.py)
+"Tafels buiten gebruik op deze dag" = "Meja yang tidak dipakai hari ini"
+"Buiten gebruik" = "Tidak dipakai"
+"Weer in gebruik" = "Dipakai lagi"
+"Tafel {tafel} is op {datum} buiten gebruik." = "Meja {tafel} tidak dipakai pada {datum}."
+"Tafel {tafel} is weer in gebruik." = "Meja {tafel} dipakai lagi."
+"Let op: tafel {tafel} heeft nog reserveringen: {lijst}. Wijzig hun tafels in het overzicht." = "Perhatian: meja {tafel} masih punya reservasi: {lijst}. Ubah meja mereka di daftar."
+
 # privacy.html
 "Privacyverklaring" = "Pernyataan privasi"
 "← Reserveren" = "← Reservasi"
