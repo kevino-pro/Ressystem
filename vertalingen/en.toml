@@ -393,6 +393,7 @@
 "Het wachtwoord mag hoogstens {aantal} tekens hebben." = "The password may have at most {aantal} characters."
 "Geen toegang." = "No access."
 "Je bent uitgelogd. Log opnieuw in." = "You have been logged out. Please log in again."
+"Je bent automatisch uitgelogd omdat je een tijd niets deed. Log opnieuw in." = "You were logged out automatically because you were inactive for a while. Please log in again."
 
 # voorbeeld.toml
 "hosting van de reserveringswebsite" = "hosting the booking website"

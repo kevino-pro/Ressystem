@@ -68,6 +68,10 @@ class Config:
     # Aantal reverse proxies (Render = 1) waarvan X-Forwarded-For wordt vertrouwd voor het client-IP
     TRUSTED_PROXY_COUNT = int(os.getenv('TRUSTED_PROXY_COUNT', 1))
 
+    # Automatisch uitloggen na een tijd niets doen, per rol (app/toegang.py)
+    INACTIEF_MINUTEN_BEHEERDER = 30   # gedeelde kassa: een beheerder moet snel weer uitgelogd zijn
+    INACTIEF_MINUTEN_MEDEWERKER = 720 # medewerkers op hun eigen telefoon: één dienst
+
     # ==========================================
     # 4. SMTP / E-MAIL SERVERS
     # ==========================================

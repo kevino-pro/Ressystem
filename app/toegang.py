@@ -8,12 +8,17 @@ werkt daardoor direct, ook op een telefoon die nog ingelogd is.
 Rollen: een beheerder mag alles; een medewerker mag reserveringen en de plattegrond bekijken en
 tafelvoorstellen accepteren, maar geen tafels wijzigen, geen reserveringen verwijderen en geen
 accounts beheren.
+
+Automatisch uitloggen: een sessie die langer dan INACTIEF_MINUTEN_BEHEERDER (beheerder) of
+INACTIEF_MINUTEN_MEDEWERKER (medewerker) minuten niets deed, vervalt. De gebruiker ziet op de
+inlogpagina dat hij automatisch is uitgelogd.
 """
 import hashlib
 import hmac
+import time
 from functools import wraps
 
-from flask import g, jsonify, redirect, session, url_for
+from flask import current_app, flash, g, jsonify, redirect, session, url_for
 
 from app.database import get_db, haal_personeel_op
 from app.taal import vertaal as t
@@ -42,13 +47,16 @@ def start_sessie(gebruiker):
     session['ingelogd'] = True
     session['gebruiker'] = gebruiker['gebruikersnaam']
     session['stempel'] = sessie_stempel(gebruiker['wachtwoord_hash'])
+    session['laatst_actief'] = int(time.time())
 
 
 def huidige_gebruiker():
     """
     De ingelogde, actieve gebruiker (een rij uit personeel) of None. Eén databasevraag per verzoek.
     Faalt dicht: een sessie zonder gebruikersnaam of stempel, een onbekend of uitgezet account of
-    een stempel die niet meer klopt geeft None.
+    een stempel die niet meer klopt geeft None. Deed de sessie langer niets dan de grens van de rol
+    (INACTIEF_MINUTEN_BEHEERDER of INACTIEF_MINUTEN_MEDEWERKER), dan geeft hij ook None en zet hij
+    g.sessie_verlopen, zodat de inlogpagina kan zeggen dat de gebruiker automatisch is uitgelogd.
     """
     if 'gebruiker_geladen' in g:
         return g.gebruiker_geladen
@@ -60,15 +68,30 @@ def huidige_gebruiker():
         if (rij is not None and rij['actief']
                 and hmac.compare_digest(stempel, sessie_stempel(rij['wachtwoord_hash']))):
             gebruiker = rij
+            nu = int(time.time())
+            grens = (current_app.config['INACTIEF_MINUTEN_BEHEERDER'] if rij['rol'] == 'beheerder'
+                     else current_app.config['INACTIEF_MINUTEN_MEDEWERKER'])
+            laatst = session.get('laatst_actief')
+            if not isinstance(laatst, int):
+                # Een sessie van voor deze fase: er is geen tijd bekend, dus niet meteen uitloggen.
+                session['laatst_actief'] = nu
+            elif nu - laatst > grens * 60:
+                gebruiker = None
+                g.sessie_verlopen = True
+            elif nu - laatst >= 60:
+                # Niet bij elk verzoek: dan verandert de cookie steeds en dat is nergens voor nodig.
+                session['laatst_actief'] = nu
     g.gebruiker_geladen = gebruiker
     return gebruiker
 
 
 def _niet_ingelogd(json_response):
     session.clear()
-    if json_response:
-        return jsonify({"status": "fout", "bericht": t("Je bent uitgelogd. Log opnieuw in.")}), 401
-    return redirect(url_for('web.login'))
+    if not json_response:
+        if g.get('sessie_verlopen'):
+            flash(t("Je bent automatisch uitgelogd omdat je een tijd niets deed. Log opnieuw in."), 'fout')
+        return redirect(url_for('web.login'))
+    return jsonify({"status": "fout", "bericht": t("Je bent uitgelogd. Log opnieuw in.")}), 401
 
 
 def login_vereist(view=None, *, json_response=False):
