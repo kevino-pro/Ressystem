@@ -2,6 +2,7 @@
 Tafelvoorstel: welke tafel of combinatie het systeem voor een reservering voorstelt.
 De rekenregel zelf praat niet met de database of met Flask, zodat hij goed te testen is.
 Komt uit de sectie [tafelvoorstel] van het restaurantbestand; zonder die sectie alleen losse tafels.
+De keuze is de kleinste tafel die past; bij gelijke keuze de tafel die grote groepen het minst in de weg zit.
 """
 import tomllib
 from pathlib import Path
@@ -147,11 +148,53 @@ def _in_volgorde(reserveringen):
 
 
 def _eerste_vrije(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten):
-    """De eerste optie waarvan alle tafels vrij zijn, of None."""
-    for optie in opties(plattegrond, voorstel, aantal):
-        if all(_is_vrij(nummer, begin, bezet, zitduur_minuten) for nummer in optie):
-            return optie
-    return None
+    """
+    De kleinste tafel of combinatie waarvan alle tafels vrij zijn, of None.
+    Bij gelijke keuze de tafel die grote groepen het minst in de weg zit: van de kandidaten gaat de
+    voorkeur naar wie de meeste grotere groepen (uit het voorstel) nog ruimte laat.
+    """
+    vrij = [
+        optie for optie in opties(plattegrond, voorstel, aantal)
+        if all(_is_vrij(nummer, begin, bezet, zitduur_minuten) for nummer in optie)
+    ]
+    if not vrij:
+        return None
+    if voorstel is None or not any(groter > aantal for groter in voorstel.combinaties):
+        return vrij[0]
+    los = [optie for optie in vrij if len(optie) == 1]
+    if los:
+        # Kleinste vrije losse tafel; een combinatie met evenveel stoelen mag daarvoor in de plaats.
+        stoelen = min(plattegrond.tafel(optie[0]).stoelen for optie in los)
+        kandidaten = [optie for optie in los if plattegrond.tafel(optie[0]).stoelen == stoelen]
+        kandidaten.extend(
+            optie for optie in vrij
+            if len(optie) > 1
+            and sum(plattegrond.tafel(nummer).stoelen for nummer in optie) <= stoelen
+        )
+    else:
+        kandidaten = vrij
+    gekozen, ruimte = None, -1
+    for kandidaat in kandidaten:
+        telling = _ruimte_voor_groter(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten, kandidaat)
+        if telling > ruimte:
+            gekozen, ruimte = kandidaat, telling
+    return gekozen
+
+
+def _ruimte_voor_groter(plattegrond, voorstel, aantal, begin, bezet, zitduur_minuten, kandidaat):
+    """
+    Hoeveel grotere groepen (elke sleutel `g` > aantal in het voorstel) nog terecht kunnen als de
+    tafels van de kandidaat op `begin` bezet zijn: per aantal telt minstens één combinatie die vrij blijft.
+    """
+    bezet_met_kandidaat = list(bezet) + [(nummer, begin) for nummer in kandidaat]
+    return sum(
+        1
+        for groter, combinaties in voorstel.combinaties.items()
+        if groter > aantal and any(
+            all(_is_vrij(nummer, begin, bezet_met_kandidaat, zitduur_minuten) for nummer in combinatie)
+            for combinatie in combinaties
+        )
+    )
 
 
 def _is_vrij(nummer, begin, bezet, zitduur_minuten):
