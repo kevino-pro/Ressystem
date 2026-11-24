@@ -50,6 +50,15 @@ tafeltoewijzingen = Table(
     Column('tafel', Text, primary_key=True),
 )
 
+# Tafels die op een dag niet gebruikt kunnen worden (kapot, of nodig voor iets anders).
+# Ze krijgen geen voorstel en gelden niet als vrije plek; wie er al staat, houdt zijn tafel.
+tafels_buiten_gebruik = Table(
+    'tafels_buiten_gebruik', metadata,
+    Column('datum', Text, primary_key=True),  # 'YYYY-MM-DD'
+    Column('tafel', Text, primary_key=True),
+    Column('door', Text, nullable=True),  # gebruikersnaam van de beheerder
+)
+
 # Per dag en per bron een telling zonder namen, zodat de cijfers blijven als de reserveringen
 # na de bewaartermijn zijn verwijderd. Wordt gevuld vlak voordat oude reserveringen weggaan.
 dagtellingen = Table(
@@ -304,6 +313,34 @@ def haal_toewijzingen_op(conn, datum=None):
     with conn.begin():
         return _toewijzingen_op(conn, datum)
 
+def _buiten_gebruik_op(conn, datum):
+    """Tafelnummers die op deze dag buiten gebruik zijn, binnen de lopende transactie."""
+    return frozenset(conn.execute(
+        select(tafels_buiten_gebruik.c.tafel).where(tafels_buiten_gebruik.c.datum == datum)
+    ).scalars())
+
+def haal_buiten_gebruik_op(conn, datum):
+    """Tafelnummers die op deze dag buiten gebruik zijn (zie zet_buiten_gebruik)."""
+    with conn.begin():
+        return _buiten_gebruik_op(conn, datum)
+
+def zet_buiten_gebruik(conn, datum, tafel, aan, door=None):
+    """
+    Zet een tafel op deze dag buiten gebruik (`aan` True) of weer in gebruik (`aan` False).
+    Twee keer hetzelfde zetten doet niets en geeft geen fout.
+    """
+    with conn.begin():
+        if aan:
+            bestaand = conn.execute(
+                select(tafels_buiten_gebruik.c.tafel).where(
+                    tafels_buiten_gebruik.c.datum == datum, tafels_buiten_gebruik.c.tafel == tafel)
+            ).first()
+            if bestaand is None:
+                conn.execute(insert(tafels_buiten_gebruik).values(datum=datum, tafel=tafel, door=door))
+        else:
+            conn.execute(delete(tafels_buiten_gebruik).where(
+                tafels_buiten_gebruik.c.datum == datum, tafels_buiten_gebruik.c.tafel == tafel))
+
 def is_zelfde_gast(a, b):
     """
     True als twee reserveringen (mappings met email en telefoon) bij dezelfde gast horen:
@@ -363,13 +400,14 @@ def _controleer_tafel(conn, datum, tijd, aantal, tafels, zitduur_minuten, behalv
     Zonder passende tafel volgt TafelsVolFout; met `behalve` (een reservering-id) telt de eigen
     reservering niet mee, zodat de gast die alleen het aantal wijzigt zijn eigen tafelruimte houdt.
     `tafels` is (plattegrond, tafelvoorstel[, minuten dat een tafel bezet is]); zonder dat laatste
-    getal geldt `zitduur_minuten`.
+    getal geldt `zitduur_minuten`. Een tafel die die dag buiten gebruik is, telt niet mee als plek.
     """
     from app.tafelvoorstel import past_nog  # hier, want app.tafelvoorstel leest zelf uit deze module
 
     plattegrond, voorstel, *rest = tafels
     if not past_nog(_reserveringen_op(conn, datum), _toewijzingen_op(conn, datum), plattegrond, voorstel,
-                    rest[0] if rest else (zitduur_minuten or 1), tijd, aantal, behalve=behalve):
+                    rest[0] if rest else (zitduur_minuten or 1), tijd, aantal, behalve=behalve,
+                    buiten_gebruik=_buiten_gebruik_op(conn, datum)):
         raise TafelsVolFout()
 
 def verwerk_reservering(conn, max_capaciteit, naam, email, telefoon, datum, tijd, aantal, zitduur_minuten=None,
@@ -697,13 +735,14 @@ def _bewaar_dagtellingen(conn, grens):
 
 def _verwijder_ouder_dan(conn, grens):
     """
-    Verwijdert reserveringen (en hun tafeltoewijzingen) met een datum voor `grens`.
-    Eerst gaan hun aantallen naar dagtellingen, zodat de cijfers blijven.
+    Verwijdert reserveringen (en hun tafeltoewijzingen) en de tafels buiten gebruik met een datum
+    voor `grens`. Eerst gaan de aantallen naar dagtellingen, zodat de cijfers blijven.
     """
     _bewaar_dagtellingen(conn, grens)
     oude_ids = select(reserveringen.c.id).where(reserveringen.c.datum < grens)
     conn.execute(delete(tafeltoewijzingen).where(tafeltoewijzingen.c.reservering_id.in_(oude_ids)))
     conn.execute(delete(reserveringen).where(reserveringen.c.datum < grens))
+    conn.execute(delete(tafels_buiten_gebruik).where(tafels_buiten_gebruik.c.datum < grens))
 
 def wis_allergieen_voor(conn, datum):
     """
